@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Heatwave Modelling (CHAP) — Architectural Design</title>
+<style>
+  :root {
+    --bg: #0f1720;
+    --panel: #161f2b;
+    --panel-alt: #1c2733;
+    --border: #2b3947;
+    --text: #e6edf3;
+    --text-dim: #9fb0c0;
+    --accent: #ff8a3d;
+    --accent-2: #38bdf8;
+    --accent-3: #4ade80;
+    --accent-4: #f472b6;
+    --warn: #facc15;
+    --mono: 'Consolas', 'SFMono-Regular', Menlo, Monaco, monospace;
+    --sans: 'Segoe UI', -apple-system, BlinkMacSystemFont, Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    padding: 0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    line-height: 1.55;
+  }
+
+  .wrap {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 48px 32px 80px;
+  }
+
+  header.hero {
+    border-bottom: 1px solid var(--border);
+    padding-bottom: 32px;
+    margin-bottom: 40px;
+  }
+
+  .eyebrow {
+    text-transform: uppercase;
+    letter-spacing: 0.14em;
+    font-size: 0.72rem;
+    color: var(--accent);
+    font-weight: 700;
+    margin-bottom: 10px;
+  }
+
+  h1 {
+    font-size: 2.15rem;
+    margin: 0 0 16px;
+    letter-spacing: -0.01em;
+  }
+
+  .summary {
+    font-size: 1.05rem;
+    color: var(--text-dim);
+    max-width: 880px;
+  }
+
+  .summary strong { color: var(--text); font-weight: 600; }
+
+  code, .code-inline {
+    font-family: var(--mono);
+    background: rgba(255,255,255,0.06);
+    padding: 0.1em 0.4em;
+    border-radius: 4px;
+    font-size: 0.88em;
+    color: var(--accent-2);
+    white-space: nowrap;
+  }
+
+  section {
+    margin-bottom: 52px;
+  }
+
+  h2 {
+    font-size: 1.4rem;
+    margin: 0 0 6px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  h2 .num {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 30px;
+    height: 30px;
+    border-radius: 8px;
+    background: var(--panel-alt);
+    border: 1px solid var(--border);
+    color: var(--accent);
+    font-size: 0.85rem;
+    font-family: var(--mono);
+  }
+
+  .section-sub {
+    color: var(--text-dim);
+    font-size: 0.92rem;
+    margin: 0 0 20px 40px;
+  }
+
+  .card {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 20px 24px;
+    margin-bottom: 14px;
+  }
+
+  .card h3 {
+    margin: 0 0 8px;
+    font-size: 1rem;
+    color: var(--text);
+  }
+
+  .card p {
+    margin: 0 0 8px;
+    color: var(--text-dim);
+    font-size: 0.94rem;
+  }
+
+  .evidence {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px dashed var(--border);
+    font-size: 0.82rem;
+    color: var(--text-dim);
+  }
+
+  .evidence .tag {
+    display: inline-block;
+    font-family: var(--mono);
+    font-size: 0.78rem;
+    background: rgba(56,189,248,0.12);
+    color: var(--accent-2);
+    border: 1px solid rgba(56,189,248,0.28);
+    padding: 2px 8px;
+    border-radius: 6px;
+    margin: 2px 4px 2px 0;
+  }
+
+  .badge-warn {
+    display: inline-block;
+    font-size: 0.78rem;
+    background: rgba(250,204,21,0.12);
+    color: var(--warn);
+    border: 1px solid rgba(250,204,21,0.3);
+    padding: 2px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+  }
+
+  .grid-2 {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+  }
+
+  @media (max-width: 780px) {
+    .grid-2 { grid-template-columns: 1fr; }
+  }
+
+  /* ===== Diagram ===== */
+  .diagram {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 36px 28px;
+    overflow-x: auto;
+  }
+
+  .lane-label {
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--text-dim);
+    margin-bottom: 10px;
+    font-weight: 700;
+  }
+
+  .flow-row {
+    display: flex;
+    align-items: stretch;
+    gap: 0;
+    min-width: 980px;
+  }
+
+  .flow-box {
+    flex: 1;
+    background: var(--panel-alt);
+    border: 1.5px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 16px;
+    position: relative;
+    min-width: 170px;
+  }
+
+  .flow-box .title {
+    font-weight: 700;
+    font-size: 0.9rem;
+    margin-bottom: 6px;
+  }
+
+  .flow-box .desc {
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+
+  .flow-box .file {
+    display: block;
+    margin-top: 8px;
+    font-family: var(--mono);
+    font-size: 0.72rem;
+    color: var(--accent-2);
+  }
+
+  .flow-box.source { border-color: rgba(74,222,128,0.5); }
+  .flow-box.source .title { color: var(--accent-3); }
+  .flow-box.ingest { border-color: rgba(56,189,248,0.5); }
+  .flow-box.ingest .title { color: var(--accent-2); }
+  .flow-box.transform { border-color: rgba(255,138,61,0.5); }
+  .flow-box.transform .title { color: var(--accent); }
+  .flow-box.output { border-color: rgba(244,114,182,0.5); }
+  .flow-box.output .title { color: var(--accent-4); }
+
+  .arrow-h {
+    flex: 0 0 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .arrow-h svg { width: 40px; height: 20px; }
+
+  .stack-col {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    flex: 1;
+  }
+
+  .vsep {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 6px 0;
+  }
+  .vsep svg { width: 20px; height: 26px; }
+
+  .cred-lane {
+    margin-top: 28px;
+    border-top: 1px dashed var(--border);
+    padding-top: 20px;
+  }
+
+  .cred-row {
+    display: flex;
+    gap: 14px;
+    min-width: 980px;
+    flex-wrap: nowrap;
+  }
+
+  .cred-box {
+    flex: 1;
+    background: rgba(56,189,248,0.06);
+    border: 1px dashed rgba(56,189,248,0.4);
+    border-radius: 10px;
+    padding: 10px 14px;
+    font-size: 0.78rem;
+    color: var(--text-dim);
+  }
+  .cred-box b { color: var(--accent-2); display:block; margin-bottom:2px; font-size: 0.82rem;}
+
+  .merge-arrow {
+    display: flex;
+    justify-content: center;
+    margin: 10px 0 0;
+  }
+  .merge-arrow svg { width: 60px; height: 30px; }
+
+  /* ===== Tables ===== */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    overflow: hidden;
+    font-size: 0.88rem;
+  }
+  thead th {
+    text-align: left;
+    background: var(--panel-alt);
+    color: var(--text-dim);
+    font-size: 0.72rem;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    padding: 10px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+  tbody td {
+    padding: 9px 14px;
+    border-bottom: 1px solid var(--border);
+    color: var(--text-dim);
+    vertical-align: top;
+  }
+  tbody tr:last-child td { border-bottom: none; }
+  tbody td.pkg { color: var(--text); font-family: var(--mono); font-size: 0.85rem; }
+
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px;}
+  .pill {
+    font-family: var(--mono);
+    font-size: 0.76rem;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid var(--border);
+    padding: 3px 9px;
+    border-radius: 999px;
+    color: var(--text-dim);
+  }
+
+  footer {
+    border-top: 1px solid var(--border);
+    padding-top: 20px;
+    color: var(--text-dim);
+    font-size: 0.82rem;
+  }
+
+  .callout {
+    background: rgba(250,204,21,0.06);
+    border: 1px solid rgba(250,204,21,0.25);
+    border-radius: 10px;
+    padding: 14px 18px;
+    font-size: 0.9rem;
+    color: var(--text-dim);
+  }
+  .callout b { color: var(--warn); }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="hero">
+    <div class="eyebrow">Architectural Design Document</div>
+    <h1>Heatwave Modelling (CHAP) — End-to-End Architecture</h1>
+    <p class="summary">
+      This repository is a small <strong>Streamlit</strong> web application that computes and visualizes a daily
+      heat‑index surface for Northern Nigeria (1980–2025). All heavy computation runs server‑side inside
+      <strong>Google Earth Engine (GEE)</strong>: the app pulls the public <code>ECMWF/ERA5/DAILY</code> reanalysis
+      collection, clips it to a user‑owned Nigeria boundary asset, derives relative humidity from 2 m air
+      temperature and dewpoint temperature, applies the NWS Rothfusz heat‑index regression, and renders the
+      result as an interactive <strong>folium/geemap</strong> map with a date‑picking UI — there is no local
+      database, ETL job, or trained ML model in this codebase; the entire pipeline lives in two Python files.
+    </p>
+  </header>
+
+  <section>
+    <h2><span class="num">◆</span> End-to-End Flow</h2>
+    <p class="section-sub">Everything below is derived directly from <code>gee.py</code> and <code>nigeria_heat_index.py</code> — the only two Python modules in the repo.</p>
+
+    <div class="diagram">
+      <div class="lane-label">Primary data / compute flow</div>
+      <div class="flow-row">
+        <div class="flow-box source">
+          <div class="title">Data Sources</div>
+          <div class="desc">ERA5 Daily reanalysis (public GEE catalog) + a project‑owned boundary asset</div>
+          <span class="file">ECMWF/ERA5/DAILY</span>
+          <span class="file">projects/ee-victoridakwo/assets/Northern_Nigeria</span>
+        </div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 40 20"><line x1="0" y1="10" x2="32" y2="10" stroke="#9fb0c0" stroke-width="2"/><polygon points="32,4 40,10 32,16" fill="#9fb0c0"/></svg>
+        </div>
+        <div class="flow-box ingest">
+          <div class="title">Auth &amp; Ingestion</div>
+          <div class="desc">Service‑account auth, then filter ERA5 by date range and clip to boundary (server‑side, lazy)</div>
+          <span class="file">nigeria_heat_index.py:19-62</span>
+        </div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 40 20"><line x1="0" y1="10" x2="32" y2="10" stroke="#9fb0c0" stroke-width="2"/><polygon points="32,4 40,10 32,16" fill="#9fb0c0"/></svg>
+        </div>
+        <div class="flow-box transform">
+          <div class="title">Transform / Model</div>
+          <div class="desc">compute_relative_humidity() then compute_heat_index() mapped over the ImageCollection</div>
+          <span class="file">nigeria_heat_index.py:65-98</span>
+        </div>
+        <div class="arrow-h">
+          <svg viewBox="0 0 40 20"><line x1="0" y1="10" x2="32" y2="10" stroke="#9fb0c0" stroke-width="2"/><polygon points="32,4 40,10 32,16" fill="#9fb0c0"/></svg>
+        </div>
+        <div class="flow-box output">
+          <div class="title">Output / UI</div>
+          <div class="desc">geemap.foliumap Map + sliders + HTML legend, served inside Streamlit</div>
+          <span class="file">nigeria_heat_index.py:103-164</span>
+        </div>
+      </div>
+
+      <div class="cred-lane">
+        <div class="lane-label">Credential sources feeding "Auth &amp; Ingestion" (first match wins)</div>
+        <div class="cred-row">
+          <div class="cred-box"><b>Streamlit Cloud secrets</b>st.secrets["earthengine"] → service_account.Credentials.from_service_account_info() <span class="file">nigeria_heat_index.py:20-25</span></div>
+          <div class="cred-box"><b>CI / GitHub Actions</b>os.getenv("EE_SA_JSON") JSON string → same credential path <span class="file">nigeria_heat_index.py:27-32</span></div>
+          <div class="cred-box"><b>Local development</b>keys/service_account.json read from disk <span class="file">nigeria_heat_index.py:34-39</span></div>
+          <div class="cred-box"><b>Ad‑hoc / notebook use</b>gee.py: ee.Initialize(project=...), falling back to interactive ee.Authenticate(auth_mode="localhost") <span class="file">gee.py:7-15</span></div>
+        </div>
+        <div class="merge-arrow">
+          <svg viewBox="0 0 60 30"><line x1="30" y1="0" x2="30" y2="22" stroke="#38bdf8" stroke-width="2"/><polygon points="24,22 36,22 30,30" fill="#38bdf8"/></svg>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">1</span> Data Sources</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>ERA5 Daily reanalysis (ECMWF, via Earth Engine)</h3>
+        <p>Two bands are pulled from the public <span class="code-inline">ECMWF/ERA5/DAILY</span> ImageCollection: <span class="code-inline">mean_2m_air_temperature</span> and <span class="code-inline">dewpoint_2m_temperature</span>, filtered to the date range <span class="code-inline">1980-01-01</span>–<span class="code-inline">2025-09-15</span>.</p>
+        <div class="evidence"><span class="tag">nigeria_heat_index.py:54-62</span></div>
+      </div>
+      <div class="card">
+        <h3>Northern Nigeria boundary asset</h3>
+        <p>An <span class="code-inline">ee.FeatureCollection</span> hosted as a private GEE asset under a personal project (<span class="code-inline">ee-victoridakwo</span>), used both to clip the ERA5 imagery and to draw the outline layer on the map.</p>
+        <div class="evidence"><span class="tag">nigeria_heat_index.py:47</span> <span class="tag">nigeria_heat_index.py:124-125</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>GCP service‑account credentials (not data, but a required external input)</h3>
+      <p>A GCP service‑account JSON (type, project_id, private_key, client_email, etc.) authorizes all Earth Engine calls. The exact shape is documented in the checked‑in template — never real credentials.</p>
+      <div class="evidence"><span class="tag">.streamlit/secrets.toml.example</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">2</span> Ingestion</h2>
+    <div class="card">
+      <h3>Two independent entry points, no shared ingestion module</h3>
+      <p><span class="code-inline">gee.py</span> exposes a standalone <span class="code-inline">init_ee()</span> helper meant for ad‑hoc / CLI use: it tries <span class="code-inline">ee.Initialize(project=GEE_PROJECT)</span> (project id <span class="code-inline">continual-apex-435201-h6</span>) and falls back to an interactive <span class="code-inline">ee.Authenticate(auth_mode="localhost")</span> flow. It is <strong>not imported</strong> by the Streamlit app — the two files do not share auth code.</p>
+      <p><span class="code-inline">nigeria_heat_index.py</span> instead builds its own service‑account credentials inline (lines 19‑42) with scope <span class="code-inline">https://www.googleapis.com/auth/earthengine</span>, selecting between the three credential sources listed above, then calls <span class="code-inline">ee.Initialize(credentials)</span>. It also monkey‑patches <span class="code-inline">sys.modules["blessings"]</span> with an empty module before importing <span class="code-inline">geemap</span>, worked around explicitly to avoid an import failure on Streamlit Community Cloud (comment: "Fix blessing issue for Streamlit Cloud").</p>
+      <p>Once authenticated, "ingestion" is really an Earth Engine query: <span class="code-inline">ee.ImageCollection(...).select(...).filter(ee.Filter.date(...)).map(lambda image: image.clip(boundary))</span> — no bytes are downloaded into this repo or process; GEE builds a lazy server‑side computation graph.</p>
+      <div class="evidence"><span class="tag">gee.py</span> <span class="tag">nigeria_heat_index.py:1-62</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">3</span> Storage</h2>
+    <div class="callout">
+      <b>No local persistence layer exists in this repo.</b> There is no database, no Parquet/CSV output directory, and no cache of computed rasters. All data at rest lives in Google's infrastructure: the public ERA5 catalog and the user's own GEE asset (<span class="code-inline">projects/ee-victoridakwo/assets/Northern_Nigeria</span>). Within a single app run, intermediate results (relative humidity, heat index) exist only as unmaterialized GEE <span class="code-inline">ee.Image</span>/<span class="code-inline">ee.ImageCollection</span> objects — evaluated lazily and only rendered as map tiles when <span class="code-inline">Map.addLayer</span>/<span class="code-inline">Map.to_streamlit</span> is called. <span class="code-inline">.gitignore</span> confirms the only file-based storage the project anticipates is local, gitignored secrets (<span class="code-inline">.streamlit/secrets.toml</span>, <span class="code-inline">keys/*.json</span>, <span class="code-inline">*.pem</span>) — never modelling data.
+    </div>
+    <div class="evidence" style="margin-top:14px;"><span class="tag">.gitignore</span></div>
+  </section>
+
+  <section>
+    <h2><span class="num">4</span> Transformation / Modelling</h2>
+    <div class="card">
+      <h3>Step 1 — Relative humidity (approximation)</h3>
+      <p>For each daily temperature image, <span class="code-inline">compute_relative_humidity()</span> looks up the same‑day dewpoint image and applies <span class="code-inline">RH = 100 - 5 * (T - D)</span> directly on the raw Kelvin bands (a linear dewpoint‑depression approximation, not a psychrometric formula), producing a <span class="code-inline">relative_humidity</span> band added to the temperature image.</p>
+      <div class="evidence"><span class="tag">nigeria_heat_index.py:65-76</span></div>
+    </div>
+    <div class="card">
+      <h3>Step 2 — Heat index (NWS Rothfusz regression)</h3>
+      <p><span class="code-inline">compute_heat_index()</span> converts mean 2 m air temperature from Kelvin → Celsius → Fahrenheit, then applies the standard 9‑coefficient NOAA/NWS Rothfusz regression (<span class="code-inline">c1..c9</span>, e.g. <span class="code-inline">-42.379, 2.04901523, ...</span>) against temperature (°F) and the previously computed relative humidity, producing a <span class="code-inline">heat_index</span> band.</p>
+      <div class="evidence"><span class="tag">nigeria_heat_index.py:79-98</span></div>
+    </div>
+    <p class="section-sub" style="margin-left:0;">All modelling logic executes as Earth Engine server‑side expressions (<span class="code-inline">ee.Image.expression</span>) mapped across the ImageCollection — there is no NumPy/pandas/scikit‑learn model training pipeline in the repo, despite <span class="code-inline">pandas</span>/<span class="code-inline">numpy</span> being present in <span class="code-inline">requirements.txt</span> as transitive dependencies of the geospatial stack.</p>
+  </section>
+
+  <section>
+    <h2><span class="num">5</span> QC / Validation <span class="badge-warn">Not present</span></h2>
+    <div class="callout">
+      No automated tests, no CI workflow (<span class="code-inline">.github/</span> does not exist in this repo), and no explicit data‑quality checks (missing‑image handling, range/sanity checks on temperature or relative‑humidity values, cloud/no‑data masking) appear anywhere in <span class="code-inline">gee.py</span> or <span class="code-inline">nigeria_heat_index.py</span>. The <span class="code-inline">try/except</span> in <span class="code-inline">gee.py</span> (lines 10‑14) only guards Earth Engine <em>authentication</em> failures, not data quality. This is stated as an observed gap, not inferred from convention.
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">6</span> Output / Consumers</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>Interactive Streamlit app</h3>
+        <p><span class="code-inline">nigeria_heat_index.py</span> is the single user‑facing deliverable: <span class="code-inline">st.set_page_config</span>, a three‑column slider UI for Year/Month/Day (1980‑2025, 1‑12, 1‑31), and a <span class="code-inline">geemap.foliumap.Map</span> centered on Nigeria (<span class="code-inline">[10, 9]</span>, zoom 6) rendered in‑page via <span class="code-inline">Map.to_streamlit(height=700)</span>.</p>
+        <div class="evidence"><span class="tag">nigeria_heat_index.py:103-128</span></div>
+      </div>
+      <div class="card">
+        <h3>Map layers &amp; legend</h3>
+        <p>A heat‑index layer (palette blue→cyan→green→yellow→orange→red→purple, range 0‑150°F) filtered to the selected date, an outline layer for the Northern Nigeria boundary, and a custom HTML/CSS gradient legend injected via <span class="code-inline">st.markdown(..., unsafe_allow_html=True)</span>.</p>
+        <div class="evidence"><span class="tag">nigeria_heat_index.py:117-164</span></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3>Deployment target</h3>
+      <p>The credential‑selection order (Streamlit secrets first, then <span class="code-inline">EE_SA_JSON</span> env var, then a local key file) and the explicit "blessings" workaround comment indicate the app is designed to run on <strong>Streamlit Community Cloud</strong>, with a CI/CD or GitHub Actions path as a secondary supported environment, and local development as a third.</p>
+      <div class="evidence"><span class="tag">nigeria_heat_index.py:20-39</span> <span class="tag">.streamlit/secrets.toml.example</span></div>
+    </div>
+  </section>
+
+  <section>
+    <h2><span class="num">7</span> Tech Stack</h2>
+    <p class="section-sub" style="margin-left:0;">Versions are exactly as pinned in <code>requirements.txt</code> (103 packages total); grouped here by role.</p>
+    <table>
+      <thead>
+        <tr><th>Layer</th><th>Key packages (pinned versions)</th><th>Role in this repo</th></tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>App / UI framework</td>
+          <td class="pkg">streamlit==1.49.1</td>
+          <td>Hosts the slider controls, page layout and embedded map in <code>nigeria_heat_index.py</code>.</td>
+        </tr>
+        <tr>
+          <td>Earth Engine &amp; geospatial</td>
+          <td class="pkg">earthengine-api==1.6.8, ee==0.2, geemap==0.36.2, folium==0.20.0, branca==0.8.1, ipyleaflet==0.20.0, jupyter-leaflet==0.20.0, pyshp==2.3.1, xyzservices==2025.4.0, geocoder==1.38.1</td>
+          <td>Query/clip/transform ERA5 imagery server‑side and render the folium‑backed interactive map (<code>geemap.foliumap</code>).</td>
+        </tr>
+        <tr>
+          <td>Google Cloud / auth</td>
+          <td class="pkg">google-auth==2.40.3, google-api-python-client==2.182.0, google-api-core==2.25.1, google-cloud-storage==3.4.0, google-cloud-core==2.4.3, google-resumable-media==2.7.2, google-crc32c==1.7.1, googleapis-common-protos==1.70.0, pyasn1==0.6.1, rsa==4.9.1, httplib2==0.31.0, uritemplate==4.2.0, cachetools==5.5.2</td>
+          <td>Service‑account credential handling (<code>google.oauth2.service_account</code>) and underlying GCP/Earth Engine API transport used by <code>ee.Initialize(credentials)</code>.</td>
+        </tr>
+        <tr>
+          <td>Data handling (transitive)</td>
+          <td class="pkg">pandas==2.3.2, numpy==2.3.3, pyarrow==21.0.0</td>
+          <td>Pulled in by the geospatial/Streamlit stack; not directly used for a separate ETL pipeline in the two app files.</td>
+        </tr>
+        <tr>
+          <td>Charting / viz (transitive)</td>
+          <td class="pkg">altair==5.5.0, matplotlib==3.10.6, plotly==6.3.0, pydeck==0.9.1, bqplot==0.12.45</td>
+          <td>Streamlit/geemap dependencies; no charts are built with them in the current code.</td>
+        </tr>
+        <tr>
+          <td>Jupyter/widget ecosystem (transitive)</td>
+          <td class="pkg">ipywidgets==8.1.7, ipyevents==2.0.4, ipyfilechooser==0.6.0, ipytree==0.2.2, anywidget==0.9.18, traitlets==5.14.3, traittypes==0.2.1, comm==0.2.3, jupyterlab_widgets, widgetsnbextension</td>
+          <td>Required by <code>geemap</code>'s notebook‑widget code paths even though the app runs inside Streamlit, not a notebook.</td>
+        </tr>
+        <tr>
+          <td>Dev / misc utilities</td>
+          <td class="pkg">GitPython==3.1.45, gitdb==4.0.12, smmap==5.0.2, python-box==7.3.2, toml==0.10.2, tenacity==9.1.2, watchdog==6.0.0</td>
+          <td>Transitive dependencies of the Streamlit/geemap toolchain (e.g. file‑watching for Streamlit's autoreload, retry logic for network calls).</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="pill-row">
+      <span class="pill">Language: Python (no version pinned in repo)</span>
+      <span class="pill">Compute: Google Earth Engine (server-side)</span>
+      <span class="pill">GEE project: continual-apex-435201-h6 (gee.py)</span>
+      <span class="pill">No Dockerfile / IaC found</span>
+      <span class="pill">No .github/ CI found</span>
+    </div>
+  </section>
+
+  <footer>
+    Generated from a direct read of every source file in the repository at the time of writing:
+    <code>README.md</code>, <code>requirements.txt</code>, <code>gee.py</code>, <code>nigeria_heat_index.py</code>,
+    <code>.streamlit/secrets.toml.example</code>, and <code>.gitignore</code>. No architecture claims in this
+    document are inferred beyond what those files show.
+  </footer>
+
+</div>
+</body>
+</html>
