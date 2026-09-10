@@ -1,0 +1,13 @@
+[project]
+name = "heatwave-chap"
+version = "0.1.0"
+description = "Ward-level heatwave detection pipeline producing a weekly covariate table for CHAP"
+requires-python = ">=3.11"
+readme = "README.md"
+
+[tool.setuptools.packages.find]
+include = ["heatwave*"]
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
