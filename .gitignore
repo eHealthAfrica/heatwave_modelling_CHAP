@@ -14,3 +14,10 @@ __pycache__/
 keys/
 keys/*.json
 *.pem
+
+# Logs
+*.log
+
+# OS
+.DS_Store
+Thumbs.db

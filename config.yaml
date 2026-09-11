@@ -1,0 +1,26 @@
+# Non-secret pipeline configuration. Credentials are never stored here —
+# see heatwave/auth.py for the three supported credential sources.
+
+gcp_project_id: heatwave-508110
+ward_asset_id: projects/heatwave-508110/assets/shp
+
+era5_land_collection: ECMWF/ERA5_LAND/DAILY_AGGR
+bands:
+  tmax: temperature_2m_max
+  tmean: temperature_2m
+  dewpoint: dewpoint_temperature_2m
+
+# Default ingestion window for the Streamlit viewer / batch scripts.
+start_date: "1980-01-01"
+end_date: "2025-09-15"
+
+# Heatwave definition (WMO/ETCCDI-style percentile exceedance, per
+# outputs/01_Heatwave_Methodology.docx). Not yet consumed by any code in
+# this phase — heatwave/science/climatology.py and heatwave.py (Phase 4)
+# will read these.
+climatology:
+  baseline_start_year: 1991
+  baseline_end_year: 2020
+  percentile: 90
+  pooling_window_days: 5
+  min_consecutive_days: 3
