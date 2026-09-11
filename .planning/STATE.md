@@ -1,0 +1,71 @@
+# Project State
+
+## Project Reference
+
+See: .planning/PROJECT.md (updated 2026-09-11)
+
+**Core value:** A correct, complete weekly covariate table can be generated end-to-end from ERA5-Land data for all 4,841 Nigerian wards and handed off to CHAP.
+**Current focus:** Phase 1 — Foundation Rework (fix 4 audit-identified issues in existing GCP/EE auth, boundary, ingest code)
+
+## Current Position
+
+Phase: 1 of 7 (Foundation Rework)
+Plan: Not yet planned
+Status: Ready to plan
+Last activity: 2026-09-11 — Roadmap created from ingested PROJECT_STATE.md context; ROADMAP.md, REQUIREMENTS.md, PROJECT.md written
+
+Progress: [░░░░░░░░░░] 0%
+
+## Performance Metrics
+
+**Velocity:**
+- Total plans completed: 0
+- Average duration: - min
+- Total execution time: 0 hours
+
+**By Phase:**
+
+| Phase | Plans | Total | Avg/Plan |
+|-------|-------|-------|----------|
+| - | - | - | - |
+
+**Recent Trend:**
+- Last 5 plans: none yet
+- Trend: -
+
+*Updated after each plan completion*
+
+## Accumulated Context
+
+### Decisions
+
+Decisions are logged in PROJECT.md Key Decisions table.
+Recent decisions affecting current work:
+
+- Pre-roadmap: Cloud infra (GCP project `heatwave-508110`, service account, ward asset, ERA5-Land collection) locked and carried forward, not re-litigated
+- Pre-roadmap: Climatology parameters (1991-2020 baseline, 90th percentile, ±5-day pooling, ≥3-day events) locked and carried forward
+- Roadmap creation: Phases 0-2 are being re-done through GSD plan -> execute -> verify (Phase 1 of this roadmap) rather than treated as already-complete, to fix 4 audit-identified issues before this branch supersedes PR #1
+
+### Pending Todos
+
+None yet.
+
+### Blockers/Concerns
+
+- PR #1 (`eHealthAfrica/heatwave_modelling_CHAP`) status should be reconfirmed before pushing this branch — unknown as of last check whether it's merged, open, or has requested changes.
+- A GitHub PAT was pasted into a prior chat session; treat as potentially compromised — do not reuse if it resurfaces, request a fresh token if git/PR operations are needed.
+- Three reference planning docs (`outputs/01_Heatwave_Methodology.docx`, `02_Implementation_Roadmap.docx`, `03_Implementation_Phases_Status.docx`/`.pdf`) could not be parsed during intel ingestion; if they become available as text/markdown, re-ingest — they may refine phase/methodology detail.
+
+## Deferred Items
+
+Items acknowledged and carried forward from previous milestone close:
+
+| Category | Item | Status | Deferred At |
+|----------|------|--------|-------------|
+| Presentation | Custom HTML/JS dashboard (Leaflet.js + FastAPI) as Streamlit alternative | Deferred to v2 (DASH-01) | Roadmap creation, 2026-09-11 |
+
+## Session Continuity
+
+Last session: 2026-09-11
+Stopped at: Roadmap creation complete (PROJECT.md, REQUIREMENTS.md, ROADMAP.md, STATE.md written); awaiting user approval and `/gsd:plan-phase 1`
+Resume file: None
