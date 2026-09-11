@@ -1,9 +1,9 @@
 ---
 phase: 1
 slug: foundation-rework
-status: draft
-nyquist_compliant: false
-wave_0_complete: false
+status: approved
+nyquist_compliant: true
+wave_0_complete: true
 created: 2026-09-11
 ---
 
@@ -28,7 +28,13 @@ created: 2026-09-11
 ## Sampling Rate
 
 - **After every task commit:** Run `pytest tests/test_integration.py -x -q`
-- **After every plan wave:** Run `pytest -q` (same command — this phase has one test file)
+  - Exception: Plan 01-03 Task 3's `test_streamlit_app_boots_cleanly` boots the full Streamlit app
+    in-process against live Earth Engine calls and, combined with live-network latency, risks
+    exceeding the 30s feedback-latency target. Per Plan 01-03 Task 3's `<verify>` note, that
+    specific test is excluded from the fast per-task command (`pytest tests/test_requirements.py
+    -x -q` is used instead for that task's commit loop) and is run at the wave/phase gate below.
+- **After every plan wave:** Run `pytest -q` (same command — this phase has one test file; this is
+  where `test_streamlit_app_boots_cleanly` executes)
 - **Before `/gsd:verify-work`:** Full suite must be green, or all-skipped if run without live GCP credentials
 - **Max feedback latency:** 30 seconds
 
@@ -38,16 +44,19 @@ created: 2026-09-11
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 01-01-TBD | TBD | 0 | REWORK-03 | — | N/A | static check | `grep -q "^ee==" requirements.txt && exit 1 \|\| exit 0` | ❌ W0 | ⬜ pending |
-| 01-01-TBD | TBD | 1+ | REWORK-01 | — | N/A | integration (manual + inspection) | `pytest tests/test_integration.py::test_init_ee_idempotent -x` | ❌ W0 | ⬜ pending |
-| 01-01-TBD | TBD | 1+ | REWORK-02 | — | N/A | unit/integration | `pytest tests/test_integration.py::test_era5_land_bands_aligned -x` | ❌ W0 | ⬜ pending |
-| 01-01-TBD | TBD | 1+ | REWORK-04 | — | N/A | integration | `pytest tests/test_integration.py::test_auth_resolves_from_any_cwd -x` | ❌ W0 | ⬜ pending |
-| 01-01-TBD | TBD | 1+ | REWORK-05 | — | N/A | integration (live) | `pytest tests/test_integration.py::test_load_ward_boundary -x` | ❌ W0 | ⬜ pending |
-| 01-01-TBD | TBD | 1+ | REWORK-06 | — | N/A | integration (live) | `pytest tests/test_integration.py::test_load_era5_land -x` | ❌ W0 | ⬜ pending |
-| 01-01-TBD | TBD | 1+ | REWORK-07 | — | N/A | unit | `pytest tests/test_integration.py::test_settings_loaded -x` | ❌ W0 | ⬜ pending |
-| 01-01-TBD | TBD | 1+ | REWORK-08 | — | N/A | integration (live) | `pytest tests/test_integration.py::test_streamlit_app_boots_cleanly -x` | ❌ W0 | ⬜ pending |
+| 01-01-T2 | 01-01 | 1 | REWORK-03 | T-1-01 | mitigate | static check | `grep -v '^#' requirements.txt \| grep -c '^ee==' \| grep -qx 0 && echo OK` | ✅ planned (01-01) | ⬜ pending |
+| 01-03-T1 | 01-03 | 2 | REWORK-01 | T-1-05 | mitigate | integration (live, idempotency proxy) | `pytest tests/test_integration.py::test_init_ee_idempotent -x` | ✅ planned (01-03) | ⬜ pending |
+| 01-03-T2 | 01-03 | 2 | REWORK-02 | T-1-06 | accept | unit/integration | `pytest tests/test_integration.py::test_era5_land_bands_aligned -x` | ✅ planned (01-03) | ⬜ pending |
+| 01-03-T1 | 01-03 | 2 | REWORK-04 | T-1-02 | mitigate | integration | `pytest tests/test_integration.py::test_auth_resolves_from_any_cwd -x` | ✅ planned (01-03) | ⬜ pending |
+| 01-03-T2 | 01-03 | 2 | REWORK-05 | — | N/A | integration (live) | `pytest tests/test_integration.py::test_load_ward_boundary -x` | ✅ planned (01-03) | ⬜ pending |
+| 01-03-T2 | 01-03 | 2 | REWORK-06 | — | N/A | integration (live) | `pytest tests/test_integration.py::test_load_era5_land -x` | ✅ planned (01-03) | ⬜ pending |
+| 01-03-T1 | 01-03 | 2 | REWORK-07 | — | N/A | unit | `pytest tests/test_integration.py::test_settings_loaded -x` | ✅ planned (01-03) | ⬜ pending |
+| 01-03-T3 | 01-03 | 2 | REWORK-08 | — | N/A | integration (live, run at wave/phase gate — see Sampling Rate exception) | `pytest tests/test_integration.py::test_streamlit_app_boots_cleanly -x` | ✅ planned (01-03) | ⬜ pending |
 
-*Task IDs are placeholders (TBD) — the planner fills in real plan/task IDs when PLAN.md files are created; this map's requirement→command mapping stays fixed.*
+*Task IDs reference `{phase}-{plan}-T{task}` once PLAN.md files exist (01-01, 01-02, 01-03 all
+exist as of this revision); `File Exists` reflects planning-time coverage (a plan/task now creates
+or verifies this file/behavior), not yet-executed code state — `Status` tracks actual execution
+and stays pending until `/gsd:execute-phase` runs.*
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -55,9 +64,9 @@ created: 2026-09-11
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_integration.py` — does not exist yet; covers REWORK-01, REWORK-02, REWORK-04, REWORK-05, REWORK-06, REWORK-07, REWORK-08
-- [ ] Confirm `pytest` discovers `tests/` from repo root without needing a `testpaths` entry added to `pyproject.toml` (default discovery should work; verify once the directory exists)
-- [ ] No shared `conftest.py` required — the credential-skip condition and key-file path resolution are small enough to inline directly in `test_integration.py` per CONTEXT.md's discretion note on test structure
+- [x] `tests/test_integration.py` — created by Plan 01-03 Task 1 (skeleton) and extended by Tasks 2-3; covers REWORK-01, REWORK-02, REWORK-04, REWORK-05, REWORK-06, REWORK-07, REWORK-08
+- [x] Confirm `pytest` discovers `tests/` from repo root without needing a `testpaths` entry added to `pyproject.toml` — verified via Plan 01-03 Task 3's acceptance criterion `pytest -q --collect-only` (default rootdir discovery)
+- [x] No shared `conftest.py` required — the credential-skip condition and key-file path resolution are inlined directly in `tests/test_integration.py` per Plan 01-03 Task 1, per CONTEXT.md's discretion note on test structure
 
 ---
 
@@ -71,11 +80,11 @@ created: 2026-09-11
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved 2026-09-11

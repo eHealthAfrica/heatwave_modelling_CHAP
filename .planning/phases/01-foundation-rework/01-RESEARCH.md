@@ -519,9 +519,9 @@ needed, noted only for completeness.
 | A1 | The original justification "geemap imports blessings, which fails to import on Streamlit Community Cloud" (from `heatwave/auth.py`'s own comment and `.planning/PROJECT.md`) reflects a real observation from a different environment/version set than the one currently installed, rather than a stale/incorrect assumption. | Common Pitfalls #2 | If wrong (i.e., the stub was never actually necessary anywhere), the stub is harmless dead code either way — low risk. If right, removing/weakening the stub could break Streamlit Community Cloud deploys specifically, which cannot be tested from this local environment. |
 | A2 | `AppTest.from_file(...).run()` will not raise on `geemap.foliumap`'s `Map.to_streamlit()` custom HTML component embed. | Code Examples (REWORK-08 Approach A) | If wrong, Approach A test fails/errors even though the app is actually fine; planner should keep Approach B available as a fallback rather than committing solely to Approach A. |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
-1. **Should `Era5LandBands` dataclass be removed entirely, or kept as a thin wrapper?**
+1. **Should `Era5LandBands` dataclass be removed entirely, or kept as a thin wrapper?** RESOLVED: Plan 01-02 Task 1 implements the bare `ee.ImageCollection` return recommendation below — `Era5LandBands` and `_select_band()` are removed entirely.
    - What we know: D-02 explicitly allows either "changes the shape of `Era5LandBands`... or
      replaces it with a single multi-band `ee.ImageCollection` return value."
    - What's unclear: whether Phase 2's planner would prefer a named type (even a trivial
@@ -532,7 +532,7 @@ needed, noted only for completeness.
      there's only one collection. Flag this exact shape explicitly in this phase's plan output so
      the Phase 2 planner does not have to re-derive it from a diff.
 
-2. **Exact reorder of `nigeria_heat_index.py` imports (Pitfall 4) — how much to touch in one phase.**
+2. **Exact reorder of `nigeria_heat_index.py` imports (Pitfall 4) — how much to touch in one phase.** RESOLVED: Plan 01-02 Task 2 treats the import reorder as in-scope, per the recommendation below.
    - What we know: CONTEXT.md scopes `nigeria_heat_index.py` changes to "the join/caching get
      fixed" for this phase, with relocation of the math itself deferred to Phase 2.
    - What's unclear: whether reordering the import block (to make the blessings-stub relocation
