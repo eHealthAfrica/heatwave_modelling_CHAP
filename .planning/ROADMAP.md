@@ -32,7 +32,12 @@ Decimal phases appear between their surrounding integers in numeric order.
   3. `requirements.txt` contains no unused/conflicting EE package (`ee==0.2` removed, `earthengine-api` retained)
   4. `heatwave/auth.py` resolves the local service-account key path and the `blessings` stub reliably regardless of the caller's working directory or import order
   5. `heatwave.auth.init_ee()`, `heatwave.data.boundary.load_ward_boundary()` (4,841 wards), and `heatwave.data.ingest.load_era5_land()` are re-verified against the live `heatwave-508110` project, and `streamlit run nigeria_heat_index.py` boots with HTTP 200 and no stderr
-**Plans**: TBD
+**Plans**: 3 plans
+
+Plans:
+- [ ] 01-01-PLAN.md — Path-anchor service-account key file, relocate blessings stub, remove ee==0.2 (REWORK-03, REWORK-04)
+- [ ] 01-02-PLAN.md — Restructure ERA5-Land ingest to single multi-band collection; fix nigeria_heat_index.py join/caching/import-order (REWORK-01, REWORK-02, REWORK-04, REWORK-06, REWORK-08)
+- [ ] 01-03-PLAN.md — Live integration test suite covering all 8 REWORK requirements (REWORK-01..08)
 
 ### Phase 2: Heat Index Relocation
 **Goal**: RH/Heat Index math lives in a tested, reusable module rather than being inline in the Streamlit script.
@@ -103,7 +108,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Rework | 0/TBD | Not started | - |
+| 1. Foundation Rework | 0/3 | Not started | - |
 | 2. Heat Index Relocation | 0/TBD | Not started | - |
 | 3. Climatology & Heatwave Detection | 0/TBD | Not started | - |
 | 4. Batch Export & Covariate Table | 0/TBD | Not started | - |
