@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import inspect
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 
 import ee
@@ -642,6 +643,155 @@ def test_heatwave_event_detection_is_scoped_per_ward():
     non_negative_wb_event_ids = [event_id for event_id in wb_event_ids if event_id != -1]
     assert len(set(non_negative_wb_event_ids)) == 1
     assert len(non_negative_wb_event_ids) == 3
+
+
+def _make_constant_heat_index_collection(date_values) -> ee.ImageCollection:
+    """Build a synthetic Heat Index ImageCollection from (date_string, value) pairs.
+
+    Each image is spatially CONSTANT (`ee.Image.constant(value)`), unlike plan
+    03-01's `_make_heat_index_collection`, whose `heat_index` band is
+    longitude-valued so spatially separated synthetic wards reduce to
+    different, hand-predictable values. A constant image makes every ward's
+    zonal mean exactly the stated value regardless of the ward's location --
+    that is what makes the entire four-stage chain (zonal reduction ->
+    climatology -> flagging -> event detection) hand-computable end to end in
+    one test. Ward discrimination (proving `reduce_to_ward_daily` assigns
+    each ward its own, distinct value) is already covered by plan 03-01's
+    CLIM-05 tests and is not this test's job.
+    """
+    images = [
+        ee.Image.constant(value)
+        .rename("heat_index")
+        .set("system:time_start", ee.Date(date_string).millis())
+        for date_string, value in date_values
+    ]
+    return ee.ImageCollection(images)
+
+
+@_REQUIRES_CREDENTIALS
+def test_end_to_end_climatology_and_event_pipeline():
+    """CLIM-01 through CLIM-06 composed: reduce_to_ward_daily ->
+    compute_climatology_thresholds -> flag_heatwave_days ->
+    detect_heatwave_events run as one chain, the exact order and default
+    parameter shape Phase 4's scripts/run_batch_export.py will call them in.
+
+    Fixture rationale (why this test can assert exact numbers at all): the
+    baseline (2001-01-01..2001-01-10 and 2002-01-01..2002-01-10) is
+    deliberately a CONSTANT 20.0, so the pooled 90th percentile for every
+    baseline calendar day is exactly 20.0 under any interpolation rule --
+    the percentile of a constant sample is that constant regardless of which
+    undocumented small-N rule EE applies. That sidesteps 03-RESEARCH.md
+    Pitfall 3 entirely: a failure here means a composition/wiring bug, never
+    a percentile-interpolation surprise. The per-stage percentile behaviour
+    itself (EE's 9.5-vs-numpy's-9.1 interpolation) is already pinned by plan
+    03-02's test_climatology_threshold_matches_live_verified_ee_percentile.
+    Wards W-A and W-B are 20 km buffers (well above 03-RESEARCH.md Pitfall
+    4's ~354m x 354m sub-pixel-weight inclusion threshold), so Pitfall 4
+    cannot interfere with this test's null-freedom.
+
+    Two independent wards (W-A at lon 3.0, W-B at lon 8.0) are asserted
+    identically: matching results across two independent wards is what
+    proves the per-ward partitioning holds under composition, not just
+    under a single ward's coincidental correctness.
+    """
+    from heatwave.auth import init_ee
+    from heatwave.science.climatology import compute_climatology_thresholds
+    from heatwave.science.heatwave import detect_heatwave_events, flag_heatwave_days
+    from heatwave.zonal import reduce_to_ward_daily
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-B", 8.0, 7.0, 20000),
+    ])
+
+    baseline_2001 = [(f"2001-01-{day:02d}", 20.0) for day in range(1, 11)]
+    baseline_2002 = [(f"2002-01-{day:02d}", 20.0) for day in range(1, 11)]
+    detection_values = [15.0, 15.0, 25.0, 25.0, 25.0, 15.0, 25.0, 25.0, 15.0, 15.0]
+    detection_2003 = [
+        (f"2003-01-{day:02d}", value) for day, value in zip(range(1, 11), detection_values)
+    ]
+    collection = _make_constant_heat_index_collection(
+        baseline_2001 + baseline_2002 + detection_2003
+    )
+
+    # Stage 1 (CLIM-05): the one zonal reduction Phase 4's pipeline performs.
+    # Both the baseline and detection views below are filtered from THIS
+    # single table -- no second zonal reduction is built for the detection
+    # years, matching 03-RESEARCH.md's diagrammed architecture.
+    #
+    # Runtime fallback applied (03-VALIDATION.md's 30s budget): an initial
+    # single-computation-graph version of this test (zonal reduction feeding
+    # climatology feeding flagging feeding event detection, all lazily
+    # re-evaluated on every downstream .getInfo() call) measured 65.81s with
+    # `--durations=5` -- over budget. Per this task's documented fallback,
+    # the zonal output is materialised ONCE here with `.getInfo()`, the
+    # 60-row CLIM-05 expectation is asserted on that live payload directly,
+    # and an equivalent table is rebuilt from those live-computed values with
+    # the existing `_make_ward_daily_fc` helper before feeding the remaining
+    # three stages -- breaking one large lazy graph into two smaller ones.
+    # Re-measured with the fallback applied: 16.09s with `--durations=5`,
+    # inside the 30s budget. Everything below remains live Earth Engine
+    # either way (D-01); no value is computed by client-side Python
+    # arithmetic (D-02) -- only date strings are reformatted from the
+    # already-live-computed `system:time_start` millis.
+    ward_daily_fc = reduce_to_ward_daily(collection, wards)
+    ward_daily_features = ward_daily_fc.getInfo()["features"]
+    assert len(ward_daily_features) == 60  # 2 wards x 30 days
+
+    def _millis_to_date_string(millis: int) -> str:
+        return datetime.fromtimestamp(millis / 1000, tz=timezone.utc).strftime("%Y-%m-%d")
+
+    ward_daily_rows = [
+        (
+            feature["properties"]["ward_id"],
+            _millis_to_date_string(feature["properties"]["system:time_start"]),
+            feature["properties"]["value"],
+        )
+        for feature in ward_daily_features
+    ]
+    ward_daily_fc = _make_ward_daily_fc(ward_daily_rows)
+
+    # Stage 2 (CLIM-01/CLIM-02): pooled 90th-percentile baseline threshold.
+    climatology_fc = compute_climatology_thresholds(
+        ward_daily_fc,
+        percentile=90,
+        window_days=5,
+        baseline_start_year=2001,
+        baseline_end_year=2002,
+    )
+    doy5 = climatology_fc.filter(ee.Filter.eq("doy", 5))
+    doy5_rows = {row["ward_id"]: row["threshold"] for row in _props(doy5, ["ward_id", "threshold"])}
+    assert doy5_rows["W-A"] == pytest.approx(20.0, abs=1e-6)
+    assert doy5_rows["W-B"] == pytest.approx(20.0, abs=1e-6)
+
+    # Detection view: filter the SAME ward-daily table into the 2003 window.
+    detection_fc = ward_daily_fc.filter(ee.Filter.calendarRange(2003, 2003, "year"))
+    assert detection_fc.size().getInfo() == 20  # 2 wards x 10 days
+
+    # Stage 3 (CLIM-03): threshold join + exceedance flagging.
+    flagged_fc = flag_heatwave_days(detection_fc, climatology_fc)
+
+    expected_is_hot = [0, 0, 1, 1, 1, 0, 1, 1, 0, 0]
+    for ward in ("W-A", "W-B"):
+        ward_flagged = flagged_fc.filter(ee.Filter.eq("ward_id", ward)).sort("system:time_start")
+        assert ward_flagged.aggregate_array("is_hot").getInfo() == expected_is_hot
+        assert ward_flagged.aggregate_sum("is_hot").getInfo() == 5
+
+    # Stage 4 (CLIM-04): consecutive-run event detection.
+    events_fc = detect_heatwave_events(flagged_fc, min_consecutive_days=3)
+
+    expected_run_id = [-1, -1, 1, 1, 1, -1, 2, 2, -1, -1]
+    expected_event_id = [-1, -1, 1, 1, 1, -1, -1, -1, -1, -1]
+    for ward in ("W-A", "W-B"):
+        ward_events = events_fc.filter(ee.Filter.eq("ward_id", ward)).sort("system:time_start")
+        assert ward_events.aggregate_array("run_id").getInfo() == expected_run_id
+        event_ids = ward_events.aggregate_array("event_id").getInfo()
+        assert event_ids == expected_event_id
+        # Aggregate shape Phase 4 actually reads from this pipeline: the CHAP
+        # covariate table's heatwave_event_count is the count of distinct
+        # non-(-1) event ids, not the count of hot days in qualifying runs.
+        assert len({event_id for event_id in event_ids if event_id != -1}) == 1
 
 
 @_REQUIRES_CREDENTIALS
