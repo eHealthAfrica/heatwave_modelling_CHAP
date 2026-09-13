@@ -13,8 +13,7 @@ from __future__ import annotations
 
 import json
 import os
-import sys
-import types
+from pathlib import Path
 
 import ee
 from google.oauth2 import service_account
@@ -22,11 +21,7 @@ from google.oauth2 import service_account
 from heatwave.config import settings
 
 EE_SCOPES = ["https://www.googleapis.com/auth/earthengine"]
-_LOCAL_KEY_FILE = "keys/service_account.json"
-
-# geemap imports `blessings`, which fails to import on Streamlit Community
-# Cloud. Stubbing it out before geemap is imported avoids the failure.
-sys.modules.setdefault("blessings", types.ModuleType("blessings"))
+_LOCAL_KEY_FILE = Path(__file__).resolve().parent.parent / "keys" / "service_account.json"
 
 
 def _load_credentials() -> service_account.Credentials:
@@ -51,7 +46,7 @@ def _load_credentials() -> service_account.Credentials:
         )
 
     return service_account.Credentials.from_service_account_file(
-        _LOCAL_KEY_FILE, scopes=EE_SCOPES
+        str(_LOCAL_KEY_FILE), scopes=EE_SCOPES
     )
 
 
