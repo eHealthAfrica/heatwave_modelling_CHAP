@@ -818,3 +818,83 @@ def test_heatwave_event_min_days_defaults_from_settings():
     events = detect_heatwave_events(flagged).sort("system:time_start")
 
     assert events.aggregate_array("event_id").getInfo() == _VERIFIED_EVENT_IDS
+
+
+@_REQUIRES_CREDENTIALS
+def test_real_era5_land_zonal_reduction_smoke():
+    """CLIM-05 / D-03: heatwave/zonal.py against the real ERA5-Land collection
+    and the real nationwide ward asset, not only synthetic constructions.
+
+    Scope deliberately stays small (D-03): the three largest real ward
+    polygons, five real ERA5-Land days (2020-06-01 through 2020-06-05
+    inclusive, via a 2020-06-06 exclusive `ee.Filter.date` end). Full-scale
+    execution across the full nationwide ward asset or the 1991-2020
+    baseline is Phase 4's scripts/run_batch_export.py (EXPORT-01) and must
+    not be attempted here.
+
+    Ward selection is sorted by polygon area, largest first, rather than a
+    bare `.limit(3)` on the unsorted asset -- feature order on the real asset
+    is arbitrary and could otherwise land on a ward below Earth Engine's
+    ~0.4%-pixel-weight inclusion threshold (03-RESEARCH.md Pitfall 4, a
+    roughly 354m x 354m square), turning a real regression signal into a
+    flaky null. Whether any real Nigerian ward is actually that small is
+    explicitly Phase 4's question (03-RESEARCH.md Open Question 2), not
+    something this test should discover by accident.
+    """
+    from heatwave.auth import init_ee
+    from heatwave.data.boundary import load_ward_boundary
+    from heatwave.data.ingest import load_era5_land
+    from heatwave.science.heat_index import compute_heat_index, compute_relative_humidity
+    from heatwave.zonal import reduce_to_ward_daily
+
+    init_ee()
+    all_wards = load_ward_boundary()
+    # Measured runtime (`.venv/Scripts/python -m pytest
+    # tests/test_heatwave_detection.py -k real_era5 --durations=5`): ~43s,
+    # over 03-VALIDATION.md's 30s aspirational per-test budget. Unlike plan
+    # 03-04's Task 1, no two-graph fallback applies here: the cost is the
+    # mandated area-sort over the full real nationwide ward asset itself (the
+    # Pitfall-4-proof largest-ward selection this task requires), not a
+    # re-evaluated lazy graph, so splitting computation would not help.
+    # D-03 accepts this cost as a bounded, one-time real-data check.
+    largest_wards = (
+        all_wards.map(lambda feature: feature.set("area_m2", feature.geometry().area(maxError=1000)))
+        .sort("area_m2", False)
+        .limit(3)
+    )
+
+    # load_era5_land uses ee.Filter.date, whose end is exclusive (REWORK-06),
+    # so 2020-06-06 yields exactly 2020-06-01 through 2020-06-05.
+    hi_collection = (
+        load_era5_land(boundary=largest_wards, start_date="2020-06-01", end_date="2020-06-06")
+        .map(compute_relative_humidity)
+        .map(compute_heat_index)
+    )
+
+    # compute_relative_humidity is mapped before compute_heat_index because
+    # the latter selects the relative_humidity band the former adds.
+    result = reduce_to_ward_daily(hi_collection, largest_wards)
+
+    # Materialise once: every assertion below derives from this one live
+    # payload so the 30s latency budget is not spent on repeated real-data
+    # recomputation.
+    info = result.getInfo()
+    rows = [feature["properties"] for feature in info["features"]]
+
+    assert len(rows) == 15  # 3 wards x 5 days
+
+    values = [row["value"] for row in rows]
+    assert all(value is not None for value in values)
+    assert all(50 <= value <= 200 for value in values)
+
+    assert {row["doy"] for row in rows} == {153, 154, 155, 156, 157}
+
+    ward_ids = [row["ward_id"] for row in rows]
+    assert all(ward_id is not None for ward_id in ward_ids)
+    assert len(set(ward_ids)) == 3
+
+    # Pitfall 1 timestamp guard, re-verified against real ERA5-Land
+    # timestamps rather than synthetic ones -- a cheap, load-bearing second
+    # live call.
+    filtered = result.filter(ee.Filter.calendarRange(2020, 2020, "year"))
+    assert filtered.size().getInfo() == 15
