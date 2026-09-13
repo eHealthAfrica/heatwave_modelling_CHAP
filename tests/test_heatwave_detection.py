@@ -639,6 +639,33 @@ def test_heatwave_event_requires_min_consecutive_days():
 
 
 @_REQUIRES_CREDENTIALS
+def test_heatwave_event_min_consecutive_days_zero_is_not_overridden_by_config():
+    """WR-01: an explicit `min_consecutive_days=0` must be respected as-is,
+    not silently replaced by config.yaml's default of 3 (a Python `or`
+    truthiness bug would swallow 0). With threshold 0 every run -- including
+    run 2, the 2-day run that config.yaml's default of 3 demotes to -1 --
+    qualifies, so `event_id` must equal `run_id` exactly on this fixture."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import detect_heatwave_events, flag_heatwave_days
+
+    init_ee()
+    dates = [f"2020-01-{day:02d}" for day in range(1, 15)]
+    values = [50.0 if flag else 10.0 for flag in _VERIFIED_FLAG_SEQUENCE]
+    ward_daily_fc = _make_ward_daily_fc(list(zip(["W-A"] * 14, dates, values)))
+    climatology_fc = _make_climatology_fc([("W-A", doy, 25.0) for doy in range(1, 15)])
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc)
+    events = detect_heatwave_events(flagged, min_consecutive_days=0).sort("system:time_start")
+
+    run_ids = events.aggregate_array("run_id").getInfo()
+    event_ids = events.aggregate_array("event_id").getInfo()
+
+    assert run_ids == _VERIFIED_RUN_TAGS
+    assert event_ids == _VERIFIED_RUN_TAGS
+    assert len({event_id for event_id in event_ids if event_id != -1}) == 3
+
+
+@_REQUIRES_CREDENTIALS
 def test_heatwave_event_detection_is_scoped_per_ward():
     """CLIM-04 / D-04: a 2-day run for W-A and a 3-day run for W-B, interleaved
     in one collection, stay two separate, correctly classified runs. A

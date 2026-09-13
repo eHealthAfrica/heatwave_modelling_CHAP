@@ -183,7 +183,14 @@ def detect_heatwave_events(
     missing ward-days (e.g. one reconstructed from a filtered or inner-joined
     collection) will silently merge or split runs across the gap.
     """
-    min_consecutive_days = min_consecutive_days or settings.climatology.min_consecutive_days
+    # `is not None` (not `or`) so an explicit 0 (meaning "every hot day is
+    # its own qualifying event") is not swallowed by falsiness -- mirrors
+    # the fix already applied to `window_days` in climatology.py.
+    min_consecutive_days = (
+        min_consecutive_days
+        if min_consecutive_days is not None
+        else settings.climatology.min_consecutive_days
+    )
 
     ward_ids = flagged_fc.aggregate_array(ward_id_property).distinct()
 
