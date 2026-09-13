@@ -15,12 +15,12 @@ A correct, complete weekly covariate table (`time_period`, `location`/ward, `hea
 <!-- Shipped and confirmed valuable. -->
 
 - ✓ GCP/Earth Engine auth, ward boundary loading, and ERA5-Land ingestion are correct and fixed — Phase 1 (verified 2026-09-13: 9/9 must-haves, 8/8 live tests passing against the real `heatwave-508110` project, no mocking)
+- ✓ Heat Index/RH math lives in a tested `heatwave/science/heat_index.py` module, no longer inline in the Streamlit script, with the RH output correctly clamped to [0,100] — Phase 2 (verified 2026-09-13: 12/12 must-haves, 15/15 live tests passing including a regression check on Phase 1's suite)
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Relocate Heat Index/RH math into a tested `heatwave/science` module
 - [ ] Implement per-ward climatology baseline + heatwave day/event detection (core new capability, not yet built)
 - [ ] Implement batch export producing the weekly covariate table for all 4,841 wards (the production deliverable)
 - [ ] Rewrite the Streamlit presentation layer to read the precomputed covariate table instead of computing live
@@ -47,6 +47,8 @@ A correct, complete weekly covariate table (`time_period`, `location`/ward, `hea
 4. **Fragile relative-path/import-order dependencies in `heatwave/auth.py`** — `_LOCAL_KEY_FILE = "keys/service_account.json"` is a relative path that only resolves correctly if the process's current working directory is the repo root; the `blessings` module stub-out (`sys.modules.setdefault(...)`) only works if `heatwave.auth` is imported before `geemap`, which is an implicit ordering contract not enforced anywhere.
 
 Phase 1 re-verified and fixed all 4 issues (not a rebuild — a targeted fix-and-test pass); Phase 2+ now builds on top of this validated foundation. One non-blocking residual risk carried forward from Phase 1's code review: the relocated `blessings` stub in `heatwave/__init__.py` is import-order-dependent in principle (though the actual reported bug is fixed and tested end-to-end) — worth a follow-up regression test in a future phase.
+
+**Phase 2 complete (2026-09-13):** RH/Heat-Index math relocated from `nigeria_heat_index.py` into `heatwave/science/heat_index.py`, verbatim except for one scoped fix — the RH output (`100 - 5*(T-D)`) is now clamped to [0,100] (carried forward from Phase 1's WR-01 finding), applied correctly to the single-band expression before `addBands()` (clamping the full multi-band composite would have corrupted the temperature bands — caught during research). Tests use NOAA's official Heat Index reference table as ground truth with `pytest.approx` tolerance, not exact equality. `nigeria_heat_index.py` now imports from the new module with zero formula-logic duplication remaining in the presentation layer.
 
 **Already-provisioned cloud infrastructure** (done, not being re-decided — see Constraints):
 - GCP project `heatwave-508110`, registered for Earth Engine.
@@ -75,9 +77,9 @@ Phase 1 re-verified and fixed all 4 issues (not a rebuild — a targeted fix-and
 |----------|-----------|---------|
 | GCP project `heatwave-508110` / service account `heatwave-pipeline@...` / ward asset `projects/heatwave-508110/assets/shp` / ERA5-Land collection `ECMWF/ERA5_LAND/DAILY_AGGR` | Already provisioned and verified live in a prior session; user explicitly directed these not be re-litigated | ✓ Good — locked, carried forward |
 | Climatology definition: 1991-2020 baseline, 90th percentile, ±5-day pooling, ≥3 consecutive days = event | WMO/ETCCDI percentile-exceedance standard, recorded in `config.yaml` from a prior session | ✓ Good — locked, carried forward |
-| Heat Index formula: NOAA/NWS Rothfusz regression | Standard method, already implemented inline in `nigeria_heat_index.py`; Phase 2 relocates (not rewrites) it | ✓ Good — locked, carried forward |
+| Heat Index formula: NOAA/NWS Rothfusz regression | Standard method, already implemented inline in `nigeria_heat_index.py`; Phase 2 relocates (not rewrites) it | ✓ Good — relocated to `heatwave/science/heat_index.py` (2026-09-13), coefficients verbatim, RH output now clamped |
 | Re-do Phases 0-2 through GSD plan → execute → verify (not treat as already-complete) | Independent codebase audit found 4 concrete issues that must be fixed before this branch supersedes PR #1 | ✓ Good — Phase 1 complete, all 4 fixed and re-verified live (2026-09-13) |
 | Custom HTML/JS dashboard (Leaflet.js + FastAPI) as Streamlit replacement | Feasible but a detour; presentation-layer rewrite phase already covers the real need (precomputed table, less live tile serving) | ⚠️ Revisit only if explicitly asked — not pursuing now |
 
 ---
-*Last updated: 2026-09-13 after Phase 1 (Foundation Rework) completion*
+*Last updated: 2026-09-13 after Phase 2 (Heat Index Relocation) completion*
