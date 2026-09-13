@@ -17,6 +17,21 @@ class ClimatologyConfig:
     pooling_window_days: int
     min_consecutive_days: int
 
+    def __post_init__(self):
+        """Runtime validation (WR-03): dataclass field type annotations are
+        not enforced at runtime, so without this check a malformed
+        config.yaml would load without error and silently propagate
+        nonsensical values into ee.Filter.calendarRange/percentile calls
+        downstream instead of failing fast at startup."""
+        if not (0 < self.percentile < 100):
+            raise ValueError(f"percentile must be in (0, 100), got {self.percentile}")
+        if self.baseline_start_year > self.baseline_end_year:
+            raise ValueError("baseline_start_year must be <= baseline_end_year")
+        if self.pooling_window_days < 0:
+            raise ValueError("pooling_window_days must be >= 0")
+        if self.min_consecutive_days < 1:
+            raise ValueError("min_consecutive_days must be >= 1")
+
 
 @dataclass(frozen=True)
 class Bands:

@@ -76,6 +76,56 @@ def test_zonal_module_exports():
     assert callable(reduce_to_ward_daily)
 
 
+def test_climatology_config_accepts_the_real_config_yaml_values():
+    """WR-03: config.yaml's actual, valid climatology values (percentile 90,
+    baseline 1991-2020, pooling window 5, min_consecutive_days 3) must still
+    construct successfully now that __post_init__ validates them -- pure
+    Python object construction, no EE/credentials required."""
+    from heatwave.config import ClimatologyConfig
+
+    config = ClimatologyConfig(
+        baseline_start_year=1991,
+        baseline_end_year=2020,
+        percentile=90,
+        pooling_window_days=5,
+        min_consecutive_days=3,
+    )
+    assert config.percentile == 90
+
+
+@pytest.mark.parametrize(
+    "overrides",
+    [
+        {"percentile": 150},
+        {"percentile": 0},
+        {"percentile": 100},
+        {"baseline_start_year": 2020, "baseline_end_year": 1991},
+        {"pooling_window_days": -5},
+        {"min_consecutive_days": 0},
+    ],
+)
+def test_climatology_config_rejects_malformed_values(overrides):
+    """WR-03: each of these malformed config.yaml-shaped values (a
+    percentile outside (0, 100), baseline_start_year after
+    baseline_end_year, a negative pooling_window_days, and a
+    min_consecutive_days below 1) must raise ValueError from
+    __post_init__ rather than silently loading -- no credentials required,
+    this is pure Python dataclass construction."""
+    from heatwave.config import ClimatologyConfig
+
+    valid_kwargs = {
+        "baseline_start_year": 1991,
+        "baseline_end_year": 2020,
+        "percentile": 90,
+        "pooling_window_days": 5,
+        "min_consecutive_days": 3,
+    }
+    valid_kwargs.update(overrides)
+
+    with pytest.raises(ValueError):
+        ClimatologyConfig(**valid_kwargs)
+
+
 @_REQUIRES_CREDENTIALS
 def test_zonal_reduction_produces_one_row_per_ward_per_day():
     """CLIM-05: 2 wards x 3 days -> exactly 6 rows, correct ward_id/doy sets."""
