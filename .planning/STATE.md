@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 01-01-PLAN.md
-last_updated: "2026-09-13T09:11:01.466Z"
+stopped_at: Completed 01-02-PLAN.md
+last_updated: "2026-09-13T09:17:20.851Z"
 last_activity: 2026-09-13
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 3
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 ## Current Position
 
 Phase: 1 (Foundation Rework) — EXECUTING
-Plan: 2 of 3
+Plan: 3 of 3
 Status: Ready to execute
 Last activity: 2026-09-13
 
-Progress: [███░░░░░░░] 33%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -53,6 +53,7 @@ Progress: [███░░░░░░░] 33%
 
 *Updated after each plan completion*
 | Phase 01-foundation-rework P01 | 8min | 2 tasks | 3 files |
+| Phase 01-foundation-rework P02 | 6min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -66,6 +67,8 @@ Recent decisions affecting current work:
 - Roadmap creation: Phases 0-2 are being re-done through GSD plan -> execute -> verify (Phase 1 of this roadmap) rather than treated as already-complete, to fix 4 audit-identified issues before this branch supersedes PR #1
 - [Phase 01-01]: D-04 upheld: heatwave/auth.py stays framework-agnostic -- no Streamlit import added, init_ee() remains undecorated
 - [Phase 01-01]: blessings stub relocated from heatwave/auth.py to heatwave/__init__.py so it fires on package import regardless of which submodule is imported first
+- [Phase 01-02]: D-01/D-02/D-03 upheld: load_era5_land() returns a single multi-band ImageCollection, replacing per-band collections + filterDate().first() join; no ee.Join introduced
+- [Phase 01-02]: D-04/D-05 upheld: @st.cache_resource wrapper (_cached_init_ee) confined to nigeria_heat_index.py's app layer; heatwave/auth.py's init_ee() stays undecorated for Phase 4's batch export script
 
 ### Pending Todos
 
@@ -87,6 +90,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T09:11:01.445Z
-Stopped at: Completed 01-01-PLAN.md
+Last session: 2026-09-13T09:17:20.831Z
+Stopped at: Completed 01-02-PLAN.md
 Resume file: None
