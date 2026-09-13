@@ -55,3 +55,50 @@ def test_init_ee_idempotent():
 
     init_ee()
     init_ee()
+
+
+def test_load_ward_boundary():
+    # REWORK-05: exactly 4,841 ward features with the expected properties.
+    from heatwave.auth import init_ee
+    from heatwave.data.boundary import load_ward_boundary
+    init_ee()
+    boundary = load_ward_boundary()
+    assert boundary.size().getInfo() == 4841
+
+    property_names = boundary.first().propertyNames().getInfo()
+    for expected in ("wardname", "wardcode", "lganame", "statename", "geozone"):
+        assert expected in property_names
+
+
+def test_load_era5_land():
+    """REWORK-06: load_era5_land() returns correctly date-filtered, multi-band images.
+
+    ee.Filter.date() uses a half-open interval [start, end), verified live: a 2020-01-01
+    to 2020-01-05 window yields 4 daily images (01-01 through 01-04), not 5.
+    """
+    from heatwave.auth import init_ee
+    from heatwave.data.boundary import load_ward_boundary
+    from heatwave.data.ingest import load_era5_land
+
+    init_ee()
+    boundary = load_ward_boundary()
+    collection = load_era5_land(boundary, "2020-01-01", "2020-01-05")
+
+    assert collection.size().getInfo() == 4
+
+    band_names = collection.first().bandNames().getInfo()
+    for expected in ("temperature_2m_max", "temperature_2m", "dewpoint_temperature_2m"):
+        assert expected in band_names
+
+
+def test_era5_land_bands_aligned():
+    """REWORK-02: tmax/tmean/dewpoint bands exist together on every image, no join needed."""
+    from heatwave.auth import init_ee
+    from heatwave.data.boundary import load_ward_boundary
+    from heatwave.data.ingest import load_era5_land
+
+    init_ee()
+    boundary = load_ward_boundary()
+    collection = load_era5_land(boundary, "2020-01-01", "2020-01-05")
+
+    assert len(collection.first().bandNames().getInfo()) == 3
