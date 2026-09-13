@@ -396,19 +396,21 @@ All examples below were executed live against the real `heatwave-508110` Earth E
 
 **If this table is empty:** N/A — see entries above. All core algorithmic claims (percentile behavior, wraparound, join, iterate, zonal null pitfall) were independently verified live against the real EE project this session, not merely cited or assumed.
 
-## Open Questions
+## Open Questions (DEFERRED TO PHASE 4)
 
-1. **Does `.iterate()`-based run detection scale to the full ~10,950-day, 4,841-ward Phase 4 workload?**
+All three questions below are out of Phase 3's scope by decision, not unresolved design gaps: D-03 scopes this phase to small-sample algorithmic correctness (deferring full-scale `.iterate()` behaviour and any real-ward-geometry inspection to Phase 4's `scripts/run_batch_export.py` research), and D-04 requires only that the shipped functions be ward-count-agnostic, not that they be benchmarked at 4,841-ward scale here. Each is already carried into the plans as a documented code comment or an accepted threat (T-03-11, T-03-17, T-03-18), so Phase 3 may be marked complete with these open.
+
+1. **[Deferred to Phase 4 per D-03] Does `.iterate()`-based run detection scale to the full ~10,950-day, 4,841-ward Phase 4 workload?**
    - What we know: Verified correct and fast (≤2s) up to 3,650 synthetic elements (~10 years) for one ward.
    - What's unclear: Behavior at ~10,950 elements × 4,841 wards (Phase 4 scale) — untested this session, and no hard EE documented limit was found to reason about analytically.
    - Recommendation: Phase 3 should proceed with `.iterate()` (D-03 explicitly scopes this phase to small-scale correctness). Phase 4's research/planning should include a dedicated benchmark of the run-detection step at or near full scale before committing to the batch export architecture.
 
-2. **How should Phase 4 handle wards whose zonal reduction returns no value (Pitfall 4)?**
+2. **[Deferred to Phase 4 per D-03/D-04] How should Phase 4 handle wards whose zonal reduction returns no value (Pitfall 4)?**
    - What we know: `reduceRegions` silently omits the output property (not null — absent) for polygons below EE's ~0.4%-pixel-weight inclusion threshold.
    - What's unclear: Whether any of the real 4,841 Nigerian wards are actually this small (would require inspecting the real ward-asset geometries, out of Phase 3's scope per D-03).
    - Recommendation: Phase 3's own tests should use adequately-sized synthetic wards (≥1km) to avoid this failure mode masking algorithm bugs. Flag explicitly for Phase 4 research to check the real ward asset's minimum polygon area against the ~354m×354m threshold.
 
-3. **Exact EE percentile interpolation rule (Pitfall 3 / A3)** — undocumented; workaround (live-verify expected test values, avoid numpy oracle) is sufficient for Phase 3's correctness goal but is a standing minor gap in understanding, not a blocker.
+3. **[Deferred — not a Phase 3 blocker, per D-02] Exact EE percentile interpolation rule (Pitfall 3 / A3)** — undocumented; workaround (live-verify expected test values, avoid numpy oracle) is sufficient for Phase 3's correctness goal but is a standing minor gap in understanding, not a blocker.
 
 ## Environment Availability
 
