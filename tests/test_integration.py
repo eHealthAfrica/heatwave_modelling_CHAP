@@ -102,3 +102,14 @@ def test_era5_land_bands_aligned():
     collection = load_era5_land(boundary, "2020-01-01", "2020-01-05")
 
     assert len(collection.first().bandNames().getInfo()) == 3
+
+
+def test_streamlit_app_boots_cleanly():
+    """REWORK-08: streamlit run nigeria_heat_index.py boots without raising an exception."""
+    from streamlit.testing.v1 import AppTest
+
+    script = Path(__file__).resolve().parent.parent / "nigeria_heat_index.py"
+    at = AppTest.from_file(str(script), default_timeout=30)
+    at.run()
+
+    assert not at.exception, f"App raised: {at.exception}"
