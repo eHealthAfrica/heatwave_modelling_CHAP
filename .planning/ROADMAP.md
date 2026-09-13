@@ -41,7 +41,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 Plans:
 **Wave 1**
 
-- [ ] 01-01-PLAN.md — Path-anchor service-account key file, relocate blessings stub, remove ee==0.2 (REWORK-03, REWORK-04)
+- [x] 01-01-PLAN.md — Path-anchor service-account key file, relocate blessings stub, remove ee==0.2 (REWORK-03, REWORK-04)
 - [ ] 01-02-PLAN.md — Restructure ERA5-Land ingest to single multi-band collection; fix nigeria_heat_index.py join/caching/import-order (REWORK-01, REWORK-02, REWORK-04, REWORK-06, REWORK-08)
 
 **Wave 2** *(blocked on Wave 1 completion)*
@@ -135,7 +135,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Rework | 0/3 | Not started | - |
+| 1. Foundation Rework | 1/3 | In Progress|  |
 | 2. Heat Index Relocation | 0/TBD | Not started | - |
 | 3. Climatology & Heatwave Detection | 0/TBD | Not started | - |
 | 4. Batch Export & Covariate Table | 0/TBD | Not started | - |

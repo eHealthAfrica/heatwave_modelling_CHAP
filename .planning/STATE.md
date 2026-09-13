@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 1 context gathered
-last_updated: "2026-09-13T09:00:59.958Z"
-last_activity: 2026-09-13 -- Phase 1 execution started
+stopped_at: Completed 01-01-PLAN.md
+last_updated: "2026-09-13T09:11:01.466Z"
+last_activity: 2026-09-13
 progress:
   total_phases: 7
   completed_phases: 0
   total_plans: 3
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 ## Current Position
 
 Phase: 1 (Foundation Rework) — EXECUTING
-Plan: 1 of 3
-Status: Executing Phase 1
-Last activity: 2026-09-13 -- Phase 1 execution started
+Plan: 2 of 3
+Status: Ready to execute
+Last activity: 2026-09-13
 
-Progress: [░░░░░░░░░░] 0%
+Progress: [███░░░░░░░] 33%
 
 ## Performance Metrics
 
@@ -52,6 +52,7 @@ Progress: [░░░░░░░░░░] 0%
 - Trend: -
 
 *Updated after each plan completion*
+| Phase 01-foundation-rework P01 | 8min | 2 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -63,6 +64,8 @@ Recent decisions affecting current work:
 - Pre-roadmap: Cloud infra (GCP project `heatwave-508110`, service account, ward asset, ERA5-Land collection) locked and carried forward, not re-litigated
 - Pre-roadmap: Climatology parameters (1991-2020 baseline, 90th percentile, ±5-day pooling, ≥3-day events) locked and carried forward
 - Roadmap creation: Phases 0-2 are being re-done through GSD plan -> execute -> verify (Phase 1 of this roadmap) rather than treated as already-complete, to fix 4 audit-identified issues before this branch supersedes PR #1
+- [Phase 01-01]: D-04 upheld: heatwave/auth.py stays framework-agnostic -- no Streamlit import added, init_ee() remains undecorated
+- [Phase 01-01]: blessings stub relocated from heatwave/auth.py to heatwave/__init__.py so it fires on package import regardless of which submodule is imported first
 
 ### Pending Todos
 
@@ -84,6 +87,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-11T14:34:39.202Z
-Stopped at: Phase 1 context gathered
-Resume file: .planning/phases/01-foundation-rework/01-CONTEXT.md
+Last session: 2026-09-13T09:11:01.445Z
+Stopped at: Completed 01-01-PLAN.md
+Resume file: None

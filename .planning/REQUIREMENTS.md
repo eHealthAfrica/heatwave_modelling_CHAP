@@ -11,8 +11,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 - [ ] **REWORK-01**: Earth Engine initialization is cached (`st.cache_resource` or equivalent) so Streamlit reruns/interactions do not trigger repeated re-authentication/re-initialization
 - [ ] **REWORK-02**: Relative-humidity computation matches each tmean image to its corresponding dewpoint image via a robust, verifiable date-matching method (not a fragile per-image `filterDate().first()` call with silent-null risk)
-- [ ] **REWORK-03**: `requirements.txt` has the unused `ee==0.2` PyPI package removed, keeping only `earthengine-api`
-- [ ] **REWORK-04**: `heatwave/auth.py` resolves the local service-account key path correctly regardless of the caller's working directory, and the `blessings` stub-out works regardless of import order
+- [x] **REWORK-03**: `requirements.txt` has the unused `ee==0.2` PyPI package removed, keeping only `earthengine-api`
+- [x] **REWORK-04**: `heatwave/auth.py` resolves the local service-account key path correctly regardless of the caller's working directory, and the `blessings` stub-out works regardless of import order
 - [ ] **REWORK-05**: `heatwave.data.boundary.load_ward_boundary()` is re-verified to return all 4,841 ward features with correct properties (`wardname`, `wardcode`, `lganame`, `statename`, `geozone`) against the live `heatwave-508110` project
 - [ ] **REWORK-06**: `heatwave.data.ingest.load_era5_land()` is re-verified to return correctly date-filtered, boundary-clipped `tmax`/`tmean`/`dewpoint` bands for a sample date range
 - [ ] **REWORK-07**: `heatwave.config.settings` is verified/tested to load `config.yaml` correctly into the typed `Settings` dataclass
@@ -83,8 +83,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 |-------------|-------|--------|
 | REWORK-01 | Phase 1 | Pending |
 | REWORK-02 | Phase 1 | Pending |
-| REWORK-03 | Phase 1 | Pending |
-| REWORK-04 | Phase 1 | Pending |
+| REWORK-03 | Phase 1 | Complete |
+| REWORK-04 | Phase 1 | Complete |
 | REWORK-05 | Phase 1 | Pending |
 | REWORK-06 | Phase 1 | Pending |
 | REWORK-07 | Phase 1 | Pending |
