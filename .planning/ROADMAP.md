@@ -7,6 +7,7 @@ The journey starts by fixing four concrete, audit-identified issues in the alrea
 ## Phases
 
 **Phase Numbering:**
+
 - Integer phases (1, 2, 3): Planned milestone work
 - Decimal phases (2.1, 2.2): Urgent insertions (marked with INSERTED)
 
@@ -23,82 +24,108 @@ Decimal phases appear between their surrounding integers in numeric order.
 ## Phase Details
 
 ### Phase 1: Foundation Rework
+
 **Goal**: The existing GCP/EE auth, ward boundary loading, and ERA5-Land ingestion are verified correct and the 4 known issues found by an independent codebase audit are fixed, so the codebase is safe to push and supersede PR #1.
 **Depends on**: Nothing (first phase; re-verifies/fixes already-built Phases 0-2 code)
 **Requirements**: REWORK-01, REWORK-02, REWORK-03, REWORK-04, REWORK-05, REWORK-06, REWORK-07, REWORK-08
 **Success Criteria** (what must be TRUE):
+
   1. Streamlit app reruns (e.g., a slider interaction) do not trigger repeated Earth Engine re-authentication/re-initialization — `init_ee()` is cached
   2. Relative-humidity computation correctly matches each tmean image to its corresponding dewpoint image by date via a robust method, with no silent fallback to unmatched/null values
   3. `requirements.txt` contains no unused/conflicting EE package (`ee==0.2` removed, `earthengine-api` retained)
   4. `heatwave/auth.py` resolves the local service-account key path and the `blessings` stub reliably regardless of the caller's working directory or import order
   5. `heatwave.auth.init_ee()`, `heatwave.data.boundary.load_ward_boundary()` (4,841 wards), and `heatwave.data.ingest.load_era5_land()` are re-verified against the live `heatwave-508110` project, and `streamlit run nigeria_heat_index.py` boots with HTTP 200 and no stderr
+
 **Plans**: 3 plans
 
 Plans:
+**Wave 1**
+
 - [ ] 01-01-PLAN.md — Path-anchor service-account key file, relocate blessings stub, remove ee==0.2 (REWORK-03, REWORK-04)
 - [ ] 01-02-PLAN.md — Restructure ERA5-Land ingest to single multi-band collection; fix nigeria_heat_index.py join/caching/import-order (REWORK-01, REWORK-02, REWORK-04, REWORK-06, REWORK-08)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
 - [ ] 01-03-PLAN.md — Live integration test suite covering all 8 REWORK requirements (REWORK-01..08)
 
 ### Phase 2: Heat Index Relocation
+
 **Goal**: RH/Heat Index math lives in a tested, reusable module rather than being inline in the Streamlit script.
 **Depends on**: Phase 1
 **Requirements**: HIDX-01, HIDX-02, HIDX-03
 **Success Criteria** (what must be TRUE):
+
   1. `heatwave/science/heat_index.py` exports the RH and Heat Index computation functions, relocated (not rewritten) from `nigeria_heat_index.py`
   2. `tests/test_heat_index.py` verifies the Rothfusz Heat Index formula against known input/output values
   3. `nigeria_heat_index.py` imports and uses `heatwave.science.heat_index` instead of inline definitions, and still boots cleanly
+
 **Plans**: TBD
 
 ### Phase 3: Climatology & Heatwave Detection
+
 **Goal**: Each ward has a per-ward climatological heatwave threshold, and heatwave days/events are correctly flagged against it — the pipeline's core new scientific capability.
 **Depends on**: Phase 2
 **Requirements**: CLIM-01, CLIM-02, CLIM-03, CLIM-04, CLIM-05, CLIM-06
 **Success Criteria** (what must be TRUE):
+
   1. For any ward, a 90th-percentile calendar-day climatology baseline is computed from 1991-2020 Heat Index data, with a ±5-day pooling window
   2. Each day in a given date range is correctly flagged as a heatwave day when its Heat Index exceeds the ward's climatological threshold for that calendar day
   3. Consecutive heatwave days are correctly grouped into events, with only runs of ≥3 consecutive days counted as heatwave events
   4. Gridded ERA5-Land Heat Index values are correctly reduced to per-ward daily statistics via zonal reduction
   5. `tests/test_heatwave_detection.py` validates climatology computation and day/event detection against synthetic/known test cases
+
 **Plans**: TBD
 
 ### Phase 4: Batch Export & Covariate Table
+
 **Goal**: The weekly ward-level covariate table can be generated end-to-end for all 4,841 wards and handed off to CHAP — the production deliverable.
 **Depends on**: Phase 3
 **Requirements**: EXPORT-01, EXPORT-02, EXPORT-03, EXPORT-04
 **Success Criteria** (what must be TRUE):
+
   1. `scripts/run_batch_export.py` runs the full ingest -> heat-index -> climatology -> detection pipeline across all 4,841 wards for a configurable date range
   2. The generated covariate table matches the target schema exactly: `time_period` (ISO week), `location` (ward ID), `heatwave_days`, `mean_heat_index`, `max_heat_index`, `heatwave_event_count`
   3. Running the pipeline end-to-end for a full sample period produces a complete table (no missing wards, no null aggregates) ready for CHAP handoff
   4. `tests/test_export.py` verifies covariate table schema and aggregation correctness
+
 **Plans**: TBD
 
 ### Phase 5: Presentation Layer Rewrite
+
 **Goal**: The dev/QA visualization tool reads the precomputed covariate table instead of recomputing Heat Index live for every interaction.
 **Depends on**: Phase 4
 **Requirements**: APP-01, APP-02, APP-03
 **Success Criteria** (what must be TRUE):
+
   1. `heatwave/app/streamlit_app.py` loads and displays data from the precomputed covariate table rather than live per-date Earth Engine computation
   2. `nigeria_heat_index.py` is retired (removed or replaced) now that its logic lives in `heatwave/science/` and the new app module
   3. The rewritten app boots cleanly (HTTP 200, no stderr) and lets a user browse ward-level heatwave metrics (heatwave days, heat index, event counts) by week
+
 **Plans**: TBD
 **UI hint**: yes
 
 ### Phase 6: Documentation
+
 **Goal**: The pipeline's methodology and usage are documented well enough for a new contributor (or the user's future self) to understand and run it.
 **Depends on**: Phase 5
 **Requirements**: DOC-01, DOC-02
 **Success Criteria** (what must be TRUE):
+
   1. `docs/METHODOLOGY.md` documents the heatwave detection methodology (WMO/ETCCDI percentile-exceedance, NOAA/NWS Rothfusz Heat Index) and the covariate table schema
   2. `README.md` accurately describes the current architecture (`heatwave/` package, `scripts/`, `config.yaml`), setup steps, and how to run the batch export and the Streamlit viewer
+
 **Plans**: TBD
 
 ### Phase 7: Polish (Optional)
+
 **Goal**: Remaining config edge cases are covered and a CI safety net exists, at the user's discretion — a stretch goal, not required for v1 completion.
 **Depends on**: Phase 6
 **Requirements**: POLISH-01, POLISH-02
 **Success Criteria** (what must be TRUE):
+
   1. `tests/test_config.py` covers config-loading edge cases (missing keys, malformed YAML)
   2. (Optional) a CI workflow runs the test suite automatically on push
+
 **Plans**: TBD
 
 ## Progress
