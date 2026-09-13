@@ -1,15 +1,21 @@
 import streamlit as st
 import ee
+from heatwave.auth import init_ee  # triggers heatwave package's blessings stub before geemap loads
 import geemap.foliumap as geemap  # Folium backend for Streamlit
 from branca.element import Template, MacroElement
 
-from heatwave.auth import init_ee
 from heatwave.config import settings
 from heatwave.data.boundary import load_ward_boundary
 from heatwave.data.ingest import load_era5_land
 
+
+@st.cache_resource
+def _cached_init_ee() -> None:
+    init_ee()
+
+
 # Initialize Earth Engine (credential source resolved by heatwave.auth)
-init_ee()
+_cached_init_ee()
 
 # =======================
 # STEP 2: Define boundary & dates
@@ -22,22 +28,20 @@ endDate = settings.end_date
 # STEP 3: Load datasets
 # =======================
 era5_land = load_era5_land(boundary, startDate, endDate)
-era5_2mt = era5_land.tmean
-era5_2d = era5_land.dewpoint
 
 # Compute Relative Humidity
-def compute_relative_humidity(tempImage):
-    tempDate = tempImage.date()
-    dewpointImage = era5_2d.filterDate(tempDate, tempDate.advance(1, 'day')).first()
+def compute_relative_humidity(image):
+    T = image.select(settings.bands.tmean)
+    D = image.select(settings.bands.dewpoint)
 
-    rh = ee.Image(dewpointImage).expression(
+    rh = image.expression(
         '100 - 5 * (T - D)',
-        {'T': tempImage, 'D': ee.Image(dewpointImage)}
+        {'T': T, 'D': D}
     ).rename('relative_humidity')
 
-    return tempImage.addBands(rh.set('system:time_start', tempImage.get('system:time_start')))
+    return image.addBands(rh)
 
-relativeHumidity = era5_2mt.map(compute_relative_humidity)
+relativeHumidity = era5_land.map(compute_relative_humidity)
 
 # Compute Heat Index
 def compute_heat_index(image):
