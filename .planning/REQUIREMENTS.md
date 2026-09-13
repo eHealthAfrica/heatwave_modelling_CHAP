@@ -30,8 +30,8 @@ Requirements for initial release. Each maps to roadmap phases.
 - [ ] **CLIM-02**: The climatology baseline applies a ±5-day pooling window around each calendar day
 - [ ] **CLIM-03**: Each day in a given date range is flagged as a heatwave day when its Heat Index exceeds the ward's 90th-percentile climatological threshold for that calendar day
 - [ ] **CLIM-04**: Consecutive heatwave days are grouped into events; only runs of ≥3 consecutive days count as a heatwave event
-- [ ] **CLIM-05**: Gridded ERA5-Land Heat Index values are correctly reduced to per-ward daily statistics via zonal reduction (`heatwave/zonal.py`)
-- [ ] **CLIM-06**: `tests/test_heatwave_detection.py` validates climatology computation and day/event detection against synthetic/known test cases
+- [x] **CLIM-05**: Gridded ERA5-Land Heat Index values are correctly reduced to per-ward daily statistics via zonal reduction (`heatwave/zonal.py`)
+- [x] **CLIM-06**: `tests/test_heatwave_detection.py` validates climatology computation and day/event detection against synthetic/known test cases
 
 ### Batch Export & Covariate Table (production deliverable)
 
@@ -96,8 +96,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLIM-02 | Phase 3 | Pending |
 | CLIM-03 | Phase 3 | Pending |
 | CLIM-04 | Phase 3 | Pending |
-| CLIM-05 | Phase 3 | Pending |
-| CLIM-06 | Phase 3 | Pending |
+| CLIM-05 | Phase 3 | Complete |
+| CLIM-06 | Phase 3 | Complete |
 | EXPORT-01 | Phase 4 | Pending |
 | EXPORT-02 | Phase 4 | Pending |
 | EXPORT-03 | Phase 4 | Pending |

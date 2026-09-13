@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 3 context gathered
-last_updated: "2026-09-13T14:23:44.287Z"
-last_activity: 2026-09-13 -- Phase 3 execution started
+stopped_at: Completed 03-01-PLAN.md
+last_updated: "2026-09-13T14:34:28.590Z"
+last_activity: 2026-09-13
 progress:
   total_phases: 7
   completed_phases: 2
   total_plans: 9
-  completed_plans: 5
+  completed_plans: 6
   percent: 29
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 ## Current Position
 
 Phase: 3 (Climatology & Heatwave Detection) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 3
-Last activity: 2026-09-13 -- Phase 3 execution started
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-09-13
 
-Progress: [██████████] 100%
+Progress: [███████░░░] 67%
 
 ## Performance Metrics
 
@@ -58,6 +58,7 @@ Progress: [██████████] 100%
 | Phase 01-foundation-rework P03 | 16min | 3 tasks | 2 files |
 | Phase 02-heat-index-relocation P01 | 7min | 2 tasks | 3 files |
 | Phase 02-heat-index-relocation P02 | 5min | 2 tasks | 1 files |
+| Phase 03-climatology-heatwave-detection P01 | 12min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -80,6 +81,7 @@ Recent decisions affecting current work:
 - [Phase 02-01]: tempC->tempK identifier rename applied (IN-01) per Task 2's explicit instruction; touched zero arithmetic
 - [Phase 02-01]: Credential gate applied per-test via a named _REQUIRES_CREDENTIALS decorator rather than module-level pytestmark, so the HIDX-01 export test runs without live GCP credentials
 - [Phase 02-02]: nigeria_heat_index.py imports compute_relative_humidity/compute_heat_index from heatwave.science.heat_index; dead branca import removed; heatwave.auth import-order constraint preserved above geemap
+- [Phase 03-01]: reduce_to_ward_daily() row schema (ward_id, value, doy, system:time_start) established as the fixed contract for 03-02/03-03/Phase 4; absent reduceRegions 'mean' normalised to explicit null value, never dropped or coalesced to 0
 
 ### Pending Todos
 
@@ -101,6 +103,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T13:14:57.660Z
-Stopped at: Phase 3 context gathered
-Resume file: .planning/phases/03-climatology-heatwave-detection/03-CONTEXT.md
+Last session: 2026-09-13T14:34:28.573Z
+Stopped at: Completed 03-01-PLAN.md
+Resume file: None
