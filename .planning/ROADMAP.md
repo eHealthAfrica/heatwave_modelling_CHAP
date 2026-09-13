@@ -83,7 +83,24 @@ Plans:
   4. Gridded ERA5-Land Heat Index values are correctly reduced to per-ward daily statistics via zonal reduction
   5. `tests/test_heatwave_detection.py` validates climatology computation and day/event detection against synthetic/known test cases
 
-**Plans**: TBD
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 03-01-PLAN.md — Zonal reduction: gridded Heat Index to per-ward-daily FeatureCollection, plus the CLIM-06 test file scaffold (CLIM-05, CLIM-06)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 03-02-PLAN.md — Wraparound-safe pooling window and per-ward, per-calendar-day percentile thresholds (CLIM-01, CLIM-02, CLIM-06)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 03-03-PLAN.md — Threshold join, heatwave-day flagging, and consecutive-run event detection (CLIM-03, CLIM-04, CLIM-06)
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 03-04-PLAN.md — End-to-end pipeline composition test plus a real ERA5-Land / real ward-asset smoke test (CLIM-01..CLIM-06)
 
 ### Phase 4: Batch Export & Covariate Table
 
@@ -146,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation Rework | 3/3 | Complete    | 2026-09-13 |
 | 2. Heat Index Relocation | 2/2 | Complete    | 2026-09-13 |
-| 3. Climatology & Heatwave Detection | 0/TBD | Not started | - |
+| 3. Climatology & Heatwave Detection | 0/4 | Planned     | - |
 | 4. Batch Export & Covariate Table | 0/TBD | Not started | - |
 | 5. Presentation Layer Rewrite | 0/TBD | Not started | - |
 | 6. Documentation | 0/TBD | Not started | - |
