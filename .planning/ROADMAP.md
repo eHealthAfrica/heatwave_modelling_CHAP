@@ -59,7 +59,16 @@ Plans:
   2. `tests/test_heat_index.py` verifies the Rothfusz Heat Index formula against known input/output values
   3. `nigeria_heat_index.py` imports and uses `heatwave.science.heat_index` instead of inline definitions, and still boots cleanly
 
-**Plans**: TBD
+**Plans**: 2 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 02-01-PLAN.md — Test-first NOAA-table suite, then relocate RH/Heat-Index math into `heatwave/science/heat_index.py` with the D-01 clamp (HIDX-01, HIDX-02)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 02-02-PLAN.md — Point `nigeria_heat_index.py` at the science module, delete inline defs, full-suite + AppTest boot regression gate (HIDX-03)
 
 ### Phase 3: Climatology & Heatwave Detection
 
@@ -136,7 +145,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
 | 1. Foundation Rework | 3/3 | Complete    | 2026-09-13 |
-| 2. Heat Index Relocation | 0/TBD | Not started | - |
+| 2. Heat Index Relocation | 0/2 | Planned | - |
 | 3. Climatology & Heatwave Detection | 0/TBD | Not started | - |
 | 4. Batch Export & Covariate Table | 0/TBD | Not started | - |
 | 5. Presentation Layer Rewrite | 0/TBD | Not started | - |

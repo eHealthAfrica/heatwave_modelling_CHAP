@@ -1,10 +1,11 @@
 ---
 phase: 2
 slug: heat-index-relocation
-status: draft
-nyquist_compliant: false
+status: planned
+nyquist_compliant: true
 wave_0_complete: false
 created: 2026-09-13
+updated: 2026-09-13
 ---
 
 # Phase 2 — Validation Strategy
@@ -38,11 +39,10 @@ created: 2026-09-13
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 02-01-TBD | TBD | 0 | HIDX-01 | — | N/A | unit (import-level) | `pytest tests/test_heat_index.py -k import -x` | ❌ W0 | ⬜ pending |
-| 02-01-TBD | TBD | 0 | HIDX-02 | — | N/A | live-EE, skip-gated | `pytest tests/test_heat_index.py -v` | ❌ W0 | ⬜ pending |
-| 02-01-TBD | TBD | 0 | HIDX-03 | — | N/A | smoke (AppTest, in-process, regression) | `pytest tests/test_integration.py::test_streamlit_app_boots_cleanly -v` | ✅ existing | ⬜ pending |
-
-*Task IDs are placeholders (TBD) — the planner fills in real plan/task IDs when PLAN.md files are created.*
+| 02-01-T1 | 02-01 | 1 | HIDX-02 | T-02-01, T-02-02 | RH clamp boundaries encoded as executable assertions before implementation exists | unit/live-EE (RED gate) | `.venv/Scripts/python -m pytest tests/test_heat_index.py -v` (expect ModuleNotFoundError) | ❌ created by this task | ⬜ pending |
+| 02-01-T2 | 02-01 | 1 | HIDX-01, HIDX-02 | T-02-01, T-02-02 | `.clamp(0, 100)` applied to single-band RH result, never the multi-band composite | unit/live-EE (GREEN gate) | `.venv/Scripts/python -m pytest tests/test_heat_index.py -v` | ❌ created by 02-01-T1 | ⬜ pending |
+| 02-02-T1 | 02-02 | 2 | HIDX-03 | T-02-06 | No divergent duplicate of the formulas left in the presentation layer | smoke (AppTest, in-process, regression) | `.venv/Scripts/python -m pytest tests/test_integration.py::test_streamlit_app_boots_cleanly -v` | ✅ existing | ⬜ pending |
+| 02-02-T2 | 02-02 | 2 | HIDX-01, HIDX-02, HIDX-03 | T-02-06, T-02-07 | NOAA-table values unchanged after the call-site relocation (D-02) | full suite (phase gate) | `.venv/Scripts/python -m pytest -v` | ✅ after 02-01 | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
@@ -50,9 +50,12 @@ created: 2026-09-13
 
 ## Wave 0 Requirements
 
-- [ ] `tests/test_heat_index.py` — new file, covers HIDX-02 (and optionally direct RH-clamp boundary coverage per Research Open Question 1)
-- [ ] `heatwave/science/__init__.py` — new empty package file, required for `heatwave/science/heat_index.py` to be importable
-- [ ] Framework install: none needed — pytest already present
+Wave 0 is absorbed into plan 02-01 rather than run as a separate wave — the missing test file is the
+first task of that plan (test-first), and the missing package marker is the second.
+
+- [ ] `tests/test_heat_index.py` — created by 02-01-T1; covers HIDX-02 (3 NOAA table cases) plus direct D-01 clamp-boundary and source-band-integrity coverage
+- [ ] `heatwave/science/__init__.py` — created by 02-01-T2; zero-byte package marker required for `heatwave.science.heat_index` to be importable
+- [ ] Framework install: none needed — pytest 8.4.1 already present
 
 ---
 
@@ -64,11 +67,11 @@ created: 2026-09-13
 
 ## Validation Sign-Off
 
-- [ ] All tasks have `<automated>` verify or Wave 0 dependencies
-- [ ] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
-- [ ] No watch-mode flags
-- [ ] Feedback latency < 30s
-- [ ] `nyquist_compliant: true` set in frontmatter
+- [x] All tasks have `<automated>` verify or Wave 0 dependencies
+- [x] Sampling continuity: no 3 consecutive tasks without automated verify
+- [x] Wave 0 covers all MISSING references (absorbed into 02-01 tasks 1 and 2)
+- [x] No watch-mode flags
+- [x] Feedback latency < 30s
+- [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** approved at planning (2026-09-13)
