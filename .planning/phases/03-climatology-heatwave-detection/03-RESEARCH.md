@@ -396,7 +396,7 @@ All examples below were executed live against the real `heatwave-508110` Earth E
 
 **If this table is empty:** N/A — see entries above. All core algorithmic claims (percentile behavior, wraparound, join, iterate, zonal null pitfall) were independently verified live against the real EE project this session, not merely cited or assumed.
 
-## Open Questions (DEFERRED TO PHASE 4)
+## Open Questions (RESOLVED — deferred to Phase 4 per D-03/D-04)
 
 All three questions below are out of Phase 3's scope by decision, not unresolved design gaps: D-03 scopes this phase to small-sample algorithmic correctness (deferring full-scale `.iterate()` behaviour and any real-ward-geometry inspection to Phase 4's `scripts/run_batch_export.py` research), and D-04 requires only that the shipped functions be ward-count-agnostic, not that they be benchmarked at 4,841-ward scale here. Each is already carried into the plans as a documented code comment or an accepted threat (T-03-11, T-03-17, T-03-18), so Phase 3 may be marked complete with these open.
 
