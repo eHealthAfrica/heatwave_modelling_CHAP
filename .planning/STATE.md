@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: Completed 03-03-PLAN.md
-last_updated: "2026-09-13T15:07:54.329Z"
+status: verifying
+stopped_at: Completed 03-04-PLAN.md
+last_updated: "2026-09-13T15:28:16.460Z"
 last_activity: 2026-09-13
 progress:
   total_phases: 7
-  completed_phases: 2
+  completed_phases: 3
   total_plans: 9
-  completed_plans: 8
-  percent: 29
+  completed_plans: 9
+  percent: 43
 ---
 
 # Project State
@@ -27,10 +27,10 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 
 Phase: 3 (Climatology & Heatwave Detection) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Phase complete — ready for verification
 Last activity: 2026-09-13
 
-Progress: [█████████░] 89%
+Progress: [██████████] 100%
 
 ## Performance Metrics
 
@@ -61,6 +61,7 @@ Progress: [█████████░] 89%
 | Phase 03-climatology-heatwave-detection P01 | 12min | 2 tasks | 2 files |
 | Phase 03-climatology-heatwave-detection P02 | 10min | 2 tasks | 2 files |
 | Phase 03-climatology-heatwave-detection P03 | 18min | 2 tasks | 2 files |
+| Phase 03-climatology-heatwave-detection P04 | 35min | 2 tasks | 1 files |
 
 ## Accumulated Context
 
@@ -86,6 +87,8 @@ Recent decisions affecting current work:
 - [Phase 03-01]: reduce_to_ward_daily() row schema (ward_id, value, doy, system:time_start) established as the fixed contract for 03-02/03-03/Phase 4; absent reduceRegions 'mean' normalised to explicit null value, never dropped or coalesced to 0
 - [Phase 03-02]: Reworded three climatology.py docstring/comment lines (literal 90/1991/2020 mentions, ee.Filter.Or, duplicated groupField=1) to satisfy no-hardcoded-literal acceptance greps without changing behavior
 - [Phase 03-03]: flag_heatwave_days/tag_consecutive_runs/detect_heatwave_events shipped exactly per interface; ee.List.frequency() verified live for run-length checks instead of the documented frequencyHistogram fallback
+- [Phase 03-04]: Applied the plan's documented two-graph runtime fallback for the composed end-to-end test (materialise reduce_to_ward_daily's output once, rebuild via _make_ward_daily_fc) after the single-graph form measured 65.81s against the 30s budget; re-measured at 16.09s
+- [Phase 03-04]: CLIM-06 closed: composed end-to-end pipeline test plus real ERA5-Land + real ward asset zonal smoke test both live and passing; full Phase 1-3 suite (39 tests) green with credentials, credential-absent skip path verified clean
 
 ### Pending Todos
 
@@ -107,6 +110,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-13T15:07:54.311Z
-Stopped at: Completed 03-03-PLAN.md
+Last session: 2026-09-13T15:28:16.447Z
+Stopped at: Completed 03-04-PLAN.md
 Resume file: None

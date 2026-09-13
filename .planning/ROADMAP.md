@@ -15,7 +15,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 
 - [x] **Phase 1: Foundation Rework** - Fix 4 audit-identified issues in the existing GCP/EE auth, boundary, and ingest code before this branch supersedes PR #1 (completed 2026-09-13)
 - [x] **Phase 2: Heat Index Relocation** - Move RH/Heat-Index math out of the Streamlit script into a tested module (completed 2026-09-13)
-- [ ] **Phase 3: Climatology & Heatwave Detection** - Per-ward 90th-percentile climatology and heatwave day/event flagging (core new capability)
+- [x] **Phase 3: Climatology & Heatwave Detection** - Per-ward 90th-percentile climatology and heatwave day/event flagging (core new capability) (completed 2026-09-13)
 - [ ] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable)
 - [ ] **Phase 5: Presentation Layer Rewrite** - Streamlit app reads the precomputed covariate table instead of computing live
 - [ ] **Phase 6: Documentation** - Methodology doc and rewritten README
@@ -100,7 +100,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 03-04-PLAN.md — End-to-end pipeline composition test plus a real ERA5-Land / real ward-asset smoke test (CLIM-01..CLIM-06)
+- [x] 03-04-PLAN.md — End-to-end pipeline composition test plus a real ERA5-Land / real ward-asset smoke test (CLIM-01..CLIM-06)
 
 ### Phase 4: Batch Export & Covariate Table
 
@@ -163,7 +163,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 |-------|----------------|--------|-----------|
 | 1. Foundation Rework | 3/3 | Complete    | 2026-09-13 |
 | 2. Heat Index Relocation | 2/2 | Complete    | 2026-09-13 |
-| 3. Climatology & Heatwave Detection | 3/4 | In Progress|  |
+| 3. Climatology & Heatwave Detection | 4/4 | Complete   | 2026-09-13 |
 | 4. Batch Export & Covariate Table | 0/TBD | Not started | - |
 | 5. Presentation Layer Rewrite | 0/TBD | Not started | - |
 | 6. Documentation | 0/TBD | Not started | - |
