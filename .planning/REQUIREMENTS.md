@@ -13,9 +13,9 @@ Requirements for initial release. Each maps to roadmap phases.
 - [x] **REWORK-02**: Relative-humidity computation matches each tmean image to its corresponding dewpoint image via a robust, verifiable date-matching method (not a fragile per-image `filterDate().first()` call with silent-null risk)
 - [x] **REWORK-03**: `requirements.txt` has the unused `ee==0.2` PyPI package removed, keeping only `earthengine-api`
 - [x] **REWORK-04**: `heatwave/auth.py` resolves the local service-account key path correctly regardless of the caller's working directory, and the `blessings` stub-out works regardless of import order
-- [ ] **REWORK-05**: `heatwave.data.boundary.load_ward_boundary()` is re-verified to return all 4,841 ward features with correct properties (`wardname`, `wardcode`, `lganame`, `statename`, `geozone`) against the live `heatwave-508110` project
+- [x] **REWORK-05**: `heatwave.data.boundary.load_ward_boundary()` is re-verified to return all 4,841 ward features with correct properties (`wardname`, `wardcode`, `lganame`, `statename`, `geozone`) against the live `heatwave-508110` project
 - [x] **REWORK-06**: `heatwave.data.ingest.load_era5_land()` is re-verified to return correctly date-filtered, boundary-clipped `tmax`/`tmean`/`dewpoint` bands for a sample date range
-- [ ] **REWORK-07**: `heatwave.config.settings` is verified/tested to load `config.yaml` correctly into the typed `Settings` dataclass
+- [x] **REWORK-07**: `heatwave.config.settings` is verified/tested to load `config.yaml` correctly into the typed `Settings` dataclass
 - [x] **REWORK-08**: `streamlit run nigeria_heat_index.py` boots cleanly (HTTP 200, no stderr) using the fixed auth/join logic
 
 ### Heat Index Relocation
@@ -85,9 +85,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REWORK-02 | Phase 1 | Complete |
 | REWORK-03 | Phase 1 | Complete |
 | REWORK-04 | Phase 1 | Complete |
-| REWORK-05 | Phase 1 | Pending |
+| REWORK-05 | Phase 1 | Complete |
 | REWORK-06 | Phase 1 | Complete |
-| REWORK-07 | Phase 1 | Pending |
+| REWORK-07 | Phase 1 | Complete |
 | REWORK-08 | Phase 1 | Complete |
 | HIDX-01 | Phase 2 | Pending |
 | HIDX-02 | Phase 2 | Pending |

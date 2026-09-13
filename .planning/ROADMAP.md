@@ -13,7 +13,7 @@ The journey starts by fixing four concrete, audit-identified issues in the alrea
 
 Decimal phases appear between their surrounding integers in numeric order.
 
-- [ ] **Phase 1: Foundation Rework** - Fix 4 audit-identified issues in the existing GCP/EE auth, boundary, and ingest code before this branch supersedes PR #1
+- [x] **Phase 1: Foundation Rework** - Fix 4 audit-identified issues in the existing GCP/EE auth, boundary, and ingest code before this branch supersedes PR #1 (completed 2026-09-13)
 - [ ] **Phase 2: Heat Index Relocation** - Move RH/Heat-Index math out of the Streamlit script into a tested module
 - [ ] **Phase 3: Climatology & Heatwave Detection** - Per-ward 90th-percentile climatology and heatwave day/event flagging (core new capability)
 - [ ] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable)
@@ -46,7 +46,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 01-03-PLAN.md — Live integration test suite covering all 8 REWORK requirements (REWORK-01..08)
+- [x] 01-03-PLAN.md — Live integration test suite covering all 8 REWORK requirements (REWORK-01..08)
 
 ### Phase 2: Heat Index Relocation
 
@@ -135,7 +135,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 
 | Phase | Plans Complete | Status | Completed |
 |-------|----------------|--------|-----------|
-| 1. Foundation Rework | 2/3 | In Progress|  |
+| 1. Foundation Rework | 3/3 | Complete   | 2026-09-13 |
 | 2. Heat Index Relocation | 0/TBD | Not started | - |
 | 3. Climatology & Heatwave Detection | 0/TBD | Not started | - |
 | 4. Batch Export & Covariate Table | 0/TBD | Not started | - |
