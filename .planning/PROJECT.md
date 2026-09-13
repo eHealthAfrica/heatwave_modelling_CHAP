@@ -16,12 +16,12 @@ A correct, complete weekly covariate table (`time_period`, `location`/ward, `hea
 
 - ✓ GCP/Earth Engine auth, ward boundary loading, and ERA5-Land ingestion are correct and fixed — Phase 1 (verified 2026-09-13: 9/9 must-haves, 8/8 live tests passing against the real `heatwave-508110` project, no mocking)
 - ✓ Heat Index/RH math lives in a tested `heatwave/science/heat_index.py` module, no longer inline in the Streamlit script, with the RH output correctly clamped to [0,100] — Phase 2 (verified 2026-09-13: 12/12 must-haves, 15/15 live tests passing including a regression check on Phase 1's suite)
+- ✓ Per-ward climatology baseline (90th percentile, day-of-year, ±5-day pooling with correct wraparound) and heatwave day/event detection (join, flag, consecutive-run grouping) — Phase 3 (verified 2026-09-13: 15/15 must-haves, 49/49 live tests passing; one critical code-review finding fixed and re-verified — see Context)
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Implement per-ward climatology baseline + heatwave day/event detection (core new capability, not yet built)
 - [ ] Implement batch export producing the weekly covariate table for all 4,841 wards (the production deliverable)
 - [ ] Rewrite the Streamlit presentation layer to read the precomputed covariate table instead of computing live
 - [ ] Document methodology and usage
@@ -50,6 +50,10 @@ Phase 1 re-verified and fixed all 4 issues (not a rebuild — a targeted fix-and
 
 **Phase 2 complete (2026-09-13):** RH/Heat-Index math relocated from `nigeria_heat_index.py` into `heatwave/science/heat_index.py`, verbatim except for one scoped fix — the RH output (`100 - 5*(T-D)`) is now clamped to [0,100] (carried forward from Phase 1's WR-01 finding), applied correctly to the single-band expression before `addBands()` (clamping the full multi-band composite would have corrupted the temperature bands — caught during research). Tests use NOAA's official Heat Index reference table as ground truth with `pytest.approx` tolerance, not exact equality. `nigeria_heat_index.py` now imports from the new module with zero formula-logic duplication remaining in the presentation layer.
 
+**Phase 3 complete (2026-09-13):** `heatwave/zonal.py` (gridded→per-ward daily reduction), `heatwave/science/climatology.py` (day-of-year pooled 90th-percentile thresholds, with a verified floor-mod fix for wraparound near day 1/366 — `ee.Number.mod()` truncates rather than floors, a genuine landmine caught during research), and `heatwave/science/heatwave.py` (threshold join, day flagging, consecutive-event detection) are built and tested on small synthetic samples (1-3 wards), per D-03 — full 4,841-ward/30-year execution is Phase 4's job. A code review after execution found and fixed one **critical** bug: `flag_heatwave_days`'s climatology join defaulted to an inner join, silently dropping ward-days with no matching threshold and corrupting the consecutive-run state machine (which assumes gapless daily input). Fixed to an outer join with explicit null propagation; verified live. **Two items explicitly deferred to Phase 4, not yet resolved:**
+1. **Small-ward null handling policy** — `zonal.py` correctly surfaces a null `value` (not a silently-substituted 0) for ward polygons below Earth Engine's pixel-weight inclusion threshold, but the *policy* for what to do with those ward-days in the final covariate table is undecided — Phase 4 must decide before EXPORT-01 runs against all 4,841 real wards (some of which may be small enough to trigger this).
+2. **Run-detection scale** — the `ee.List.iterate()`-based consecutive-run state machine was verified correct and fast (<2s) up to ~3,650 elements (~10 years) but has NOT been verified at Phase 4's full ~10,950-element (30-year) scale. Benchmark before reusing `tag_consecutive_runs` unchanged; a documented fallback (array forward-difference run-length pattern) exists if it proves too slow.
+
 **Already-provisioned cloud infrastructure** (done, not being re-decided — see Constraints):
 - GCP project `heatwave-508110`, registered for Earth Engine.
 - Service account `heatwave-pipeline@heatwave-508110.iam.gserviceaccount.com`, key at local `keys/service_account.json` (gitignored, never committed).
@@ -76,10 +80,10 @@ Phase 1 re-verified and fixed all 4 issues (not a rebuild — a targeted fix-and
 | Decision | Rationale | Outcome |
 |----------|-----------|---------|
 | GCP project `heatwave-508110` / service account `heatwave-pipeline@...` / ward asset `projects/heatwave-508110/assets/shp` / ERA5-Land collection `ECMWF/ERA5_LAND/DAILY_AGGR` | Already provisioned and verified live in a prior session; user explicitly directed these not be re-litigated | ✓ Good — locked, carried forward |
-| Climatology definition: 1991-2020 baseline, 90th percentile, ±5-day pooling, ≥3 consecutive days = event | WMO/ETCCDI percentile-exceedance standard, recorded in `config.yaml` from a prior session | ✓ Good — locked, carried forward |
+| Climatology definition: 1991-2020 baseline, 90th percentile, ±5-day pooling, ≥3 consecutive days = event | WMO/ETCCDI percentile-exceedance standard, recorded in `config.yaml` from a prior session | ✓ Good — implemented and tested in Phase 3 (2026-09-13); day-of-year 1-366 keying with Feb 29 given its own real threshold, not merged into Feb 28 |
 | Heat Index formula: NOAA/NWS Rothfusz regression | Standard method, already implemented inline in `nigeria_heat_index.py`; Phase 2 relocates (not rewrites) it | ✓ Good — relocated to `heatwave/science/heat_index.py` (2026-09-13), coefficients verbatim, RH output now clamped |
 | Re-do Phases 0-2 through GSD plan → execute → verify (not treat as already-complete) | Independent codebase audit found 4 concrete issues that must be fixed before this branch supersedes PR #1 | ✓ Good — Phase 1 complete, all 4 fixed and re-verified live (2026-09-13) |
 | Custom HTML/JS dashboard (Leaflet.js + FastAPI) as Streamlit replacement | Feasible but a detour; presentation-layer rewrite phase already covers the real need (precomputed table, less live tile serving) | ⚠️ Revisit only if explicitly asked — not pursuing now |
 
 ---
-*Last updated: 2026-09-13 after Phase 2 (Heat Index Relocation) completion*
+*Last updated: 2026-09-13 after Phase 3 (Climatology & Heatwave Detection) completion*
