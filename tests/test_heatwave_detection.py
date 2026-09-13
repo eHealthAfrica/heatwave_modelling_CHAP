@@ -471,3 +471,200 @@ def test_climatology_defaults_read_from_settings():
 
     assert len(result_rows) == 1
     assert result_rows[0]["threshold"] == pytest.approx(9.5, abs=1e-6)
+
+
+def _make_climatology_fc(rows) -> ee.FeatureCollection:
+    """Build a synthetic climatology FeatureCollection from (ward_id, doy, threshold) tuples.
+
+    Reproduces `heatwave/science/climatology.py`'s `compute_climatology_thresholds()`
+    output row schema exactly (`ward_id`, `doy`, `threshold`). Climatology rows
+    deliberately carry no `system:time_start` -- they are joined on
+    (`ward_id`, `doy`) by `heatwave/science/heatwave.py` and are never
+    `calendarRange`-filtered, so this helper must not invent one.
+    """
+    features = [
+        ee.Feature(None, {"ward_id": ward_id, "doy": doy, "threshold": threshold})
+        for ward_id, doy, threshold in rows
+    ]
+    return ee.FeatureCollection(features)
+
+
+# Live-verified input/output of the tag_consecutive_runs() .iterate() state
+# machine (03-RESEARCH.md Pattern 6) -- these are EE-computed literals used
+# as test oracles, not a Python reimplementation of the run-detection math
+# (D-02).
+_VERIFIED_FLAG_SEQUENCE = [0, 1, 1, 1, 0, 1, 1, 0, 0, 1, 1, 1, 1, 0]
+_VERIFIED_RUN_TAGS = [-1, 1, 1, 1, -1, 2, 2, -1, -1, 3, 3, 3, 3, -1]
+# Run 2 (the pair of 1s tagged group id 2, length 2) is demoted to -1 in the
+# event view because 2 < min_consecutive_days (3, config.yaml). Runs 1
+# (length 3) and 3 (length 4) both qualify and keep their run id as event_id.
+_VERIFIED_EVENT_IDS = [-1, 1, 1, 1, -1, -1, -1, -1, -1, 3, 3, 3, 3, -1]
+
+
+def test_heatwave_module_exports():
+    """CLIM-03/CLIM-04: heatwave.science.heatwave exports the three public
+    functions, no credentials required."""
+    from heatwave.science.heatwave import (
+        detect_heatwave_events,
+        flag_heatwave_days,
+        tag_consecutive_runs,
+    )
+
+    assert callable(flag_heatwave_days)
+    assert callable(tag_consecutive_runs)
+    assert callable(detect_heatwave_events)
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_day_flag_marks_values_above_threshold():
+    """CLIM-03: values 10/20/30/40/50 against a threshold of 25.0 for every
+    doy yield is_hot 0,0,1,1,1 in date order; every row's threshold reads
+    25.0."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import flag_heatwave_days
+
+    init_ee()
+    dates = ["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04", "2020-01-05"]
+    values = [10.0, 20.0, 30.0, 40.0, 50.0]
+    ward_daily_fc = _make_ward_daily_fc(list(zip(["W-A"] * 5, dates, values)))
+    climatology_fc = _make_climatology_fc([("W-A", doy, 25.0) for doy in range(1, 6)])
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc).sort("system:time_start")
+
+    assert flagged.aggregate_array("is_hot").getInfo() == [0, 0, 1, 1, 1]
+    assert flagged.aggregate_array("threshold").getInfo() == [25.0] * 5
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_day_flag_is_strictly_greater_than():
+    """CLIM-03: a value exactly equal to the threshold is not a heatwave day
+    -- equality is not exceedance."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import flag_heatwave_days
+
+    init_ee()
+    ward_daily_fc = _make_ward_daily_fc([("W-A", "2020-01-01", 25.0)])
+    climatology_fc = _make_climatology_fc([("W-A", 1, 25.0)])
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc)
+
+    assert flagged.aggregate_array("is_hot").getInfo() == [0]
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_day_flag_uses_the_matching_calendar_day_threshold():
+    """CLIM-03: a constant value of 50.0 against thresholds 5.0/100.0/5.0 for
+    doy 1/2/3 yields is_hot 1,0,1 -- proving the join keys on (ward_id, doy)
+    rather than applying one ward-wide threshold."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import flag_heatwave_days
+
+    init_ee()
+    dates = ["2020-01-01", "2020-01-02", "2020-01-03"]
+    ward_daily_fc = _make_ward_daily_fc(list(zip(["W-A"] * 3, dates, [50.0, 50.0, 50.0])))
+    climatology_fc = _make_climatology_fc([("W-A", 1, 5.0), ("W-A", 2, 100.0), ("W-A", 3, 5.0)])
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc).sort("system:time_start")
+
+    assert flagged.aggregate_array("is_hot").getInfo() == [1, 0, 1]
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_event_tag_consecutive_runs_matches_verified_sequence():
+    """CLIM-04: tag_consecutive_runs reproduces the exact live-verified
+    sequence from 03-RESEARCH.md Pattern 6."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import tag_consecutive_runs
+
+    init_ee()
+    result = tag_consecutive_runs(ee.List(_VERIFIED_FLAG_SEQUENCE)).getInfo()
+
+    assert result == _VERIFIED_RUN_TAGS
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_event_requires_min_consecutive_days():
+    """CLIM-04: the 14-day fixture derived from _VERIFIED_FLAG_SEQUENCE demotes
+    the 2-day run to -1 while the 3-day and 4-day runs each keep one event id;
+    exactly 2 distinct non-(-1) event ids result."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import detect_heatwave_events, flag_heatwave_days
+
+    init_ee()
+    dates = [f"2020-01-{day:02d}" for day in range(1, 15)]
+    values = [50.0 if flag else 10.0 for flag in _VERIFIED_FLAG_SEQUENCE]
+    ward_daily_fc = _make_ward_daily_fc(list(zip(["W-A"] * 14, dates, values)))
+    climatology_fc = _make_climatology_fc([("W-A", doy, 25.0) for doy in range(1, 15)])
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc)
+    events = detect_heatwave_events(flagged, min_consecutive_days=3).sort("system:time_start")
+
+    run_ids = events.aggregate_array("run_id").getInfo()
+    event_ids = events.aggregate_array("event_id").getInfo()
+
+    assert run_ids == _VERIFIED_RUN_TAGS
+    assert event_ids == _VERIFIED_EVENT_IDS
+    assert len({event_id for event_id in event_ids if event_id != -1}) == 2
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_event_detection_is_scoped_per_ward():
+    """CLIM-04 / D-04: a 2-day run for W-A and a 3-day run for W-B, interleaved
+    in one collection, stay two separate, correctly classified runs. A
+    cross-ward bleed would merge these five hot days into one qualifying
+    5-day event, which is exactly the failure mode this test guards against."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import detect_heatwave_events, flag_heatwave_days
+
+    init_ee()
+    dates = ["2020-01-01", "2020-01-02", "2020-01-03", "2020-01-04", "2020-01-05"]
+    wa_flags = [1, 1, 0, 0, 0]
+    wb_flags = [0, 0, 1, 1, 1]
+    wa_values = [50.0 if flag else 10.0 for flag in wa_flags]
+    wb_values = [50.0 if flag else 10.0 for flag in wb_flags]
+    rows = list(zip(["W-A"] * 5, dates, wa_values)) + list(zip(["W-B"] * 5, dates, wb_values))
+    ward_daily_fc = _make_ward_daily_fc(rows)
+    climatology_fc = _make_climatology_fc(
+        [("W-A", doy, 25.0) for doy in range(1, 6)]
+        + [("W-B", doy, 25.0) for doy in range(1, 6)]
+    )
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc)
+    events = detect_heatwave_events(flagged, min_consecutive_days=3)
+
+    wa_events = events.filter(ee.Filter.eq("ward_id", "W-A")).sort("system:time_start")
+    wb_events = events.filter(ee.Filter.eq("ward_id", "W-B")).sort("system:time_start")
+
+    wa_event_ids = wa_events.aggregate_array("event_id").getInfo()
+    wb_event_ids = wb_events.aggregate_array("event_id").getInfo()
+
+    assert wa_event_ids == [-1, -1, -1, -1, -1]
+    non_negative_wb_event_ids = [event_id for event_id in wb_event_ids if event_id != -1]
+    assert len(set(non_negative_wb_event_ids)) == 1
+    assert len(non_negative_wb_event_ids) == 3
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_event_min_days_defaults_from_settings():
+    """CLIM-04 / security V5: min_consecutive_days defaults to None in the
+    signature and resolves from settings.climatology.min_consecutive_days --
+    calling without the argument reproduces the explicit min_consecutive_days=3
+    result on the same 14-day fixture."""
+    from heatwave.science.heatwave import detect_heatwave_events
+
+    sig = inspect.signature(detect_heatwave_events)
+    assert sig.parameters["min_consecutive_days"].default is None
+
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import flag_heatwave_days
+
+    init_ee()
+    dates = [f"2020-01-{day:02d}" for day in range(1, 15)]
+    values = [50.0 if flag else 10.0 for flag in _VERIFIED_FLAG_SEQUENCE]
+    ward_daily_fc = _make_ward_daily_fc(list(zip(["W-A"] * 14, dates, values)))
+    climatology_fc = _make_climatology_fc([("W-A", doy, 25.0) for doy in range(1, 15)])
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc)
+    events = detect_heatwave_events(flagged).sort("system:time_start")
+
+    assert events.aggregate_array("event_id").getInfo() == _VERIFIED_EVENT_IDS
