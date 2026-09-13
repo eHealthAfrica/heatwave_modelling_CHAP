@@ -8,40 +8,28 @@ reduction is a later pipeline stage (heatwave/zonal.py).
 """
 from __future__ import annotations
 
-from dataclasses import dataclass
-
 import ee
 
 from heatwave.config import settings
-
-
-@dataclass(frozen=True)
-class Era5LandBands:
-    tmax: ee.ImageCollection
-    tmean: ee.ImageCollection
-    dewpoint: ee.ImageCollection
-
-
-def _select_band(band_name: str, start_date: str, end_date: str, boundary: ee.FeatureCollection) -> ee.ImageCollection:
-    return (
-        ee.ImageCollection(settings.era5_land_collection)
-        .select(band_name)
-        .filter(ee.Filter.date(start_date, end_date))
-        .map(lambda image: image.clip(boundary))
-    )
 
 
 def load_era5_land(
     boundary: ee.FeatureCollection,
     start_date: str | None = None,
     end_date: str | None = None,
-) -> Era5LandBands:
-    """Return the tmax/tmean/dewpoint ImageCollections, date-filtered and clipped to boundary."""
+) -> ee.ImageCollection:
+    """Return the ERA5-Land collection, date-filtered and clipped to boundary.
+
+    The returned collection carries `tmax` (band name `temperature_2m_max`),
+    `tmean` (`temperature_2m`), and `dewpoint` (`dewpoint_temperature_2m`) as
+    three bands of every image, date-filtered and clipped to `boundary`.
+    """
     start_date = start_date or settings.start_date
     end_date = end_date or settings.end_date
 
-    return Era5LandBands(
-        tmax=_select_band(settings.bands.tmax, start_date, end_date, boundary),
-        tmean=_select_band(settings.bands.tmean, start_date, end_date, boundary),
-        dewpoint=_select_band(settings.bands.dewpoint, start_date, end_date, boundary),
+    return (
+        ee.ImageCollection(settings.era5_land_collection)
+        .select([settings.bands.tmax, settings.bands.tmean, settings.bands.dewpoint])
+        .filter(ee.Filter.date(start_date, end_date))
+        .map(lambda image: image.clip(boundary))
     )
