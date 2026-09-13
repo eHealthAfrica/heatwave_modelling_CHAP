@@ -14,13 +14,12 @@ A correct, complete weekly covariate table (`time_period`, `location`/ward, `hea
 
 <!-- Shipped and confirmed valuable. -->
 
-(None yet — Phases 0-2 were built but are being re-verified/fixed in Phase 1 of this roadmap before being treated as validated.)
+- ✓ GCP/Earth Engine auth, ward boundary loading, and ERA5-Land ingestion are correct and fixed — Phase 1 (verified 2026-09-13: 9/9 must-haves, 8/8 live tests passing against the real `heatwave-508110` project, no mocking)
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- [ ] Fix known issues in the existing `heatwave/` package (auth, boundary, ingest) and `nigeria_heat_index.py` before this branch supersedes PR #1
 - [ ] Relocate Heat Index/RH math into a tested `heatwave/science` module
 - [ ] Implement per-ward climatology baseline + heatwave day/event detection (core new capability, not yet built)
 - [ ] Implement batch export producing the weekly covariate table for all 4,841 wards (the production deliverable)
@@ -40,14 +39,14 @@ A correct, complete weekly covariate table (`time_period`, `location`/ward, `hea
 
 **Repo state:** Working directory `heatwave_modelling_CHAP-main/heatwave_modelling_CHAP-main`, on branch `feature/heatwave-508110-phase-0-2-gsd` (based on real `origin/main`), 1 commit ahead (`02864e0`, "Fresh-start rework: config/auth consolidation + ward-level ERA5-Land switch (Phases 0-2)"). This branch is intended to supersede an earlier ad-hoc PR (`#1`, branch `feature/heatwave-508110-phase-0-2` → `main` on `eHealthAfrica/heatwave_modelling_CHAP`) once the known issues below are fixed via GSD's plan → execute → verify pipeline.
 
-**Phases 0-2 are functionally built but not yet "validated"** in the GSD sense — they were built ad hoc in a prior session and verified live once, but an independent codebase audit found 4 issues that must be fixed before this code is trusted as a foundation for Phases 3+ or pushed to supersede PR #1:
+**Phases 0-2 are now validated** (as of Phase 1 completion, 2026-09-13) — an independent codebase audit found 4 issues in the ad-hoc prior-session build, and Phase 1 fixed and re-verified all of them:
 
 1. **Dewpoint date-matching join bug** — `nigeria_heat_index.py`'s `compute_relative_humidity()` matches each `tmean` image to its dewpoint image via a per-image `era5_2d.filterDate(tempDate, tempDate.advance(1, 'day')).first()` call. This is fragile: no guaranteed exact match, silent `null`/`first()`-of-empty behavior on gaps, and inefficient (client-side loop of server-side filters instead of a proper join).
 2. **Missing `st.cache_resource` on Earth Engine init** — `init_ee()` is called unconditionally at Streamlit module load with no caching, causing full re-authentication and re-initialization of the Earth Engine client on every Streamlit rerun/interaction (slider drag, widget change), which is slow and wasteful.
 3. **Unused `ee==0.2` PyPI package** — pinned in `requirements.txt` alongside `earthengine-api==1.6.8`. `ee` (the PyPI package, not the `earthengine-api`'s `ee` import namespace) is unused dead weight and a source of confusion/potential version conflicts.
 4. **Fragile relative-path/import-order dependencies in `heatwave/auth.py`** — `_LOCAL_KEY_FILE = "keys/service_account.json"` is a relative path that only resolves correctly if the process's current working directory is the repo root; the `blessings` module stub-out (`sys.modules.setdefault(...)`) only works if `heatwave.auth` is imported before `geemap`, which is an implicit ordering contract not enforced anywhere.
 
-Phase 1 of this roadmap re-verifies and fixes these 4 issues (not a rebuild — a targeted fix-and-test pass) before Phase 2+ builds on top.
+Phase 1 re-verified and fixed all 4 issues (not a rebuild — a targeted fix-and-test pass); Phase 2+ now builds on top of this validated foundation. One non-blocking residual risk carried forward from Phase 1's code review: the relocated `blessings` stub in `heatwave/__init__.py` is import-order-dependent in principle (though the actual reported bug is fixed and tested end-to-end) — worth a follow-up regression test in a future phase.
 
 **Already-provisioned cloud infrastructure** (done, not being re-decided — see Constraints):
 - GCP project `heatwave-508110`, registered for Earth Engine.
@@ -77,8 +76,8 @@ Phase 1 of this roadmap re-verifies and fixes these 4 issues (not a rebuild — 
 | GCP project `heatwave-508110` / service account `heatwave-pipeline@...` / ward asset `projects/heatwave-508110/assets/shp` / ERA5-Land collection `ECMWF/ERA5_LAND/DAILY_AGGR` | Already provisioned and verified live in a prior session; user explicitly directed these not be re-litigated | ✓ Good — locked, carried forward |
 | Climatology definition: 1991-2020 baseline, 90th percentile, ±5-day pooling, ≥3 consecutive days = event | WMO/ETCCDI percentile-exceedance standard, recorded in `config.yaml` from a prior session | ✓ Good — locked, carried forward |
 | Heat Index formula: NOAA/NWS Rothfusz regression | Standard method, already implemented inline in `nigeria_heat_index.py`; Phase 2 relocates (not rewrites) it | ✓ Good — locked, carried forward |
-| Re-do Phases 0-2 through GSD plan → execute → verify (not treat as already-complete) | Independent codebase audit found 4 concrete issues that must be fixed before this branch supersedes PR #1 | — Pending (Phase 1 of this roadmap) |
+| Re-do Phases 0-2 through GSD plan → execute → verify (not treat as already-complete) | Independent codebase audit found 4 concrete issues that must be fixed before this branch supersedes PR #1 | ✓ Good — Phase 1 complete, all 4 fixed and re-verified live (2026-09-13) |
 | Custom HTML/JS dashboard (Leaflet.js + FastAPI) as Streamlit replacement | Feasible but a detour; presentation-layer rewrite phase already covers the real need (precomputed table, less live tile serving) | ⚠️ Revisit only if explicitly asked — not pursuing now |
 
 ---
-*Last updated: 2026-09-11 after initial roadmap creation (new-project-from-ingest)*
+*Last updated: 2026-09-13 after Phase 1 (Foundation Rework) completion*
