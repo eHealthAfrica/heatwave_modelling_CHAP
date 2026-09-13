@@ -474,6 +474,79 @@ def test_climatology_defaults_read_from_settings():
     assert result_rows[0]["threshold"] == pytest.approx(9.5, abs=1e-6)
 
 
+@_REQUIRES_CREDENTIALS
+def test_climatology_and_heatwave_honor_non_default_ward_id_property():
+    """WR-02: a non-default `ward_id_property` (e.g. `"wardcode"`, matching
+    the real ward asset's property per REWORK-05) passed consistently to
+    BOTH `compute_climatology_thresholds` and `flag_heatwave_days` must
+    still produce a working join, end to end.
+
+    Before the fix, `compute_climatology_thresholds`'s output always used
+    the literal key `"ward_id"` regardless of `ward_id_property`, so
+    `flag_heatwave_days`'s join filter (which looks for `"wardcode"` on
+    BOTH sides) would never find it on `climatology_fc` -- every row would
+    join to nothing. Thanks to CR-01's outer join, that failure mode now
+    surfaces as every row having a null threshold/is_hot (not as rows
+    vanishing), which is exactly what this test asserts is NOT the case.
+    """
+    from heatwave.auth import init_ee
+    from heatwave.science.climatology import compute_climatology_thresholds
+    from heatwave.science.heatwave import flag_heatwave_days
+
+    init_ee()
+    dates = [
+        "2000-01-01", "2000-01-02", "2000-01-03", "2000-01-04", "2000-01-05",
+        "2000-01-06", "2000-01-07", "2000-01-08", "2000-01-09", "2000-01-10",
+    ]
+    baseline_values = [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0]
+    baseline_features = [
+        ee.Feature(
+            None,
+            {
+                "wardcode": "W-A",
+                "value": value,
+                "doy": ee.Date(date).getRelative("day", "year").add(1),
+                "system:time_start": ee.Date(date).millis(),
+            },
+        )
+        for date, value in zip(dates, baseline_values)
+    ]
+    ward_daily_fc = ee.FeatureCollection(baseline_features)
+
+    thresholds = compute_climatology_thresholds(
+        ward_daily_fc,
+        percentile=90,
+        window_days=5,
+        baseline_start_year=2000,
+        baseline_end_year=2000,
+        ward_id_property="wardcode",
+    )
+
+    # The output key itself must be "wardcode", not the hardcoded "ward_id".
+    threshold_rows = _props(thresholds.filter(ee.Filter.eq("doy", 6)), ["wardcode", "threshold"])
+    assert len(threshold_rows) == 1
+    assert threshold_rows[0]["wardcode"] == "W-A"
+    assert threshold_rows[0]["threshold"] == pytest.approx(9.5, abs=1e-6)
+
+    detection_feature = ee.Feature(
+        None,
+        {
+            "wardcode": "W-A",
+            "value": 50.0,
+            "doy": 6,
+            "system:time_start": ee.Date("2000-01-06").millis(),
+        },
+    )
+    detection_fc = ee.FeatureCollection([detection_feature])
+
+    flagged = flag_heatwave_days(detection_fc, thresholds, ward_id_property="wardcode")
+    flagged_rows = _props(flagged, ["wardcode", "threshold", "is_hot"])
+
+    assert len(flagged_rows) == 1
+    assert flagged_rows[0]["threshold"] == pytest.approx(9.5, abs=1e-6)
+    assert flagged_rows[0]["is_hot"] == 1
+
+
 def _make_climatology_fc(rows) -> ee.FeatureCollection:
     """Build a synthetic climatology FeatureCollection from (ward_id, doy, threshold) tuples.
 

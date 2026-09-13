@@ -78,8 +78,10 @@ def compute_climatology_thresholds(
     tampering threat documented in 03-RESEARCH.md's Security Domain.
 
     Returns one feature per (ward_id, doy) that has pooled baseline data, each
-    carrying `ward_id`, `doy`, and `threshold`. These output rows deliberately
-    carry no `system:time_start` -- they are joined on (`ward_id`, `doy`) by
+    carrying `ward_id_property` (keyed by the actual `ward_id_property`
+    argument, not a hardcoded `"ward_id"` literal -- WR-02), `doy`, and
+    `threshold`. These output rows deliberately carry no `system:time_start`
+    -- they are joined on (`ward_id_property`, `doy`) by
     `heatwave/science/heatwave.py` and are never calendarRange-filtered, so a
     future reader should not "restore" a timestamp they think is missing.
     """
@@ -117,7 +119,13 @@ def compute_climatology_thresholds(
             lambda g: ee.Feature(
                 None,
                 {
-                    "ward_id": ee.Dictionary(g).get(ward_id_property),
+                    # Output key matches the `ward_id_property` argument
+                    # (WR-02) -- hardcoding this to the literal "ward_id"
+                    # would silently break `flag_heatwave_days`'s join when
+                    # a non-default `ward_id_property` is passed to both
+                    # functions consistently, since the join filter there
+                    # matches on `ward_id_property` against both sides.
+                    ward_id_property: ee.Dictionary(g).get(ward_id_property),
                     "doy": doy,
                     "threshold": ee.Dictionary(g).get(percentile_key),
                 },
