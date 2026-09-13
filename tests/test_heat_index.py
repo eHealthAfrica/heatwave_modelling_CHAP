@@ -24,7 +24,7 @@ _REQUIRES_CREDENTIALS = pytest.mark.skipif(
 def _make_test_image(tmean_k: float, dewpoint_k: float) -> ee.Image:
     from heatwave.config import settings
 
-    return ee.Image.constant([tmean_k, 0, dewpoint_k]).rename(
+    return ee.Image.constant([0, tmean_k, dewpoint_k]).rename(
         [settings.bands.tmax, settings.bands.tmean, settings.bands.dewpoint]
     )
 
