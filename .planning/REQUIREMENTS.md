@@ -20,8 +20,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Heat Index Relocation
 
-- [ ] **HIDX-01**: RH/Heat-Index computation logic is relocated (not rewritten) from `nigeria_heat_index.py` into `heatwave/science/heat_index.py`
-- [ ] **HIDX-02**: `tests/test_heat_index.py` verifies the Rothfusz Heat Index formula against known input/output values
+- [x] **HIDX-01**: RH/Heat-Index computation logic is relocated (not rewritten) from `nigeria_heat_index.py` into `heatwave/science/heat_index.py`
+- [x] **HIDX-02**: `tests/test_heat_index.py` verifies the Rothfusz Heat Index formula against known input/output values
 - [ ] **HIDX-03**: `nigeria_heat_index.py` imports and uses `heatwave.science.heat_index` instead of inline RH/Heat-Index definitions, and still boots cleanly
 
 ### Climatology & Heatwave Detection
@@ -89,8 +89,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | REWORK-06 | Phase 1 | Complete |
 | REWORK-07 | Phase 1 | Complete |
 | REWORK-08 | Phase 1 | Complete |
-| HIDX-01 | Phase 2 | Pending |
-| HIDX-02 | Phase 2 | Pending |
+| HIDX-01 | Phase 2 | Complete |
+| HIDX-02 | Phase 2 | Complete |
 | HIDX-03 | Phase 2 | Pending |
 | CLIM-01 | Phase 3 | Pending |
 | CLIM-02 | Phase 3 | Pending |
