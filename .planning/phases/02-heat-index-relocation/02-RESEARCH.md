@@ -335,17 +335,19 @@ No state-of-the-art shift applies here — the Rothfusz regression (1990) and it
 | A1 | The three NOAA table entries (96°F/50%→108°F, 100°F/40%→109°F, 90°F/70%→105°F) are accurately extracted from their cited sources (WebSearch/WebFetch summaries of noaa.gov, weather.gov, and Wikipedia's NWS-table reproduction, not the primary table image itself, which is a PDF/PNG not machine-readable) | Code Examples, Common Pitfalls | If a cited value is slightly off, the test tolerance (±1.5°F) likely absorbs it, but the planner/test-author should re-confirm at least one value against the primary NOAA chart image before locking it into `tests/test_heat_index.py` as a hard fixture |
 | A2 | No stated NOAA accuracy tolerance (e.g., "±1.3°F") could be found for the Rothfusz regression vs. Steadman's table in the specific NOAA/NWS pages checked; the ~0.3-1°F tolerance recommendation here is derived from this session's own hand-computation against 3 table entries, not from an official NOAA accuracy statement | Common Pitfalls (Pitfall 2), Code Examples | If the true worst-case error is larger than 1.5°F for some input combination, a chosen test fixture could still fail intermittently near threshold; recommend using the exact table values verified here (well within tolerance) rather than picking new untested ones |
 
-## Open Questions
+## Open Questions (RESOLVED)
 
 1. **Should `compute_relative_humidity` get its own direct unit test, or only be exercised indirectly through the Heat Index test?**
    - What we know: HIDX-02 only mandates testing "the Rothfusz Heat Index formula"; CONTEXT.md leaves RH test coverage to Claude's discretion.
    - What's unclear: Whether the planner wants a dedicated `test_relative_humidity_clamped_above_100`/`test_relative_humidity_clamped_below_0` pair (recommended above, since D-01's clamp fix is otherwise untested) or considers indirect coverage sufficient.
    - Recommendation: Include at least the two clamp-boundary tests directly (Code Examples above) — they test the *only* behavioral change this phase makes (D-01), so skipping direct coverage would leave the phase's one new bit of logic unverified.
+   - RESOLVED: `02-01-PLAN.md` Task 1 implements this recommendation verbatim — `test_relative_humidity_clamped_above_100`, `test_relative_humidity_clamped_below_0`, and `test_source_bands_not_clamped` are all included as direct tests.
 
 2. **Exact geometry/reducer boilerplate for extracting a scalar from a constant test image**
    - What we know: `ee.Image.constant([...]).rename([...])` + `.reduceRegion(ee.Reducer.first(), ee.Geometry.Point(...), scale=...)` is a standard, working EE pattern (used illustratively above) for pulling one number out of a synthetic image.
    - What's unclear: Whether the planner prefers this over `ee.Number` arithmetic directly (bypassing `ee.Image` entirely) for a simpler/faster test, since `compute_relative_humidity`/`compute_heat_index` are written against `ee.Image`, not `ee.Number`.
    - Recommendation: Keep tests against `ee.Image` (as shown) since that's the actual signature the production functions expect from `.map()`; do not rewrite the functions to accept `ee.Number` just to simplify testing.
+   - RESOLVED: `02-01-PLAN.md` Task 1's `_make_test_image`/`_band_value` helpers keep tests against `ee.Image`, exactly as recommended.
 
 ## Environment Availability
 
