@@ -571,6 +571,36 @@ def test_heatwave_day_flag_uses_the_matching_calendar_day_threshold():
 
 
 @_REQUIRES_CREDENTIALS
+def test_heatwave_day_flag_keeps_unmatched_ward_day_with_null_threshold():
+    """CR-01: a ward-day whose (ward_id, doy) has no matching climatology
+    threshold row must still appear in the output -- with `threshold` and
+    `is_hot` both null -- rather than being silently dropped by an inner
+    join. doy 2 has no climatology row here; the row count must stay 3 (not
+    drop to 2), and only doy 2's threshold/is_hot must be null."""
+    from heatwave.auth import init_ee
+    from heatwave.science.heatwave import flag_heatwave_days
+
+    init_ee()
+    dates = ["2020-01-01", "2020-01-02", "2020-01-03"]
+    ward_daily_fc = _make_ward_daily_fc(list(zip(["W-A"] * 3, dates, [50.0, 50.0, 50.0])))
+    # Deliberately omit doy 2's climatology row -- this is the coverage gap
+    # (baseline data gap / newly-added ward) CR-01 describes.
+    climatology_fc = _make_climatology_fc([("W-A", 1, 5.0), ("W-A", 3, 5.0)])
+
+    flagged = flag_heatwave_days(ward_daily_fc, climatology_fc).sort("system:time_start")
+    rows = _props(flagged, ["doy", "threshold", "is_hot"])
+
+    assert len(rows) == 3
+    by_doy = {row["doy"]: row for row in rows}
+    assert by_doy[1]["threshold"] == 5.0
+    assert by_doy[1]["is_hot"] == 1
+    assert by_doy[2]["threshold"] is None
+    assert by_doy[2]["is_hot"] is None
+    assert by_doy[3]["threshold"] == 5.0
+    assert by_doy[3]["is_hot"] == 1
+
+
+@_REQUIRES_CREDENTIALS
 def test_heatwave_event_tag_consecutive_runs_matches_verified_sequence():
     """CLIM-04: tag_consecutive_runs reproduces the exact live-verified
     sequence from 03-RESEARCH.md Pattern 6."""

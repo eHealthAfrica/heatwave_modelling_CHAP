@@ -56,17 +56,34 @@ def flag_heatwave_days(
     deliberately does not null-coalesce a missing value to 0 or "not hot" --
     that silent substitution is the data-integrity threat this phase
     documents rather than adopts (T-03-17).
+
+    Join contract: the `(ward_id_property, doy)` join against `climatology_fc`
+    is an OUTER join (`ee.Join.saveFirst(..., outer=True)`), not an inner one.
+    Any ward-day whose `(ward_id, doy)` has no matching climatology threshold
+    (e.g. a baseline data gap, or a newly-added ward with incomplete baseline
+    history) still produces exactly one output row, with `threshold` and
+    `is_hot` both explicitly null -- it is never silently dropped. Dropping
+    the row would corrupt `tag_consecutive_runs`/`detect_heatwave_events`,
+    whose state machine assumes gapless, one-row-per-calendar-day input per
+    ward (see `detect_heatwave_events`'s docstring for that caller contract).
     """
     join_filter = ee.Filter.And(
         ee.Filter.equals(leftField=ward_id_property, rightField=ward_id_property),
         ee.Filter.equals(leftField="doy", rightField="doy"),
     )
-    joined = ee.Join.saveFirst("clim_match").apply(ward_daily_fc, climatology_fc, join_filter)
+    joined = ee.Join.saveFirst("clim_match", outer=True).apply(
+        ward_daily_fc, climatology_fc, join_filter
+    )
 
     def flag_one_row(feature: ee.Feature) -> ee.Feature:
         feature = ee.Feature(feature)
-        threshold = ee.Feature(feature.get("clim_match")).get("threshold")
-        is_hot = ee.Number(feature.get(value_property)).gt(ee.Number(threshold))
+        clim_match = feature.get("clim_match")
+        threshold = ee.Algorithms.If(clim_match, ee.Feature(clim_match).get("threshold"), None)
+        is_hot = ee.Algorithms.If(
+            clim_match,
+            ee.Number(feature.get(value_property)).gt(ee.Number(threshold)),
+            None,
+        )
         return feature.set("threshold", threshold, "is_hot", is_hot).set("clim_match", None)
 
     return joined.map(flag_one_row)
@@ -154,6 +171,17 @@ def detect_heatwave_events(
     T-03-15's per-ward isolation guard: partitioning by `ee.Filter.eq` plus
     the mandatory per-ward sort means one ward's short run can never merge
     with an adjacent ward's run into a false qualifying event.
+
+    Caller contract (CR-01): this function does not verify that each ward's
+    sorted rows are gapless, one row per calendar day -- `tag_consecutive_runs`
+    treats row-adjacency in the sorted list as calendar-day adjacency, with no
+    independent check against `system:time_start`. `flagged_fc` MUST come from
+    `flag_heatwave_days` (whose outer join guarantees exactly one output row
+    per input ward-day, with `is_hot` explicitly null rather than the row
+    being dropped when no climatology threshold matches) or from an
+    equivalent gapless source. Feeding this function a `flagged_fc` with
+    missing ward-days (e.g. one reconstructed from a filtered or inner-joined
+    collection) will silently merge or split runs across the gap.
     """
     min_consecutive_days = min_consecutive_days or settings.climatology.min_consecutive_days
 
