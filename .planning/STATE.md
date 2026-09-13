@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 3 context gathered
-last_updated: "2026-09-13T14:22:19.123Z"
-last_activity: 2026-09-13 -- Phase 3 planning complete
+last_updated: "2026-09-13T14:23:44.287Z"
+last_activity: 2026-09-13 -- Phase 3 execution started
 progress:
   total_phases: 7
   completed_phases: 2
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-11)
 
 **Core value:** A correct, complete weekly covariate table can be generated end-to-end from ERA5-Land data for all 4,841 Nigerian wards and handed off to CHAP.
-**Current focus:** Phase 3 — climatology & heatwave detection
+**Current focus:** Phase 3 — Climatology & Heatwave Detection
 
 ## Current Position
 
-Phase: 3
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-13 -- Phase 3 planning complete
+Phase: 3 (Climatology & Heatwave Detection) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 3
+Last activity: 2026-09-13 -- Phase 3 execution started
 
 Progress: [██████████] 100%
 
