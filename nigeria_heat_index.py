@@ -1,99 +1,35 @@
 import streamlit as st
 import ee
+from heatwave.auth import init_ee  # triggers heatwave package's blessings stub before geemap loads
 import geemap.foliumap as geemap  # Folium backend for Streamlit
-import json
-import os
-import tempfile
-from io import StringIO
-from branca.element import Template, MacroElement
-import sys, types
-sys.modules["blessings"] = types.ModuleType("blessings")
-from google.oauth2 import service_account
 
-# Fix blessing issue for Streamlit Cloud
-sys.modules["blessings"] = types.ModuleType("blessings")
+from heatwave.config import settings
+from heatwave.data.boundary import load_ward_boundary
+from heatwave.data.ingest import load_era5_land
+from heatwave.science.heat_index import compute_relative_humidity, compute_heat_index
 
-# Required scopes for Earth Engine
-EE_SCOPES = ["https://www.googleapis.com/auth/earthengine"]
 
-# Initialize Earth Engine credentials
-if "earthengine" in st.secrets:
-    # Streamlit Cloud secret
-    sa_info = dict(st.secrets["earthengine"])
-    credentials = service_account.Credentials.from_service_account_info(
-        sa_info, scopes=EE_SCOPES
-    )
+@st.cache_resource
+def _cached_init_ee() -> None:
+    init_ee()
 
-elif os.getenv("EE_SA_JSON"):
-    # GitHub Actions / CI environment variable
-    sa_info = json.loads(os.getenv("EE_SA_JSON"))
-    credentials = service_account.Credentials.from_service_account_info(
-        sa_info, scopes=EE_SCOPES
-    )
 
-else:
-    # Local development from file
-    key_file = "keys/service_account.json"
-    credentials = service_account.Credentials.from_service_account_file(
-        key_file, scopes=EE_SCOPES
-    )
-
-# Initialize Earth Engine
-ee.Initialize(credentials)
+# Initialize Earth Engine (credential source resolved by heatwave.auth)
+_cached_init_ee()
 
 # =======================
 # STEP 2: Define boundary & dates
 # =======================
-boundary = ee.FeatureCollection('projects/ee-victoridakwo/assets/Northern_Nigeria')
-startDate = '1980-01-01'
-endDate = '2025-09-15'
+boundary = load_ward_boundary()
+startDate = settings.start_date
+endDate = settings.end_date
 
 # =======================
 # STEP 3: Load datasets
 # =======================
-era5_2mt = ee.ImageCollection('ECMWF/ERA5/DAILY') \
-    .select('mean_2m_air_temperature') \
-    .filter(ee.Filter.date(startDate, endDate)) \
-    .map(lambda image: image.clip(boundary))
+era5_land = load_era5_land(boundary, startDate, endDate)
 
-era5_2d = ee.ImageCollection('ECMWF/ERA5/DAILY') \
-    .select('dewpoint_2m_temperature') \
-    .filter(ee.Filter.date(startDate, endDate)) \
-    .map(lambda image: image.clip(boundary))
-
-# Compute Relative Humidity
-def compute_relative_humidity(tempImage):
-    tempDate = tempImage.date()
-    dewpointImage = era5_2d.filterDate(tempDate, tempDate.advance(1, 'day')).first()
-
-    rh = ee.Image(dewpointImage).expression(
-        '100 - 5 * (T - D)',
-        {'T': tempImage, 'D': ee.Image(dewpointImage)}
-    ).rename('relative_humidity')
-
-    return tempImage.addBands(rh.set('system:time_start', tempImage.get('system:time_start')))
-
-relativeHumidity = era5_2mt.map(compute_relative_humidity)
-
-# Compute Heat Index
-def compute_heat_index(image):
-    tempC = image.select('mean_2m_air_temperature')
-    tempF = tempC.subtract(273.15).multiply(9/5).add(32)
-    RH = image.select('relative_humidity')
-
-    c1, c2, c3, c4, c5, c6, c7, c8, c9 = [
-        -42.379, 2.04901523, 10.14333127, -0.22475541,
-        -0.00683783, -0.05481717, 0.00122874,
-        0.00085282, -0.00000199
-    ]
-
-    HI = tempF.expression(
-        'c1 + c2*T + c3*R + c4*T*R + c5*T**2 + c6*R**2 + c7*T**2*R + c8*T*R**2 + c9*T**2*R**2',
-        {'T': tempF, 'R': RH, 'c1': c1, 'c2': c2, 'c3': c3,
-         'c4': c4, 'c5': c5, 'c6': c6, 'c7': c7, 'c8': c8, 'c9': c9}
-    ).rename('heat_index')
-
-    return image.addBands(HI.set('system:time_start', image.get('system:time_start')))
+relativeHumidity = era5_land.map(compute_relative_humidity)
 
 heatIndex = relativeHumidity.map(compute_heat_index)
 
@@ -122,7 +58,7 @@ Map.addLayer(heatIndex.filter(ee.Filter.date(selected_date)).select('heat_index'
 
 # Add boundary
 boundary_styled = boundary.style(color='black', fillColor='00000000', width=2)
-Map.addLayer(boundary_styled, {}, 'Northern Nigeria')
+Map.addLayer(boundary_styled, {}, 'Ward Boundaries')
 
 # Add map to Streamlit
 Map.to_streamlit(height=700)
