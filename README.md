@@ -1,5 +1,7 @@
 # heatwave_modelling_CHAP
 
+**[Architecture diagram: Heatwave Detection Pipeline](https://claude.ai/code/artifact/f7dfd3f2-5a88-4f9f-b901-731128f0a801)** -- full walkthrough of credential resolution, ERA5-Land ingestion, Heat Index computation, the live Streamlit app, and the (built-but-unwired) climatology/heatwave-detection library, with every data source itemized.
+
 A ward-level heatwave-detection pipeline for Nigeria. It ingests ERA5-Land climate data via Google Earth Engine, computes NOAA/NWS Heat Index per ward, detects heatwave days/events using a WMO/ETCCDI percentile-exceedance climatology, and produces a weekly covariate table for downstream disease-forecasting platforms (CHAP / chap-core / dhis2-chap). It does not forecast disease itself — it produces an upstream climate covariate.
 
 ## Development Status
@@ -41,3 +43,4 @@ All three phases are covered by 49 tests that run live against the real Earth En
 - **Phase 7 — Polish:** optional test/CI hardening.
 
 See `.planning/PROJECT.md` and `.planning/ROADMAP.md` for full project context and phase-by-phase detail.
+
