@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import os
 import time
+from datetime import date
 from pathlib import Path
 
 import ee
@@ -273,3 +274,303 @@ def test_batch_export_asset_round_trip():
             ee.data.deleteAsset(asset_id)
         except Exception:
             pass
+
+
+# --- EXPORT-02/EXPORT-03 weekly aggregation tests (plan 04-03) ---------------
+#
+# Everything below reproduces detect_heatwave_events' exact output row schema
+# directly via _make_events_fc rather than running the real zonal reduction
+# or climatology pass -- per CONTEXT.md's Integration Points, EXPORT-04 tests
+# schema and aggregation correctness on a small bounded sample and never runs
+# the full historical export inline.
+
+
+def _make_events_fc(rows):
+    """Build an `ee.FeatureCollection` reproducing `detect_heatwave_events`'
+    exact output row schema (`ward_id`, `value`, `is_hot`, `event_id`,
+    `system:time_start`) directly from literal
+    `(ward_id, date_string, value, is_hot, event_id)` tuples.
+
+    This exists so these tests never pay for a real zonal reduction or
+    climatology pass (CONTEXT.md Integration Points). `value` may be `None`
+    -- `ee.Feature` accepts a Python `None` as an explicit null property,
+    reproducing a ward-day whose zonal reduction yielded no value (D-08).
+    """
+    features = [
+        ee.Feature(
+            None,
+            {
+                "ward_id": ward_id,
+                "value": value,
+                "is_hot": is_hot,
+                "event_id": event_id,
+                "system:time_start": ee.Date(date_string).millis(),
+            },
+        )
+        for ward_id, date_string, value, is_hot, event_id in rows
+    ]
+    return ee.FeatureCollection(features)
+
+
+def test_export_module_exports_aggregation_functions():
+    """EXPORT-02/EXPORT-04: heatwave.export exports its ISO-week keying and
+    weekly-aggregation functions plus the EXPORT-02 schema constant, no
+    credentials required."""
+    from heatwave.export import (
+        COVARIATE_COLUMNS,
+        GROUP_KEY_SEPARATOR,
+        add_group_key,
+        add_time_period,
+        aggregate_weekly_metrics,
+        build_covariate_table,
+        event_start_weeks,
+        iso_time_period,
+        iso_year_and_week,
+    )
+
+    assert callable(iso_year_and_week)
+    assert callable(iso_time_period)
+    assert callable(add_time_period)
+    assert callable(add_group_key)
+    assert callable(aggregate_weekly_metrics)
+    assert callable(event_start_weeks)
+    assert callable(build_covariate_table)
+    assert COVARIATE_COLUMNS == (
+        "time_period",
+        "location",
+        "heatwave_days",
+        "mean_heat_index",
+        "max_heat_index",
+        "heatwave_event_count",
+    )
+    assert GROUP_KEY_SEPARATOR == "::"
+
+
+@_REQUIRES_CREDENTIALS
+def test_iso_time_period_matches_python_isocalendar_at_year_boundaries():
+    """EXPORT-02/D-06: `iso_time_period` renders an ISO week string of the
+    form `YYYY-Www`, zero-padded, matching Python's stdlib
+    `date.isocalendar()` exactly -- including at the last Monday of
+    December, which belongs to the FOLLOWING calendar year's ISO week 1,
+    not the current year's week 1 (04-RESEARCH.md Pitfall 2). This test
+    fails if anyone reverts `iso_year_and_week` to pairing
+    `ee.Date.get('year')` with `ee.Date.get('week')`."""
+    from heatwave.auth import init_ee
+    from heatwave.export import iso_time_period
+
+    init_ee()
+
+    dates = [
+        "2024-12-30",
+        "2024-12-31",
+        "2025-01-01",
+        "2025-01-05",
+        "2023-01-01",
+        "2023-01-02",
+        "2020-12-31",
+        "2021-01-01",
+    ]
+    actual = ee.List([iso_time_period(ee.Date(d)) for d in dates]).getInfo()
+
+    for d, got in zip(dates, actual):
+        iso_year, iso_week, _ = date.fromisoformat(d).isocalendar()
+        expected = f"{iso_year}-W{iso_week:02d}"
+        assert got == expected, f"{d}: expected {expected}, got {got}"
+
+
+@_REQUIRES_CREDENTIALS
+def test_weekly_aggregation_matches_hand_computed_values():
+    """EXPORT-02 regression guard for 04-RESEARCH.md Pitfall 4 (chained
+    `.group()` calls silently swap values between groups): two wards over
+    two ISO weeks, hand-computed per (ward, week) --
+    `W-A`/`2020-W23` = mean 100.0 (= (100+110+90)/3), max 110.0,
+    heatwave_days 2; `W-B`/`2020-W24` = mean 105.0 (= (80+130)/2), max
+    130.0, heatwave_days 1. The two groups differ on EVERY aggregate field
+    so a chained-`.group()` swap corrupting any single column -- including
+    `mean_heat_index` alone -- is caught."""
+    from heatwave.auth import init_ee
+    from heatwave.export import add_group_key, add_time_period, aggregate_weekly_metrics
+
+    init_ee()
+
+    rows = [
+        ("W-A", "2020-06-01", 100, 1, -1),
+        ("W-A", "2020-06-02", 110, 1, -1),
+        ("W-A", "2020-06-03", 90, 0, -1),
+        ("W-B", "2020-06-08", 80, 0, -1),
+        ("W-B", "2020-06-09", 130, 1, -1),
+    ]
+    events_fc = _make_events_fc(rows)
+    dated = add_group_key(add_time_period(events_fc))
+    weekly = aggregate_weekly_metrics(dated)
+
+    by_key = {
+        f"{r['location']}::{r['time_period']}": r
+        for r in _props(
+            weekly,
+            ("location", "time_period", "mean_heat_index", "max_heat_index", "heatwave_days"),
+        )
+    }
+
+    a = by_key["W-A::2020-W23"]
+    assert a["mean_heat_index"] == pytest.approx(100.0, abs=1e-6)
+    assert a["max_heat_index"] == pytest.approx(110.0, abs=1e-6)
+    assert a["heatwave_days"] == 2
+
+    b = by_key["W-B::2020-W24"]
+    assert b["mean_heat_index"] == pytest.approx(105.0, abs=1e-6)
+    assert b["max_heat_index"] == pytest.approx(130.0, abs=1e-6)
+    assert b["heatwave_days"] == 1
+
+
+@_REQUIRES_CREDENTIALS
+def test_covariate_table_schema_is_exactly_the_export_02_columns():
+    """EXPORT-02: `build_covariate_table`'s output property-key set is
+    EXACTLY `{time_period, location, heatwave_days, mean_heat_index,
+    max_heat_index, heatwave_event_count}` -- asserted via set equality so
+    both a missing and an extra column fail. Internal properties
+    (`group_key`, `is_hot`, `event_id`, `run_id`, `doy`, `ward_id`,
+    `used_fallback_reducer`, `system:time_start`) must not leak into the
+    exported table."""
+    from heatwave.auth import init_ee
+    from heatwave.export import COVARIATE_COLUMNS, build_covariate_table
+
+    init_ee()
+
+    rows = [
+        ("W-A", "2020-06-01", 100, 1, -1),
+        ("W-A", "2020-06-02", 110, 1, -1),
+    ]
+    events_fc = _make_events_fc(rows)
+    table = build_covariate_table(events_fc)
+    info = table.getInfo()
+
+    assert len(info["features"]) >= 1
+    for feature in info["features"]:
+        assert set(feature["properties"].keys()) == set(COVARIATE_COLUMNS)
+
+
+@_REQUIRES_CREDENTIALS
+def test_heatwave_event_count_counts_event_starts_not_touched_weeks():
+    """EXPORT-02: closes 04-RESEARCH.md Assumption A4 end-to-end -- a
+    single ward `W-E` with one 4-day event (`event_id=7`) starting on
+    Sunday `2020-06-07` (the last day of ISO week `2020-W23`) and running
+    through Wednesday `2020-06-10` (in `2020-W24`) yields
+    `heatwave_event_count == 1` for `2020-W23` and `== 0` for `2020-W24` --
+    the event is attributed to its STARTING week only, never the week it
+    merely continues into. `heatwave_days` is 1 for `2020-W23` (only
+    `06-07`) and 3 for `2020-W24` (`06-08`, `06-09`, `06-10`; the trailing
+    `06-11`/`06-12` non-event days are not hot)."""
+    from heatwave.auth import init_ee
+    from heatwave.export import build_covariate_table
+
+    init_ee()
+
+    rows = [
+        ("W-E", "2020-06-07", 100, 1, 7),
+        ("W-E", "2020-06-08", 101, 1, 7),
+        ("W-E", "2020-06-09", 102, 1, 7),
+        ("W-E", "2020-06-10", 103, 1, 7),
+        ("W-E", "2020-06-11", 50, 0, -1),
+        ("W-E", "2020-06-12", 51, 0, -1),
+    ]
+    events_fc = _make_events_fc(rows)
+    table = build_covariate_table(events_fc)
+
+    by_week = {
+        r["time_period"]: r
+        for r in _props(table, ("time_period", "heatwave_event_count", "heatwave_days"))
+    }
+
+    week23 = by_week["2020-W23"]
+    week24 = by_week["2020-W24"]
+    assert week23["heatwave_event_count"] == 1
+    assert week23["heatwave_days"] == 1
+    assert week24["heatwave_event_count"] == 0
+    assert week24["heatwave_days"] == 3
+
+
+@_REQUIRES_CREDENTIALS
+def test_covariate_table_uses_genuine_zero_for_weeks_without_events():
+    """EXPORT-02/D-08 contrast case: a ward-week with real (non-null) data
+    and no hot days gets a genuine integer `0` for `heatwave_days` and
+    `heatwave_event_count` -- asserted with `== 0`, not `is None`."""
+    from heatwave.auth import init_ee
+    from heatwave.export import build_covariate_table
+
+    init_ee()
+
+    rows = [
+        ("W-C", "2020-06-01", 70, 0, -1),
+        ("W-C", "2020-06-02", 72, 0, -1),
+    ]
+    events_fc = _make_events_fc(rows)
+    table = build_covariate_table(events_fc)
+    props = _props(table, ("heatwave_days", "heatwave_event_count"))
+
+    assert len(props) == 1
+    assert props[0]["heatwave_days"] == 0
+    assert props[0]["heatwave_event_count"] == 0
+
+
+@_REQUIRES_CREDENTIALS
+def test_covariate_table_preserves_null_heat_index_rather_than_zero():
+    """EXPORT-02/D-08: a ward-week whose every daily `value` is null yields
+    `mean_heat_index`/`max_heat_index` of `None` -- explicitly not `0` --
+    and the row is still present (never dropped)."""
+    from heatwave.auth import init_ee
+    from heatwave.export import build_covariate_table
+
+    init_ee()
+
+    rows = [
+        ("W-NULL", "2020-06-01", None, 0, -1),
+        ("W-NULL", "2020-06-02", None, 0, -1),
+    ]
+    events_fc = _make_events_fc(rows)
+    table = build_covariate_table(events_fc)
+    props = _props(table, ("mean_heat_index", "max_heat_index"))
+
+    assert len(props) == 1
+    assert props[0]["mean_heat_index"] is None
+    assert props[0]["max_heat_index"] is None
+
+
+@_REQUIRES_CREDENTIALS
+def test_covariate_table_completeness_every_ward_week_appears_exactly_once():
+    """EXPORT-03: for 3 wards (`W-A`, `W-B`, `W-NULL`) across 2 ISO weeks
+    (`2020-W23`, `2020-W24`) -- 3 x 2 = 6 distinct (ward, week) pairs,
+    including the two all-null `W-NULL` ward-weeks -- the output has
+    exactly 6 rows, and the set of `(location, time_period)` pairs equals
+    the set present in the input, with no duplicates and no dropped
+    ward-week."""
+    from heatwave.auth import init_ee
+    from heatwave.export import build_covariate_table
+
+    init_ee()
+
+    rows = [
+        ("W-A", "2020-06-01", 100, 1, -1),
+        ("W-A", "2020-06-08", 95, 0, -1),
+        ("W-B", "2020-06-02", 85, 0, -1),
+        ("W-B", "2020-06-09", 130, 1, -1),
+        ("W-NULL", "2020-06-03", None, 0, -1),
+        ("W-NULL", "2020-06-10", None, 0, -1),
+    ]
+    events_fc = _make_events_fc(rows)
+    table = build_covariate_table(events_fc)
+    props = _props(table, ("location", "time_period"))
+
+    pairs = [(p["location"], p["time_period"]) for p in props]
+    expected_pairs = {
+        ("W-A", "2020-W23"),
+        ("W-A", "2020-W24"),
+        ("W-B", "2020-W23"),
+        ("W-B", "2020-W24"),
+        ("W-NULL", "2020-W23"),
+        ("W-NULL", "2020-W24"),
+    }
+
+    assert len(pairs) == 6
+    assert len(set(pairs)) == 6
+    assert set(pairs) == expected_pairs
