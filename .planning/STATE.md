@@ -3,8 +3,8 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-03-PLAN.md
-last_updated: "2026-09-16T12:06:43.433Z"
+stopped_at: 04-04-PLAN.md Task 3 checkpoint (human-verify) -- awaiting operator review
+last_updated: "2026-09-16T13:01:56.730Z"
 last_activity: 2026-09-16
 progress:
   total_phases: 7
@@ -27,7 +27,7 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 
 Phase: 4 (Batch Export & Covariate Table) — EXECUTING
 Plan: 4 of 4
-Status: Ready to execute
+Status: Tasks 1-2 complete and committed; paused at Task 3 (checkpoint:human-verify) awaiting operator review of the real chunk plan and smoke export
 Last activity: 2026-09-16
 
 Progress: [█████████░] 92%
@@ -102,6 +102,8 @@ Recent decisions affecting current work:
 - [Phase 04-03]: D-08 upheld with two side-by-side, deliberately different null-handling rules on adjacent output columns (mean/max heat index preserve null; heatwave_days/heatwave_event_count coalesce to genuine 0), each pinned by its own test
 - [Phase 04-03]: Closed 04-RESEARCH.md Assumption A4 (event-start-week two-stage composition) via a live end-to-end test rather than leaving it composed-but-unverified
 - [Phase 04-03]: ee.Dictionary.contains(key) gate added before .get(key) on grouped-reducer output, since an all-null-input group omits the mean/max key entirely rather than nulling it -- discovered live during Task 3
+- [Phase 04-04]: D-01/D-02/D-05/D-06/D-07/D-08/D-09 upheld exactly: scripts/run_batch_export.py's V5-validated CLI, deterministic ward-batch chunk planner, once-per-run D-09 small-ward report, resumable chunked toAsset submit/poll/collect, and atomic coverage-gated CSV concatenation all implemented per interface; --stage plan verified live against heatwave-508110 (4,841 wards, 20 chunks, 73 small wards, zero tasks submitted)
+- [Phase 04-04]: Rule 1 bug found live during Task 3's checkpoint automation: build_covariate_table's output rows carry no geometry, and Export.table.toAsset rejects null-geometry features (the same failure mode 04-01 first hit) -- fixed by attaching a placeholder point geometry inside build_chunk_collection at the export boundary, not inside heatwave/export.py, since none of COVARIATE_COLUMNS is spatial and the CSV read-back never reads geometry
 
 ### Pending Todos
 
@@ -123,6 +125,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-16T12:06:43.403Z
-Stopped at: Completed 04-03-PLAN.md
-Resume file: None
+Last session: 2026-09-16T13:01:21.460Z
+Stopped at: 04-04-PLAN.md Task 3 checkpoint (human-verify) -- chunk plan and 2-chunk/4-ward smoke export both executed and reviewed live; awaiting operator go/no-go on the full 1991-present backfill
+Resume file: .planning/phases/04-batch-export-covariate-table/04-04-PLAN.md
