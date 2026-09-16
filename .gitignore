@@ -18,6 +18,10 @@ keys/*.json
 # Logs
 *.log
 
+# Batch export run artefacts (machine/run-specific)
+outputs/.batch_export_tasks.json
+outputs/*.csv
+
 # OS
 .DS_Store
 Thumbs.db
