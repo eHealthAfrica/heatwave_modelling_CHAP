@@ -195,7 +195,18 @@ def build_chunk_collection(
     )
     flagged = flag_heatwave_days(ward_daily, thresholds)
     events = detect_heatwave_events(flagged)
-    return build_covariate_table(events)
+    table = build_covariate_table(events)
+
+    # Live-verified this session (and first found live in plan 04-01's own
+    # round-trip test): Export.table.toAsset rejects every feature with a
+    # null geometry ("Unable to export features with null geometry."). The
+    # weekly covariate rows built above deliberately carry no geometry --
+    # none of COVARIATE_COLUMNS is spatial -- so a placeholder point is
+    # attached here, at the export boundary, rather than inside the
+    # general-purpose aggregation module. The placeholder never reaches the
+    # final CSV: read_asset_rows only ever reads the declared property
+    # columns.
+    return table.map(lambda feature: ee.Feature(feature).setGeometry(ee.Geometry.Point([0, 0])))
 
 
 def assert_ward_coverage(collected_ward_ids: set, expected_ward_ids: set) -> None:
