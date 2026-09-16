@@ -11,6 +11,20 @@ filter with `ee.Filter.calendarRange`, which derives day-of-year from the
 feature's timestamp and raises
 `Collection.filter: Can't apply calendarRange filter to objects without a
 timestamp.` on any feature lacking one.
+
+A row may also carry `used_fallback_reducer` (D-09): a boolean, set on every
+row of BOTH reduction paths, that is True when a ward listed in the caller's
+`fallback_ward_ids` was sampled at its centroid with a non-area-weighted
+reducer (D-08) rather than area-weighted-averaged over its full polygon.
+This exists because Earth Engine's `reduceRegions` area-weights regardless of
+which reducer is passed, so a ward polygon below the ~0.4% pixel-weight
+inclusion threshold yields nothing no matter what reducer is requested over
+the polygon itself -- only re-keying the geometry to a centroid point escapes
+that area-weighting. This resolves the caller obligation the null-value
+paragraph below hands to Phase 4: a null is neither dropped nor coalesced to
+zero -- it is replaced by a genuine, lower-fidelity sampled value with its
+provenance flagged, so a downstream CSV consumer can always tell which rows
+came from which path.
 """
 from __future__ import annotations
 
@@ -24,43 +38,137 @@ from heatwave.config import settings
 ERA5_LAND_NOMINAL_SCALE_M = 11132
 
 
+def find_small_wards(
+    image: ee.Image,
+    wards: ee.FeatureCollection,
+    band: str = "heat_index",
+    scale: int = ERA5_LAND_NOMINAL_SCALE_M,
+    ward_id_property: str = "wardcode",
+) -> ee.List:
+    """Identify ward ids whose primary area-weighted reduction yields no value (D-08).
+
+    Runs the exact same primary area-weighted reduction pass the main path in
+    `reduce_to_ward_daily` uses, then returns the `ward_id_property` values
+    of every feature missing the `mean` property that reduction produces.
+    That primary reducer OMITS the `mean` property entirely (rather than
+    setting it to null) for a ward polygon below Earth Engine's ~0.4%
+    pixel-weight inclusion threshold, so absence -- not nullness -- is what
+    is tested server-side via `ee.Filter.notNull(["mean"])` inverted with
+    `ee.Filter.Not(...)`.
+
+    A ward's small-geometry status is a static property of its polygon
+    against the fixed ERA5-Land grid (04-RESEARCH.md Pitfall 5) -- it does
+    not vary by date. Call this function ONCE per production run, for one
+    arbitrary image, and reuse its result as the `fallback_ward_ids`
+    argument for every day of every chunk. Never re-derive it per day:
+    a transient spurious null would otherwise switch one day's reducer
+    mid-series and silently corrupt the time-series provenance that
+    `detect_heatwave_events`'s run-length state machine assumes is
+    homogeneous.
+    """
+    reduced = image.select(band).reduceRegions(
+        collection=wards, reducer=ee.Reducer.mean(), scale=scale
+    )
+    missing_mean = reduced.filter(ee.Filter.Not(ee.Filter.notNull(["mean"])))
+    return missing_mean.aggregate_array(ward_id_property)
+
+
+def build_fallback_ward_centroids(
+    small_wards: ee.FeatureCollection,
+    ward_id_property: str = "wardcode",
+) -> ee.FeatureCollection:
+    """Re-key each small ward's geometry to its centroid POINT (D-08).
+
+    `reduceRegions` area-weights regardless of which reducer is passed, so a
+    sub-pixel-weight polygon yields nothing from a non-area-weighted reducer
+    either -- only a POINT geometry escapes that area-weighting
+    (04-RESEARCH.md Pattern 2, live-verified). A pixel-center-containment
+    sampling approach was also tried during research and does NOT work here:
+    it still requires a pixel center to fall inside the region, which a
+    small ward's original polygon can fail even when its centroid falls
+    squarely inside a pixel. Do not "simplify" this into that approach.
+
+    Each output feature carries only `ward_id_property` as a property.
+    """
+
+    def to_centroid(feature: ee.Feature) -> ee.Feature:
+        feature = ee.Feature(feature)
+        return ee.Feature(
+            feature.geometry().centroid(), {ward_id_property: feature.get(ward_id_property)}
+        )
+
+    return small_wards.map(to_centroid)
+
+
 def reduce_to_ward_daily(
     image_collection: ee.ImageCollection,
     wards: ee.FeatureCollection,
     band: str = "heat_index",
     scale: int = ERA5_LAND_NOMINAL_SCALE_M,
     ward_id_property: str = "wardcode",
+    fallback_ward_ids: ee.List | list[str] | None = None,
 ) -> ee.FeatureCollection:
     """Reduce a gridded Heat Index ImageCollection to per-ward-daily rows (CLIM-05).
 
     Returns a flat ee.FeatureCollection of N*M features (N wards, M images),
     each carrying:
-        ward_id            string  copied from wards[ward_id_property]
-        value              double  zonally-reduced band value for that ward on
-                                    that day; null when the ward polygon falls
-                                    below Earth Engine's ~0.4% pixel-weight
-                                    inclusion threshold (see caller obligation
-                                    below)
-        doy                int     1-366, ee.Date.getRelative('day','year') + 1
-        system:time_start  long    image date in millis
+        ward_id                string  copied from wards[ward_id_property]
+        value                  double  reduced band value for that ward on
+                                        that day; null when the ward polygon
+                                        falls below Earth Engine's ~0.4%
+                                        pixel-weight inclusion threshold AND
+                                        it is not listed in
+                                        `fallback_ward_ids` (see caller
+                                        obligation below)
+        doy                    int     1-366, ee.Date.getRelative('day','year') + 1
+        system:time_start      long    image date in millis
+        used_fallback_reducer  bool    True when this row came from the
+                                        centroid-point sample (D-08), False
+                                        when it came from the primary
+                                        area-weighted mean (D-09)
 
     Caller obligation (data-integrity, T-03-01): a null `value` means the ward
     polygon was too small relative to the ~11.1km pixel grid to receive a
-    weighted `mean` from reduceRegions -- this row is present, not dropped.
-    Callers (e.g. Phase 4's batch export) must treat a null value as missing
-    data, never silently aggregate it as zero heatwave days.
+    weighted `mean` from reduceRegions, and it was not listed in
+    `fallback_ward_ids` -- this row is present, not dropped. Callers (e.g.
+    Phase 4's batch export) must treat a null value as missing data, never
+    silently aggregate it as zero heatwave days.
+
+    `fallback_ward_ids` (D-08, optional, default None): a static list of ward
+    ids -- computed once via `find_small_wards`, never re-derived per day
+    (04-RESEARCH.md Pitfall 5) -- to sample at their centroid with a
+    non-area-weighted, first-value reducer instead of area-weight-averaging
+    their polygon with the primary mean reducer. When None, behaviour is
+    unchanged from Phase 3 except every row now also carries an explicit
+    fallback-provenance flag set to False. When supplied, the ward
+    collection is partitioned once (outside the per-day map) via an
+    inclusion-list filter and its complement, so a ward in the fallback
+    list is excluded from the primary reduction and can never be reduced
+    twice in one day; total row count stays N*M. A null value is never
+    coalesced to 0 anywhere -- the fallback produces a genuine, if
+    lower-fidelity, sampled value instead.
 
     No ward count, ward id, date range, or collection id is hardcoded here
     (D-04): `wards`, `band`, `scale`, and `ward_id_property` are all caller
     parameters, so this function is reused unchanged at Phase 4's full
     nationwide ward scale.
     """
+    if fallback_ward_ids is None:
+        primary_wards = wards
+        fallback_centroids = ee.FeatureCollection([])
+    else:
+        fallback_list = ee.List(fallback_ward_ids)
+        in_fallback = ee.Filter.inList(ward_id_property, fallback_list)
+        primary_wards = wards.filter(ee.Filter.Not(in_fallback))
+        fallback_centroids = build_fallback_ward_centroids(
+            wards.filter(in_fallback), ward_id_property
+        )
 
     def reduce_one_day(image: ee.Image) -> ee.FeatureCollection:
         date = image.date()
         doy = date.getRelative("day", "year").add(1)
         reduced = image.select(band).reduceRegions(
-            collection=wards, reducer=ee.Reducer.mean(), scale=scale
+            collection=primary_wards, reducer=ee.Reducer.mean(), scale=scale
         )
 
         def set_row_properties(feature: ee.Feature) -> ee.Feature:
@@ -70,8 +178,27 @@ def reduce_to_ward_daily(
                 "value", feature.get("mean"),
                 "doy", doy,
                 "system:time_start", date.millis(),
+                "used_fallback_reducer", False,
             )
 
-        return reduced.map(set_row_properties)
+        primary_rows = reduced.map(set_row_properties)
+
+        fallback_reduced = image.select(band).reduceRegions(
+            collection=fallback_centroids, reducer=ee.Reducer.first(), scale=scale
+        )
+
+        def set_fallback_row_properties(feature: ee.Feature) -> ee.Feature:
+            feature = ee.Feature(feature)
+            return feature.set(
+                "ward_id", feature.get(ward_id_property),
+                "value", feature.get("first"),
+                "doy", doy,
+                "system:time_start", date.millis(),
+                "used_fallback_reducer", True,
+            )
+
+        fallback_rows = fallback_reduced.map(set_fallback_row_properties)
+
+        return primary_rows.merge(fallback_rows)
 
     return ee.FeatureCollection(image_collection.map(reduce_one_day)).flatten()
