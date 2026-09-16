@@ -4,8 +4,8 @@ milestone: v1.0
 milestone_name: milestone
 status: executing
 stopped_at: Phase 4 context gathered
-last_updated: "2026-09-16T10:10:32.520Z"
-last_activity: 2026-09-16 -- Phase 4 planning complete
+last_updated: "2026-09-16T10:12:30.398Z"
+last_activity: 2026-09-16 -- Phase 4 execution started
 progress:
   total_phases: 7
   completed_phases: 3
@@ -21,14 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-11)
 
 **Core value:** A correct, complete weekly covariate table can be generated end-to-end from ERA5-Land data for all 4,841 Nigerian wards and handed off to CHAP.
-**Current focus:** Phase 4 — batch export & covariate table
+**Current focus:** Phase 4 — Batch Export & Covariate Table
 
 ## Current Position
 
-Phase: 4
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-09-16 -- Phase 4 planning complete
+Phase: 4 (Batch Export & Covariate Table) — EXECUTING
+Plan: 1 of 4
+Status: Executing Phase 4
+Last activity: 2026-09-16 -- Phase 4 execution started
 
 Progress: [██████████] 100%
 
