@@ -233,17 +233,23 @@ def test_batch_export_asset_round_trip():
     asset_id = chunk_asset_id(f"roundtrip_smoke_{int(time.time())}")
     description = asset_id.rsplit("/", 1)[-1]
 
+    # Rule 1 auto-fix (found live during Task 3): Export.table.toAsset rejects
+    # null-geometry features with "Unable to export features with null
+    # geometry." -- verified live against heatwave-508110 this session. Each
+    # feature is given an arbitrary point geometry (distinct Nigeria-region
+    # coordinates, unused by the property-round-trip assertions below) so the
+    # export succeeds; this does not change what the test verifies.
     features = [
         ee.Feature(
-            None,
+            ee.Geometry.Point([3.0, 7.0]),
             {"location": "W-RT-A", "time_period": "2020-W23", "heatwave_days": 1},
         ),
         ee.Feature(
-            None,
+            ee.Geometry.Point([5.0, 8.0]),
             {"location": "W-RT-B", "time_period": "2020-W23", "heatwave_days": 2},
         ),
         ee.Feature(
-            None,
+            ee.Geometry.Point([7.0, 9.0]),
             {"location": "W-RT-C", "time_period": "2020-W23", "heatwave_days": 3},
         ),
     ]
