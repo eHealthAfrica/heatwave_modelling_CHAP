@@ -226,6 +226,146 @@ def test_zonal_reduction_tiny_ward_row_is_null_not_dropped():
     assert tiny_rows[0]["value"] is None
 
 
+@_REQUIRES_CREDENTIALS
+def test_zonal_find_small_wards_identifies_subpixel_ward():
+    """D-08: find_small_wards(image, wards) surfaces exactly the ward ids
+    whose primary area-weighted reduction yields no value for a given image
+    -- the one-time detection pass Pitfall 5 requires be run once, not per
+    day. W-TINY's 250m buffer sits far below ERA5-Land's ~0.4% pixel-weight
+    inclusion threshold; W-A and W-B's 20km buffers sit comfortably above
+    it, so only W-TINY should appear."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import find_small_wards
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-B", 8.0, 7.0, 20000),
+        ("W-TINY", 5.0, 7.0, 250),
+    ])
+    image = _make_heat_index_collection([("2020-01-01", 0)]).first()
+
+    small_ward_ids = find_small_wards(image, wards).getInfo()
+
+    assert small_ward_ids == ["W-TINY"]
+
+
+@_REQUIRES_CREDENTIALS
+def test_zonal_fallback_gives_tiny_ward_a_real_value():
+    """D-08: reduce_to_ward_daily(..., fallback_ward_ids=["W-TINY"]) samples
+    W-TINY at its centroid instead of area-weighting its (too-small) polygon,
+    producing a genuine, non-null, non-zero value -- approximately the
+    ward's centroid longitude (5.0) plus the day's zero offset -- rather
+    than the null the primary area-weighted path would otherwise emit."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import reduce_to_ward_daily
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-B", 8.0, 7.0, 20000),
+        ("W-TINY", 5.0, 7.0, 250),
+    ])
+    collection = _make_heat_index_collection([("2020-01-01", 0)])
+
+    result = reduce_to_ward_daily(collection, wards, fallback_ward_ids=["W-TINY"])
+    rows = _props(result, ["ward_id", "value", "used_fallback_reducer"])
+
+    tiny_rows = [row for row in rows if row["ward_id"] == "W-TINY"]
+    assert len(tiny_rows) == 1
+    assert tiny_rows[0]["value"] is not None
+    assert tiny_rows[0]["value"] == pytest.approx(5.0, abs=0.2)
+
+
+@_REQUIRES_CREDENTIALS
+def test_zonal_fallback_flags_provenance_per_row():
+    """D-09: every row -- from both the fallback centroid path and the
+    unchanged primary area-weighted path -- carries a used_fallback_reducer
+    boolean, so a downstream CSV consumer can tell which ward-days came from
+    the lower-fidelity sample. Asserted by identity against True/False, not
+    truthiness, per this plan's acceptance criteria."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import reduce_to_ward_daily
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-B", 8.0, 7.0, 20000),
+        ("W-TINY", 5.0, 7.0, 250),
+    ])
+    collection = _make_heat_index_collection([("2020-01-01", 0)])
+
+    result = reduce_to_ward_daily(collection, wards, fallback_ward_ids=["W-TINY"])
+    rows = _props(result, ["ward_id", "used_fallback_reducer"])
+
+    by_ward = {row["ward_id"]: row["used_fallback_reducer"] for row in rows}
+    assert by_ward["W-TINY"] is True
+    assert by_ward["W-A"] is False
+    assert by_ward["W-B"] is False
+
+
+@_REQUIRES_CREDENTIALS
+def test_zonal_fallback_preserves_row_count_and_ward_uniqueness():
+    """D-08: with 3 wards and 2 days and fallback_ward_ids=["W-TINY"], the
+    output size is exactly 6 (N*M) and each (ward_id, doy) pair appears
+    exactly once -- a ward in the fallback list is removed from the primary
+    reduction via the ee.Filter.Not(inList(...)) complement, never reduced
+    twice, so no ward can appear in both partitions for the same day."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import reduce_to_ward_daily
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-B", 8.0, 7.0, 20000),
+        ("W-TINY", 5.0, 7.0, 250),
+    ])
+    collection = _make_heat_index_collection([
+        ("2020-01-01", 0),
+        ("2020-01-02", 10),
+    ])
+
+    result = reduce_to_ward_daily(collection, wards, fallback_ward_ids=["W-TINY"])
+    rows = _props(result, ["ward_id", "doy"])
+
+    assert len(rows) == 6
+    pairs = [(row["ward_id"], row["doy"]) for row in rows]
+    assert len(pairs) == len(set(pairs))
+
+
+@_REQUIRES_CREDENTIALS
+def test_zonal_fallback_does_not_change_primary_ward_values():
+    """D-08: adding fallback_ward_ids=["W-TINY"] must not perturb the wards
+    that never needed it -- W-A and W-B's values with the fallback active
+    must equal their values with fallback_ward_ids=None (Phase 3 behaviour),
+    proving the primary reduceRegions(Reducer.mean()) path is untouched."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import reduce_to_ward_daily
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-B", 8.0, 7.0, 20000),
+        ("W-TINY", 5.0, 7.0, 250),
+    ])
+    collection = _make_heat_index_collection([("2020-01-01", 0)])
+
+    with_fallback = _props(
+        reduce_to_ward_daily(collection, wards, fallback_ward_ids=["W-TINY"]),
+        ["ward_id", "value"],
+    )
+    without_fallback = _props(
+        reduce_to_ward_daily(collection, wards, fallback_ward_ids=None),
+        ["ward_id", "value"],
+    )
+
+    with_by_ward = {row["ward_id"]: row["value"] for row in with_fallback}
+    without_by_ward = {row["ward_id"]: row["value"] for row in without_fallback}
+
+    for ward_id in ("W-A", "W-B"):
+        assert with_by_ward[ward_id] == pytest.approx(without_by_ward[ward_id], abs=0.01)
+
+
 def _make_ward_daily_fc(rows) -> ee.FeatureCollection:
     """Build a synthetic per-ward-daily FeatureCollection from (ward_id, date_string, value) tuples.
 
