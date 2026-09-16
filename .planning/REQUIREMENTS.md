@@ -36,7 +36,7 @@ Requirements for initial release. Each maps to roadmap phases.
 ### Batch Export & Covariate Table (production deliverable)
 
 - [x] **EXPORT-01**: `scripts/run_batch_export.py` runs the full ingest → heat-index → climatology → detection pipeline across all 4,841 wards for a configurable date range
-- [ ] **EXPORT-02**: The generated covariate table matches the target schema exactly: `time_period` (ISO week, e.g. `2020-W23`), `location` (ward ID), `heatwave_days`, `mean_heat_index`, `max_heat_index`, `heatwave_event_count`
+- [x] **EXPORT-02**: The generated covariate table matches the target schema exactly: `time_period` (ISO week, e.g. `2020-W23`), `location` (ward ID), `heatwave_days`, `mean_heat_index`, `max_heat_index`, `heatwave_event_count`
 - [x] **EXPORT-03**: Running the pipeline end-to-end for a full sample period produces a complete table (no missing wards, no null aggregates) ready for CHAP handoff
 - [x] **EXPORT-04**: `tests/test_export.py` verifies covariate table schema and aggregation correctness
 
@@ -99,7 +99,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | CLIM-05 | Phase 3 | Complete |
 | CLIM-06 | Phase 3 | Complete |
 | EXPORT-01 | Phase 4 | Complete |
-| EXPORT-02 | Phase 4 | Pending |
+| EXPORT-02 | Phase 4 | Complete |
 | EXPORT-03 | Phase 4 | Complete |
 | EXPORT-04 | Phase 4 | Complete |
 | APP-01 | Phase 5 | Pending |

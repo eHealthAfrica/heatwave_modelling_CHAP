@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-02-PLAN.md
-last_updated: "2026-09-16T11:12:50.868Z"
+stopped_at: Completed 04-03-PLAN.md
+last_updated: "2026-09-16T12:06:43.433Z"
 last_activity: 2026-09-16
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 13
-  completed_plans: 11
+  completed_plans: 12
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 ## Current Position
 
 Phase: 4 (Batch Export & Covariate Table) — EXECUTING
-Plan: 3 of 4
+Plan: 4 of 4
 Status: Ready to execute
 Last activity: 2026-09-16
 
-Progress: [█████████░] 85%
+Progress: [█████████░] 92%
 
 ## Performance Metrics
 
@@ -65,6 +65,7 @@ Progress: [█████████░] 85%
 | Phase 03-climatology-heatwave-detection P04 | 35min | 2 tasks | 1 files |
 | Phase 04-batch-export-covariate-table P01 | 24min | 3 tasks | 3 files |
 | Phase 04-batch-export-covariate-table P02 | 15min | 2 tasks | 2 files |
+| Phase 04 P03 | 32min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -97,6 +98,10 @@ Recent decisions affecting current work:
 - [Phase 04-01]: Export.table.toAsset rejects null-geometry features (verified live) -- round-trip test fixture uses point geometry instead of the plan's literal ee.Feature(None, ...) spec
 - [Phase 04-02]: D-08/D-09 upheld: reduce_to_ward_daily gains an opt-in fallback_ward_ids (last-positioned, default None) partitioning wards via Filter.inList/Filter.Not into a centroid+Reducer.first() fallback path and the unchanged primary Reducer.mean() path; every row of both paths carries used_fallback_reducer for provenance
 - [Phase 04-02]: find_small_wards() is a one-time static detection pass (one arbitrary image) whose result is passed in as fallback_ward_ids -- never re-derived per day, structurally preventing 04-RESEARCH.md Pitfall 5's provenance-drift failure mode
+- [Phase 04-03]: D-06/EXPORT-02 upheld exactly: build_covariate_table's output property-key set is EXACTLY {time_period, location, heatwave_days, mean_heat_index, max_heat_index, heatwave_event_count}, verified via set equality
+- [Phase 04-03]: D-08 upheld with two side-by-side, deliberately different null-handling rules on adjacent output columns (mean/max heat index preserve null; heatwave_days/heatwave_event_count coalesce to genuine 0), each pinned by its own test
+- [Phase 04-03]: Closed 04-RESEARCH.md Assumption A4 (event-start-week two-stage composition) via a live end-to-end test rather than leaving it composed-but-unverified
+- [Phase 04-03]: ee.Dictionary.contains(key) gate added before .get(key) on grouped-reducer output, since an all-null-input group omits the mean/max key entirely rather than nulling it -- discovered live during Task 3
 
 ### Pending Todos
 
@@ -118,6 +123,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-16T11:12:50.840Z
-Stopped at: Completed 04-02-PLAN.md
+Last session: 2026-09-16T12:06:43.403Z
+Stopped at: Completed 04-03-PLAN.md
 Resume file: None
