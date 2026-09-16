@@ -3,7 +3,9 @@ harness, weekly covariate aggregation, and the batch export script
 (EXPORT-01 through EXPORT-04)."""
 from __future__ import annotations
 
+import importlib.util
 import os
+import re
 import time
 from datetime import date
 from pathlib import Path
@@ -574,3 +576,235 @@ def test_covariate_table_completeness_every_ward_week_appears_exactly_once():
     assert len(pairs) == 6
     assert len(set(pairs)) == 6
     assert set(pairs) == expected_pairs
+
+
+# --- EXPORT-01/EXPORT-03 batch export script tests (plan 04-04) -------------
+#
+# scripts/run_batch_export.py is deliberately NOT part of the `heatwave`
+# package -- pyproject.toml's [tool.setuptools.packages.find] includes only
+# `heatwave*` -- so it is loaded here via an explicit file-path import rather
+# than a normal package import.
+
+_RUN_BATCH_EXPORT_PATH = Path(__file__).resolve().parent.parent / "scripts" / "run_batch_export.py"
+
+
+def _load_run_batch_export():
+    """Load scripts/run_batch_export.py as a standalone module.
+
+    An explicit file-path-based module spec load is the stable way to test a
+    production entry-point script that is deliberately not an installed
+    package, without adding packaging machinery or relying on implicit
+    namespace-package resolution. Raises (via the loader) if the script has
+    not been created yet -- this is the RED-phase failure mode every
+    non-gated test below relies on.
+    """
+    spec = importlib.util.spec_from_file_location("run_batch_export", _RUN_BATCH_EXPORT_PATH)
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+# Second, independent opt-in gate, next to _RUNS_LIVE_ROUNDTRIP above: a
+# full-pipeline graph (ingest -> heat index -> zonal -> climatology ->
+# detection -> weekly aggregation) is expensive even on a tiny sample --
+# Phase 3 measured a single lazily-evaluated graph spanning zonal reduction
+# through event detection at 65.81s for a 60-row fixture (see
+# test_end_to_end_climatology_and_event_pipeline in
+# tests/test_heatwave_detection.py), so a full-pipeline graph cannot fit
+# 04-VALIDATION.md's 30-second per-task budget. It is opt-in and run
+# deliberately in Task 2 of this plan, rather than being dropped or faked.
+_RUNS_PIPELINE_SMOKE = pytest.mark.skipif(
+    not os.getenv("RUN_EE_PIPELINE_SMOKE"),
+    reason="Set RUN_EE_PIPELINE_SMOKE=1 to run the live end-to-end pipeline smoke test (tens of seconds)",
+)
+
+
+def test_batch_export_script_module_exports():
+    """EXPORT-01/EXPORT-04: scripts/run_batch_export.py loads via an
+    explicit file-path import and exposes its full documented interface, no
+    credentials required. Fails with a loader error until Task 2 creates
+    the script (RED)."""
+    module = _load_run_batch_export()
+
+    assert callable(module.parse_iso_date)
+    assert callable(module.validate_date_range)
+    assert callable(module.plan_ward_chunks)
+    assert callable(module.build_chunk_collection)
+    assert callable(module.assert_ward_coverage)
+    assert callable(module.concatenate_chunk_csvs)
+    assert callable(module.main)
+    assert str(module.DEFAULT_OUTPUT_CSV).replace("\\", "/").endswith("outputs/covariate_table.csv")
+
+
+def test_batch_export_parse_iso_date_rejects_malformed_input():
+    """V5/EXPORT-01: parse_iso_date accepts only YYYY-MM-DD and raises on
+    anything else, so a free-form string can never reach ee.Filter.date()
+    unparsed."""
+    module = _load_run_batch_export()
+
+    assert module.parse_iso_date("2020-01-01") == "2020-01-01"
+
+    for bad_value in ("2020/01/01", "2020-13-45", "last tuesday", "", "2020-01-01 OR 1=1"):
+        with pytest.raises(Exception):
+            module.parse_iso_date(bad_value)
+
+
+def test_batch_export_validate_date_range_rejects_inverted_and_prehistoric_ranges():
+    """V5/D-01: validate_date_range rejects an empty (start==end) range, an
+    inverted range, and a pre-ERA5-Land-collection-start range; a genuinely
+    valid range passes through unchanged."""
+    module = _load_run_batch_export()
+
+    with pytest.raises(Exception):
+        module.validate_date_range("2020-01-01", "2020-01-01")
+
+    with pytest.raises(Exception):
+        module.validate_date_range("2021-01-01", "2020-01-01")
+
+    with pytest.raises(Exception):
+        module.validate_date_range("1900-01-01", "2020-01-01")
+
+    assert module.validate_date_range("1991-01-01", "2025-09-15") == ("1991-01-01", "2025-09-15")
+
+
+def test_batch_export_plan_ward_chunks_partitions_without_loss_or_overlap():
+    """D-05: plan_ward_chunks partitions ward ids into consecutive,
+    zero-padded, deterministic chunks with no loss, no overlap and no
+    trailing empty chunk."""
+    module = _load_run_batch_export()
+
+    ward_ids_1000 = [f"W-{i:04d}" for i in range(1000)]
+    chunks = module.plan_ward_chunks(ward_ids_1000, 250)
+
+    assert len(chunks) == 4
+    reconstructed = [ward_id for _, ids in chunks for ward_id in ids]
+    assert reconstructed == ward_ids_1000
+
+    chunk_ids = [chunk_id for chunk_id, _ in chunks]
+    assert len(set(chunk_ids)) == len(chunk_ids)
+    assert all(re.match(r"^c\d+$", chunk_id) for chunk_id in chunk_ids)
+
+    chunks_again = module.plan_ward_chunks(ward_ids_1000, 250)
+    assert [chunk_id for chunk_id, _ in chunks_again] == chunk_ids
+
+    ward_ids_1001 = [f"W-{i:04d}" for i in range(1001)]
+    chunks_1001 = module.plan_ward_chunks(ward_ids_1001, 250)
+    assert len(chunks_1001) == 5
+    assert len(chunks_1001[-1][1]) == 1
+
+    assert module.plan_ward_chunks([], 250) == []
+
+
+def test_batch_export_coverage_gate_rejects_missing_wards():
+    """EXPORT-03: assert_ward_coverage raises when the collected and
+    expected ward-id sets differ in EITHER direction -- a missing ward is a
+    bug, and so is an unexpected extra one."""
+    module = _load_run_batch_export()
+
+    module.assert_ward_coverage({"W-1", "W-2"}, {"W-1", "W-2"})
+
+    with pytest.raises(Exception) as excinfo_missing:
+        module.assert_ward_coverage({"W-1"}, {"W-1", "W-2"})
+    assert "W-2" in str(excinfo_missing.value)
+
+    with pytest.raises(Exception):
+        module.assert_ward_coverage({"W-1", "W-3"}, {"W-1"})
+
+
+def test_batch_export_concatenate_writes_single_header_and_all_rows(tmp_path):
+    """D-05/D-06: concatenate_chunk_csvs merges chunk CSVs into one file with
+    exactly one COVARIATE_COLUMNS header and every input data row."""
+    from heatwave.export import COVARIATE_COLUMNS
+
+    module = _load_run_batch_export()
+
+    header = ",".join(COVARIATE_COLUMNS)
+    chunk_a = tmp_path / "chunk_a.csv"
+    chunk_b = tmp_path / "chunk_b.csv"
+    chunk_a.write_text(
+        header + "\n"
+        "2020-W23,W-A,1,100.0,110.0,0\n"
+        "2020-W24,W-A,0,90.0,95.0,0\n",
+        encoding="utf-8",
+    )
+    chunk_b.write_text(
+        header + "\n"
+        "2020-W23,W-B,2,80.0,130.0,1\n"
+        "2020-W24,W-B,0,70.0,75.0,0\n",
+        encoding="utf-8",
+    )
+
+    output_path = tmp_path / "covariate_table.csv"
+    row_count = module.concatenate_chunk_csvs(
+        [chunk_a, chunk_b], output_path, expected_ward_ids={"W-A", "W-B"}
+    )
+
+    assert row_count == 4
+    lines = output_path.read_text(encoding="utf-8").splitlines()
+    assert len(lines) == 5
+    assert lines[0] == header
+    data_rows = set(lines[1:])
+    assert data_rows == {
+        "2020-W23,W-A,1,100.0,110.0,0",
+        "2020-W24,W-A,0,90.0,95.0,0",
+        "2020-W23,W-B,2,80.0,130.0,1",
+        "2020-W24,W-B,0,70.0,75.0,0",
+    }
+
+
+def test_batch_export_concatenate_refuses_to_finalise_on_incomplete_coverage(tmp_path):
+    """EXPORT-03: when the chunk CSVs collectively cover only a subset of
+    expected_ward_ids, concatenate_chunk_csvs raises, the target output path
+    does NOT exist afterwards, and no sibling temp/partial file survives --
+    the guard against a half-failed run leaving a file that looks
+    complete."""
+    from heatwave.export import COVARIATE_COLUMNS
+
+    module = _load_run_batch_export()
+
+    header = ",".join(COVARIATE_COLUMNS)
+    chunk_a = tmp_path / "chunk_a.csv"
+    chunk_a.write_text(header + "\n" "2020-W23,W-A,1,100.0,110.0,0\n", encoding="utf-8")
+
+    output_path = tmp_path / "covariate_table.csv"
+    before_listing = set(tmp_path.iterdir())
+
+    with pytest.raises(Exception):
+        module.concatenate_chunk_csvs([chunk_a], output_path, expected_ward_ids={"W-A", "W-B"})
+
+    assert not output_path.exists()
+    after_listing = set(tmp_path.iterdir())
+    assert after_listing == before_listing
+
+
+@_REQUIRES_CREDENTIALS
+@_RUNS_PIPELINE_SMOKE
+def test_batch_export_small_sample_pipeline_produces_export_02_rows():
+    """EXPORT-01: build_chunk_collection composes the full ingest -> heat
+    index -> zonal -> climatology -> detection -> weekly-aggregation
+    pipeline over 2 real ward ids from the live boundary asset, a ~3-week
+    date range, and a 2-year climatology baseline -- proving the composed
+    graph actually executes, not merely constructs."""
+    from heatwave.data.boundary import load_ward_boundary
+    from heatwave.auth import init_ee
+    from heatwave.export import COVARIATE_COLUMNS
+
+    init_ee()
+    module = _load_run_batch_export()
+
+    ward_ids = load_ward_boundary().limit(2).aggregate_array("wardcode").getInfo()
+
+    table = module.build_chunk_collection(
+        ward_ids,
+        start_date="2020-06-01",
+        end_date="2020-06-22",
+        fallback_ward_ids=(),
+        baseline_start_year=2019,
+        baseline_end_year=2020,
+    )
+
+    info = table.limit(5).getInfo()
+    assert len(info["features"]) >= 1
+    for feature in info["features"]:
+        assert set(feature["properties"].keys()) == set(COVARIATE_COLUMNS)
+        assert re.match(r"^\d{4}-W\d{2}$", feature["properties"]["time_period"])
