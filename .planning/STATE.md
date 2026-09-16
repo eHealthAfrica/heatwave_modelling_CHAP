@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Completed 04-01-PLAN.md
-last_updated: "2026-09-16T10:42:55.039Z"
+stopped_at: Completed 04-02-PLAN.md
+last_updated: "2026-09-16T11:12:50.868Z"
 last_activity: 2026-09-16
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 13
-  completed_plans: 10
+  completed_plans: 11
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 ## Current Position
 
 Phase: 4 (Batch Export & Covariate Table) — EXECUTING
-Plan: 2 of 4
+Plan: 3 of 4
 Status: Ready to execute
 Last activity: 2026-09-16
 
-Progress: [████████░░] 77%
+Progress: [█████████░] 85%
 
 ## Performance Metrics
 
@@ -64,6 +64,7 @@ Progress: [████████░░] 77%
 | Phase 03-climatology-heatwave-detection P03 | 18min | 2 tasks | 2 files |
 | Phase 03-climatology-heatwave-detection P04 | 35min | 2 tasks | 1 files |
 | Phase 04-batch-export-covariate-table P01 | 24min | 3 tasks | 3 files |
+| Phase 04-batch-export-covariate-table P02 | 15min | 2 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -94,6 +95,8 @@ Recent decisions affecting current work:
 - [Phase 04-01]: D-03/D-04/D-05/D-07 upheld: heatwave/batch.py's toAsset submission, resumable task-state file, and separate submit/poll calls verified live against heatwave-508110 (44.01s submit-to-COMPLETED for a 3-row table); no toDrive/toCloudStorage reference anywhere
 - [Phase 04-01]: Closed 04-RESEARCH.md's ASSUMED asset-write-permission row and Open Question 3 (pagination) via a real live round-trip, not by assertion
 - [Phase 04-01]: Export.table.toAsset rejects null-geometry features (verified live) -- round-trip test fixture uses point geometry instead of the plan's literal ee.Feature(None, ...) spec
+- [Phase 04-02]: D-08/D-09 upheld: reduce_to_ward_daily gains an opt-in fallback_ward_ids (last-positioned, default None) partitioning wards via Filter.inList/Filter.Not into a centroid+Reducer.first() fallback path and the unchanged primary Reducer.mean() path; every row of both paths carries used_fallback_reducer for provenance
+- [Phase 04-02]: find_small_wards() is a one-time static detection pass (one arbitrary image) whose result is passed in as fallback_ward_ids -- never re-derived per day, structurally preventing 04-RESEARCH.md Pitfall 5's provenance-drift failure mode
 
 ### Pending Todos
 
@@ -115,6 +118,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-16T10:42:55.014Z
-Stopped at: Completed 04-01-PLAN.md
+Last session: 2026-09-16T11:12:50.840Z
+Stopped at: Completed 04-02-PLAN.md
 Resume file: None
