@@ -3,14 +3,14 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: Phase 4 context gathered
-last_updated: "2026-09-16T10:12:30.398Z"
-last_activity: 2026-09-16 -- Phase 4 execution started
+stopped_at: Completed 04-01-PLAN.md
+last_updated: "2026-09-16T10:42:55.039Z"
+last_activity: 2026-09-16
 progress:
   total_phases: 7
   completed_phases: 3
   total_plans: 13
-  completed_plans: 9
+  completed_plans: 10
   percent: 43
 ---
 
@@ -26,11 +26,11 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 ## Current Position
 
 Phase: 4 (Batch Export & Covariate Table) — EXECUTING
-Plan: 1 of 4
-Status: Executing Phase 4
-Last activity: 2026-09-16 -- Phase 4 execution started
+Plan: 2 of 4
+Status: Ready to execute
+Last activity: 2026-09-16
 
-Progress: [██████████] 100%
+Progress: [████████░░] 77%
 
 ## Performance Metrics
 
@@ -63,6 +63,7 @@ Progress: [██████████] 100%
 | Phase 03-climatology-heatwave-detection P02 | 10min | 2 tasks | 2 files |
 | Phase 03-climatology-heatwave-detection P03 | 18min | 2 tasks | 2 files |
 | Phase 03-climatology-heatwave-detection P04 | 35min | 2 tasks | 1 files |
+| Phase 04-batch-export-covariate-table P01 | 24min | 3 tasks | 3 files |
 
 ## Accumulated Context
 
@@ -90,6 +91,9 @@ Recent decisions affecting current work:
 - [Phase 03-03]: flag_heatwave_days/tag_consecutive_runs/detect_heatwave_events shipped exactly per interface; ee.List.frequency() verified live for run-length checks instead of the documented frequencyHistogram fallback
 - [Phase 03-04]: Applied the plan's documented two-graph runtime fallback for the composed end-to-end test (materialise reduce_to_ward_daily's output once, rebuild via _make_ward_daily_fc) after the single-graph form measured 65.81s against the 30s budget; re-measured at 16.09s
 - [Phase 03-04]: CLIM-06 closed: composed end-to-end pipeline test plus real ERA5-Land + real ward asset zonal smoke test both live and passing; full Phase 1-3 suite (39 tests) green with credentials, credential-absent skip path verified clean
+- [Phase 04-01]: D-03/D-04/D-05/D-07 upheld: heatwave/batch.py's toAsset submission, resumable task-state file, and separate submit/poll calls verified live against heatwave-508110 (44.01s submit-to-COMPLETED for a 3-row table); no toDrive/toCloudStorage reference anywhere
+- [Phase 04-01]: Closed 04-RESEARCH.md's ASSUMED asset-write-permission row and Open Question 3 (pagination) via a real live round-trip, not by assertion
+- [Phase 04-01]: Export.table.toAsset rejects null-geometry features (verified live) -- round-trip test fixture uses point geometry instead of the plan's literal ee.Feature(None, ...) spec
 
 ### Pending Todos
 
@@ -111,6 +115,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-15T20:40:30.297Z
-Stopped at: Phase 4 context gathered
-Resume file: .planning/phases/04-batch-export-covariate-table/04-CONTEXT.md
+Last session: 2026-09-16T10:42:55.014Z
+Stopped at: Completed 04-01-PLAN.md
+Resume file: None
