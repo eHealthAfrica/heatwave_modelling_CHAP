@@ -619,6 +619,63 @@ _RUNS_PIPELINE_SMOKE = pytest.mark.skipif(
 )
 
 
+def test_persist_polled_task_states_writes_failed_not_submitted(tmp_path):
+    """CR-01/IN-01: after polling, persist_polled_task_states writes each
+    chunk's polled terminal outcome back to the on-disk state file -- a
+    FAILED task must be persisted as FAILED, not left at its original
+    SUBMITTED forever. Proves save_task_state (long imported into
+    run_batch_export.py, never called before this fix) is actually wired
+    up to the collect stage's polled result."""
+    from heatwave.batch import load_task_state, save_task_state
+
+    module = _load_run_batch_export()
+
+    state_file = tmp_path / "tasks.json"
+    save_task_state(
+        {
+            "c000": {"task_id": "T-OK", "asset_id": "a0", "state": "SUBMITTED"},
+            "c001": {"task_id": "T-BAD", "asset_id": "a1", "state": "SUBMITTED"},
+        },
+        state_file,
+    )
+    state = load_task_state(state_file)
+    chunks = [("c000", ["W-A"]), ("c001", ["W-B"])]
+    final_states = {"T-OK": "COMPLETED", "T-BAD": "FAILED"}
+
+    returned = module.persist_polled_task_states(state, chunks, final_states, state_file)
+
+    assert returned["c000"]["state"] == "COMPLETED"
+    assert returned["c001"]["state"] == "FAILED"
+
+    persisted = load_task_state(state_file)
+    assert persisted["c000"]["state"] == "COMPLETED"
+    assert persisted["c001"]["state"] == "FAILED"
+
+
+def test_persist_polled_task_states_leaves_unknown_entries_untouched(tmp_path):
+    """persist_polled_task_states must not raise or fabricate an entry for
+    a chunk_id that was never recorded in state (e.g. it was never
+    submitted); a task id absent from final_states keeps its prior
+    recorded state rather than being clobbered (this only arises if a
+    caller passes a final_states mapping that omits an id it actually
+    polled -- poll_until_complete itself always reports every id it was
+    given)."""
+    from heatwave.batch import load_task_state, save_task_state
+
+    module = _load_run_batch_export()
+
+    state_file = tmp_path / "tasks.json"
+    save_task_state({"c000": {"task_id": "T-OK", "state": "SUBMITTED"}}, state_file)
+    state = load_task_state(state_file)
+    chunks = [("c000", ["W-A"]), ("c999", ["W-Z"])]
+
+    module.persist_polled_task_states(state, chunks, final_states={}, state_file=state_file)
+
+    persisted = load_task_state(state_file)
+    assert persisted["c000"]["state"] == "SUBMITTED"
+    assert "c999" not in persisted
+
+
 def test_batch_export_script_module_exports():
     """EXPORT-01/EXPORT-04: scripts/run_batch_export.py loads via an
     explicit file-path import and exposes its full documented interface, no

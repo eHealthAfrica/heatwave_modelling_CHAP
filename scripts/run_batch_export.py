@@ -235,6 +235,35 @@ def assert_ward_coverage(collected_ward_ids: set, expected_ward_ids: set) -> Non
         )
 
 
+def persist_polled_task_states(
+    state: dict,
+    chunks: list[tuple[str, list[str]]],
+    final_states: dict[str, str],
+    state_file: Path,
+) -> dict:
+    """Write each chunk's polled terminal outcome back into the task-state
+    file (CR-01/IN-01).
+
+    `submit_or_resume` writes `state[chunk_id]["state"] = "SUBMITTED"`
+    exactly once, at submission time, and nothing else in this module ever
+    updated it -- `save_task_state` was imported but never called. Without
+    this, a chunk whose task actually transitioned to FAILED/CANCELLED
+    stayed recorded as SUBMITTED (a `RESUMABLE_STATES` member) forever, so
+    a later `--stage submit` retry would see the stale entry, treat it as
+    still in-flight, and silently skip resubmission -- there was no way to
+    recover short of hand-editing the state file. Mutates and returns
+    `state` in place for convenience; always calls `save_task_state`, even
+    if no entry actually changed, so callers never have to remember to
+    call it separately.
+    """
+    for chunk_id, _ in chunks:
+        entry = state.get(chunk_id)
+        if entry is not None:
+            entry["state"] = final_states.get(entry["task_id"], entry.get("state", "UNKNOWN"))
+    save_task_state(state, state_file)
+    return state
+
+
 def concatenate_chunk_csvs(
     chunk_csvs, output_path: Path, expected_ward_ids: set
 ) -> int:
@@ -393,6 +422,13 @@ def main(argv: list[str] | None = None) -> int:
         state = load_task_state(args.state_file)
         task_ids = [state[cid]["task_id"] for cid, _ in chunks if cid in state]
         final_states = poll_until_complete(task_ids, poll_interval_s=args.poll_interval)
+
+        # CR-01/IN-01: persist the polled outcome immediately, before doing
+        # anything else with it, so a later --stage submit can always tell a
+        # genuinely FAILED/CANCELLED chunk apart from one still resumable --
+        # even if this process is interrupted partway through the rest of
+        # the collect loop below.
+        state = persist_polled_task_states(state, chunks, final_states, args.state_file)
 
         chunk_csvs = []
         chunk_dir = args.output.parent
