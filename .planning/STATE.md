@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
-status: executing
-stopped_at: 04-04-PLAN.md complete -- Phase 4 complete; awaiting Phase 5 planning
-last_updated: "2026-09-17T00:00:00.000Z"
+status: ready_to_plan
+stopped_at: Phase 4 complete (4/4) — ready to discuss Phase 5
+last_updated: 2026-09-17T10:20:55.743Z
 last_activity: 2026-09-17
 progress:
   total_phases: 7
   completed_phases: 4
   total_plans: 13
   completed_plans: 13
-  percent: 50
+  percent: 57
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-09-11)
 
 **Core value:** A correct, complete weekly covariate table can be generated end-to-end from ERA5-Land data for all 4,841 Nigerian wards and handed off to CHAP.
-**Current focus:** Phase 4 — Batch Export & Covariate Table
+**Current focus:** Phase 5 — presentation layer rewrite
 
 ## Current Position
 
-Phase: 4 (Batch Export & Covariate Table) — COMPLETE
-Plan: 4 of 4 (all plans complete)
-Status: Task 3 checkpoint approved by operator; full 1991-present historical backfill explicitly deferred to a separate, later, operator-triggered run (does not block Phase 4 completion per D-01/D-02). Phase 4 closed; Phase 5 (Presentation Layer Rewrite) not yet planned.
+Phase: 5
+Plan: Not started
+Status: Ready to plan
 Last activity: 2026-09-17
 
 Progress: [██████████] 100% (Phases 1-4 of 7)
@@ -36,7 +36,7 @@ Progress: [██████████] 100% (Phases 1-4 of 7)
 
 **Velocity:**
 
-- Total plans completed: 9
+- Total plans completed: 13
 - Average duration: - min
 - Total execution time: 0 hours
 
@@ -47,6 +47,7 @@ Progress: [██████████] 100% (Phases 1-4 of 7)
 | 1 | 3 | - | - |
 | 2 | 2 | - | - |
 | 3 | 4 | - | - |
+| 4 | 4 | - | - |
 
 **Recent Trend:**
 

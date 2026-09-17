@@ -184,7 +184,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation Rework | 3/3 | Complete    | 2026-09-13 |
 | 2. Heat Index Relocation | 2/2 | Complete    | 2026-09-13 |
 | 3. Climatology & Heatwave Detection | 4/4 | Complete    | 2026-09-13 |
-| 4. Batch Export & Covariate Table | 4/4 | Complete   | 2026-09-17 |
+| 4. Batch Export & Covariate Table | 4/4 | Complete    | 2026-09-17 |
 | 5. Presentation Layer Rewrite | 0/TBD | Not started | - |
 | 6. Documentation | 0/TBD | Not started | - |
 | 7. Polish (Optional) | 0/TBD | Not started | - |
