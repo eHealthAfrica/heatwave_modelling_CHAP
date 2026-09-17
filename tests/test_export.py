@@ -809,6 +809,36 @@ def test_is_chunk_fingerprint_stale_detects_mismatch_but_not_legacy_entries():
     assert module.is_chunk_fingerprint_stale(legacy_entry, fp_b) is False
 
 
+def test_select_well_separated_sample_indices_spans_the_full_range():
+    """WR-05: select_well_separated_sample_indices picks indices spread
+    across the full [0, total) range (first, ~middle, last for the
+    default sample_count=3), rather than always the same single index --
+    the specific bug this whole fix addresses is find_small_wards trusting
+    only ever index 0."""
+    module = _load_run_batch_export()
+
+    indices = module.select_well_separated_sample_indices(100)
+    assert indices[0] == 0
+    assert indices[-1] == 99
+    assert len(indices) == len(set(indices))
+    assert all(0 <= i < 100 for i in indices)
+    assert len(indices) <= 3
+
+
+def test_select_well_separated_sample_indices_handles_small_totals():
+    """WR-05: a total smaller than sample_count must not raise or return an
+    out-of-range index -- it returns as many distinct, in-range indices as
+    are actually available."""
+    module = _load_run_batch_export()
+
+    assert module.select_well_separated_sample_indices(0) == []
+    assert module.select_well_separated_sample_indices(1) == [0]
+
+    indices_2 = module.select_well_separated_sample_indices(2)
+    assert indices_2 == sorted(set(indices_2))
+    assert all(0 <= i < 2 for i in indices_2)
+
+
 def test_batch_export_script_module_exports():
     """EXPORT-01/EXPORT-04: scripts/run_batch_export.py loads via an
     explicit file-path import and exposes its full documented interface, no

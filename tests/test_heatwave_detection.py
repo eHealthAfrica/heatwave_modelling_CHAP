@@ -251,6 +251,75 @@ def test_zonal_find_small_wards_identifies_subpixel_ward():
 
 
 @_REQUIRES_CREDENTIALS
+def test_zonal_find_small_wards_requires_consensus_across_samples():
+    """WR-05: find_small_wards no longer trusts a single sampled image. A
+    normal-sized ward (W-A) that has a real `mean` on two sample images but
+    shows a missing `mean` on a THIRD sample -- simulating an incidental
+    single-day data anomaly: the whole region is nodata that day, not a
+    geometric property of W-A's polygon -- must NOT be misclassified as
+    small, because it does not agree across every sample. W-TINY, genuinely
+    below the pixel-weight inclusion threshold, is missing `mean` on every
+    sample regardless of the image's own data (it is a static geometric
+    property), and IS classified as small."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import find_small_wards
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-B", 8.0, 7.0, 20000),
+        ("W-TINY", 5.0, 7.0, 250),
+    ])
+
+    good_images = _make_heat_index_collection([
+        ("2020-01-01", 0),
+        ("2020-06-01", 5),
+    ]).toList(2)
+
+    # The third sample's whole heat_index band is nodata everywhere,
+    # including over W-A and W-B -- an incidental single-day anomaly, not a
+    # genuine geometric property of either ward's polygon.
+    anomalous_image = (
+        ee.Image.pixelLonLat()
+        .select("longitude")
+        .rename("heat_index")
+        .updateMask(ee.Image.constant(0))
+        .set("system:time_start", ee.Date("2020-09-01").millis())
+    )
+
+    images = [
+        ee.Image(good_images.get(0)),
+        ee.Image(good_images.get(1)),
+        anomalous_image,
+    ]
+
+    small_ward_ids = find_small_wards(images, wards).getInfo()
+
+    assert small_ward_ids == ["W-TINY"]
+
+
+@_REQUIRES_CREDENTIALS
+def test_zonal_find_small_wards_still_accepts_a_single_image():
+    """WR-05 backward compatibility: passing a lone ee.Image (not a list)
+    must keep behaving as a single-sample check, unchanged from before this
+    fix -- callers that have not been updated to sample multiple dates
+    still get correct results."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import find_small_wards
+
+    init_ee()
+    wards = _make_ward_fc([
+        ("W-A", 3.0, 7.0, 20000),
+        ("W-TINY", 5.0, 7.0, 250),
+    ])
+    image = _make_heat_index_collection([("2020-01-01", 0)]).first()
+
+    small_ward_ids = find_small_wards(image, wards).getInfo()
+
+    assert small_ward_ids == ["W-TINY"]
+
+
+@_REQUIRES_CREDENTIALS
 def test_zonal_fallback_gives_tiny_ward_a_real_value():
     """D-08: reduce_to_ward_daily(..., fallback_ward_ids=["W-TINY"]) samples
     W-TINY at its centroid instead of area-weighting its (too-small) polygon,

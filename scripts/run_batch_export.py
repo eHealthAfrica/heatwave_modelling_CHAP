@@ -163,6 +163,28 @@ def plan_ward_chunks(ward_ids: list[str], batch_size: int) -> list[tuple[str, li
     return chunks
 
 
+def select_well_separated_sample_indices(total: int, sample_count: int = 3) -> list[int]:
+    """Pick up to `sample_count` indices spread evenly across `[0, total)` (WR-05).
+
+    Used to choose which images out of a run's full ERA5-Land image
+    collection to sample for small-ward classification (`find_small_wards`)
+    -- evenly spread (first, ~middle, last, for the default of 3) rather
+    than always reusing a single arbitrary image, so a ward is only
+    classified "small" if it agrees across genuinely well-separated sample
+    dates. Returns fewer than `sample_count` (deduplicated, sorted)
+    indices when `total` is smaller than that -- e.g. `total=1` always
+    returns `[0]` -- and never returns an index outside `[0, total)`.
+    """
+    if total <= 0:
+        return []
+    if sample_count <= 1 or total == 1:
+        return [0]
+    positions = {
+        round(i * (total - 1) / (sample_count - 1)) for i in range(sample_count)
+    }
+    return sorted(positions)
+
+
 def build_chunk_collection(
     ward_ids,
     start_date: str,
@@ -390,12 +412,31 @@ def main(argv: list[str] | None = None) -> int:
     wards_fc = load_ward_boundary().filter(
         ee.Filter.inList(WARD_ID_PROPERTY, ee.List(ward_ids))
     )
-    sample_images = load_era5_land(
+    sample_image_collection = load_era5_land(
         boundary=wards_fc, start_date=start_date, end_date=end_date
     ).map(compute_relative_humidity).map(compute_heat_index)
-    sample_image = ee.Image(sample_images.first())
+
+    # WR-05: cross-validate small-ward classification against 2-3
+    # well-separated sample dates rather than trusting a single arbitrary
+    # image -- find_small_wards only classifies a ward as small when EVERY
+    # sample agrees, so one incidental data anomaly on a single day (a rare
+    # EE nodata sliver, boundary rasterization jitter) can no longer, by
+    # itself, permanently and silently downgrade an otherwise normal-sized
+    # ward to the lower-fidelity centroid-fallback path for the entire run.
+    sample_image_list = sample_image_collection.toList(sample_image_collection.size())
+    sample_image_count = sample_image_list.size().getInfo()
+    if sample_image_count == 0:
+        print(
+            f"No ERA5-Land images available in {start_date}..{end_date} to "
+            "determine small-ward classification from",
+            file=sys.stderr,
+        )
+        return 2
+    sample_indices = select_well_separated_sample_indices(sample_image_count)
+    sample_images = [ee.Image(sample_image_list.get(i)) for i in sample_indices]
+
     small_ward_ids = find_small_wards(
-        sample_image, wards_fc, ward_id_property=WARD_ID_PROPERTY
+        sample_images, wards_fc, ward_id_property=WARD_ID_PROPERTY
     ).getInfo()
 
     DEFAULT_SMALL_WARD_REPORT.parent.mkdir(parents=True, exist_ok=True)

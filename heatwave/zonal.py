@@ -31,6 +31,8 @@ came from which path.
 """
 from __future__ import annotations
 
+from typing import Iterable
+
 import ee
 
 from heatwave.config import settings
@@ -42,7 +44,7 @@ ERA5_LAND_NOMINAL_SCALE_M = 11132
 
 
 def find_small_wards(
-    image: ee.Image,
+    images: ee.Image | Iterable[ee.Image],
     wards: ee.FeatureCollection,
     band: str = "heat_index",
     scale: int = ERA5_LAND_NOMINAL_SCALE_M,
@@ -51,29 +53,51 @@ def find_small_wards(
     """Identify ward ids whose primary area-weighted reduction yields no value (D-08).
 
     Runs the exact same primary area-weighted reduction pass the main path in
-    `reduce_to_ward_daily` uses, then returns the `ward_id_property` values
-    of every feature missing the `mean` property that reduction produces.
-    That primary reducer OMITS the `mean` property entirely (rather than
-    setting it to null) for a ward polygon below Earth Engine's ~0.4%
-    pixel-weight inclusion threshold, so absence -- not nullness -- is what
-    is tested server-side via `ee.Filter.notNull(["mean"])` inverted with
-    `ee.Filter.Not(...)`.
+    `reduce_to_ward_daily` uses against EVERY image in `images` (a single
+    `ee.Image` is also accepted, for backward compatibility -- it then
+    behaves as a single-sample check), and returns only the
+    `ward_id_property` values of wards missing the `mean` property that
+    reduction produces on EVERY sample (WR-05). That primary reducer OMITS
+    the `mean` property entirely (rather than setting it to null) for a
+    ward polygon below Earth Engine's ~0.4% pixel-weight inclusion
+    threshold, so absence -- not nullness -- is what is tested server-side
+    via `ee.Filter.notNull(["mean"])` inverted with `ee.Filter.Not(...)`.
 
-    A ward's small-geometry status is a static property of its polygon
-    against the fixed ERA5-Land grid (04-RESEARCH.md Pitfall 5) -- it does
-    not vary by date. Call this function ONCE per production run, for one
-    arbitrary image, and reuse its result as the `fallback_ward_ids`
-    argument for every day of every chunk. Never re-derive it per day:
-    a transient spurious null would otherwise switch one day's reducer
-    mid-series and silently corrupt the time-series provenance that
-    `detect_heatwave_events`'s run-length state machine assumes is
-    homogeneous.
+    A ward's small-geometry status is meant to be a static property of its
+    polygon against the fixed ERA5-Land grid (04-RESEARCH.md Pitfall 5) --
+    it does not vary by date -- but the actual test performed here is a
+    live data condition (whether reduceRegions happened to yield a `mean`
+    for one specific day), not a direct geometric computation. Requiring
+    agreement across 2-3 well-separated sample images (WR-05) means an
+    incidental data anomaly on any ONE sampled day (a rare EE nodata
+    sliver, boundary rasterization jitter) can no longer, by itself,
+    permanently and silently downgrade an otherwise normal-sized ward to
+    the lower-fidelity centroid-fallback path for the entire run -- a ward
+    is only trusted as genuinely small when every sample agrees. Call this
+    function ONCE per production run and reuse its result as the
+    `fallback_ward_ids` argument for every day of every chunk. Never
+    re-derive it per day: a transient spurious null would otherwise switch
+    one day's reducer mid-series and silently corrupt the time-series
+    provenance that `detect_heatwave_events`'s run-length state machine
+    assumes is homogeneous.
     """
-    reduced = image.select(band).reduceRegions(
-        collection=wards, reducer=ee.Reducer.mean(), scale=scale
-    )
-    missing_mean = reduced.filter(ee.Filter.Not(ee.Filter.notNull(["mean"])))
-    return missing_mean.aggregate_array(ward_id_property)
+    if isinstance(images, ee.Image):
+        images = [images]
+    else:
+        images = list(images)
+    if not images:
+        raise ValueError("find_small_wards requires at least one image")
+
+    missing_id_sets = []
+    for image in images:
+        reduced = image.select(band).reduceRegions(
+            collection=wards, reducer=ee.Reducer.mean(), scale=scale
+        )
+        missing_mean = reduced.filter(ee.Filter.Not(ee.Filter.notNull(["mean"])))
+        missing_id_sets.append(set(missing_mean.aggregate_array(ward_id_property).getInfo()))
+
+    consensus_ids = set.intersection(*missing_id_sets)
+    return ee.List(sorted(consensus_ids))
 
 
 def _representative_point_in_geometry(geometry: ee.Geometry) -> ee.Geometry:
