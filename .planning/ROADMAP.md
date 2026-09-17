@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation Rework** - Fix 4 audit-identified issues in the existing GCP/EE auth, boundary, and ingest code before this branch supersedes PR #1 (completed 2026-09-13)
 - [x] **Phase 2: Heat Index Relocation** - Move RH/Heat-Index math out of the Streamlit script into a tested module (completed 2026-09-13)
 - [x] **Phase 3: Climatology & Heatwave Detection** - Per-ward 90th-percentile climatology and heatwave day/event flagging (core new capability) (completed 2026-09-13)
-- [ ] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable)
+- [x] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable) (completed 2026-09-17)
 - [ ] **Phase 5: Presentation Layer Rewrite** - Streamlit app reads the precomputed covariate table instead of computing live
 - [ ] **Phase 6: Documentation** - Methodology doc and rewritten README
 - [ ] **Phase 7: Polish (Optional)** - Config edge-case tests and optional CI
@@ -134,7 +134,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 04-04-PLAN.md — `scripts/run_batch_export.py`: validated CLI, ward-batch chunk planner, chunked submit/poll/collect, coverage-gated CSV concatenation, operator checkpoint (EXPORT-01..EXPORT-04)
+- [x] 04-04-PLAN.md — `scripts/run_batch_export.py`: validated CLI, ward-batch chunk planner, chunked submit/poll/collect, coverage-gated CSV concatenation, operator checkpoint (EXPORT-01..EXPORT-04)
 
 ### Phase 5: Presentation Layer Rewrite
 
@@ -184,7 +184,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation Rework | 3/3 | Complete    | 2026-09-13 |
 | 2. Heat Index Relocation | 2/2 | Complete    | 2026-09-13 |
 | 3. Climatology & Heatwave Detection | 4/4 | Complete    | 2026-09-13 |
-| 4. Batch Export & Covariate Table | 3/4 | In Progress|  |
+| 4. Batch Export & Covariate Table | 4/4 | Complete   | 2026-09-17 |
 | 5. Presentation Layer Rewrite | 0/TBD | Not started | - |
 | 6. Documentation | 0/TBD | Not started | - |
 | 7. Polish (Optional) | 0/TBD | Not started | - |

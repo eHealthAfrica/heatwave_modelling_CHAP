@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v1.0
 milestone_name: milestone
 status: executing
-stopped_at: 04-04-PLAN.md Task 3 checkpoint (human-verify) -- awaiting operator review
-last_updated: "2026-09-16T13:01:56.730Z"
-last_activity: 2026-09-16
+stopped_at: 04-04-PLAN.md complete -- Phase 4 complete; awaiting Phase 5 planning
+last_updated: "2026-09-17T00:00:00.000Z"
+last_activity: 2026-09-17
 progress:
   total_phases: 7
-  completed_phases: 3
+  completed_phases: 4
   total_plans: 13
-  completed_plans: 12
-  percent: 43
+  completed_plans: 13
+  percent: 50
 ---
 
 # Project State
@@ -25,12 +25,12 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 
 ## Current Position
 
-Phase: 4 (Batch Export & Covariate Table) — EXECUTING
-Plan: 4 of 4
-Status: Tasks 1-2 complete and committed; paused at Task 3 (checkpoint:human-verify) awaiting operator review of the real chunk plan and smoke export
-Last activity: 2026-09-16
+Phase: 4 (Batch Export & Covariate Table) — COMPLETE
+Plan: 4 of 4 (all plans complete)
+Status: Task 3 checkpoint approved by operator; full 1991-present historical backfill explicitly deferred to a separate, later, operator-triggered run (does not block Phase 4 completion per D-01/D-02). Phase 4 closed; Phase 5 (Presentation Layer Rewrite) not yet planned.
+Last activity: 2026-09-17
 
-Progress: [█████████░] 92%
+Progress: [██████████] 100% (Phases 1-4 of 7)
 
 ## Performance Metrics
 
@@ -66,6 +66,7 @@ Progress: [█████████░] 92%
 | Phase 04-batch-export-covariate-table P01 | 24min | 3 tasks | 3 files |
 | Phase 04-batch-export-covariate-table P02 | 15min | 2 tasks | 2 files |
 | Phase 04 P03 | 32min | 3 tasks | 2 files |
+| Phase 04 P04 | 48min | 3 tasks | 2 files |
 
 ## Accumulated Context
 
@@ -104,6 +105,8 @@ Recent decisions affecting current work:
 - [Phase 04-03]: ee.Dictionary.contains(key) gate added before .get(key) on grouped-reducer output, since an all-null-input group omits the mean/max key entirely rather than nulling it -- discovered live during Task 3
 - [Phase 04-04]: D-01/D-02/D-05/D-06/D-07/D-08/D-09 upheld exactly: scripts/run_batch_export.py's V5-validated CLI, deterministic ward-batch chunk planner, once-per-run D-09 small-ward report, resumable chunked toAsset submit/poll/collect, and atomic coverage-gated CSV concatenation all implemented per interface; --stage plan verified live against heatwave-508110 (4,841 wards, 20 chunks, 73 small wards, zero tasks submitted)
 - [Phase 04-04]: Rule 1 bug found live during Task 3's checkpoint automation: build_covariate_table's output rows carry no geometry, and Export.table.toAsset rejects null-geometry features (the same failure mode 04-01 first hit) -- fixed by attaching a placeholder point geometry inside build_chunk_collection at the export boundary, not inside heatwave/export.py, since none of COVARIATE_COLUMNS is spatial and the CSV read-back never reads geometry
+- [Phase 04-04]: Task 3 checkpoint APPROVED by operator: real chunk plan (4,841 wards/20 chunks/73 small wards), real 2-chunk/4-ward smoke CSV, and D-09 small-ward report all reviewed and accepted as correct. Full 1991-present historical backfill explicitly DEFERRED to a separate, later, operator-triggered run -- per 04-CONTEXT.md D-01/D-02 this was always meant to be independent of plan completion; the operator chose to push the branch to GitHub instead of launching it now. Phase 4 is complete without the full-scale backfill having run
+- [Phase 04-04]: Timing note: the checkpoint's per-chunk submission-to-COMPLETED wall-clock was not captured via a separately instrumented log during the live run; the plan SUMMARY reconstructs an approximate ~196s total-run figure from artifact filesystem timestamps instead, clearly labelled as a reconstruction rather than a precise instrumented measurement, alongside the mandatory scale caveat that 2-ward/3-week timing is a directional signal only
 
 ### Pending Todos
 
@@ -125,6 +128,6 @@ Items acknowledged and carried forward from previous milestone close:
 
 ## Session Continuity
 
-Last session: 2026-09-16T13:01:21.460Z
-Stopped at: 04-04-PLAN.md Task 3 checkpoint (human-verify) -- chunk plan and 2-chunk/4-ward smoke export both executed and reviewed live; awaiting operator go/no-go on the full 1991-present backfill
-Resume file: .planning/phases/04-batch-export-covariate-table/04-04-PLAN.md
+Last session: 2026-09-17T00:00:00.000Z
+Stopped at: 04-04-PLAN.md complete -- Phase 4 (Batch Export & Covariate Table) fully complete. Operator approved the chunk plan and smoke export; full 1991-present historical backfill explicitly deferred to a separate, later, operator-triggered run (does not block Phase 4 completion). Next: plan Phase 5 (Presentation Layer Rewrite) when ready, and separately consider launching the full backfill via `scripts/run_batch_export.py` at the operator's discretion.
+Resume file: none (Phase 4 closed; Phase 5 not yet planned)
