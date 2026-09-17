@@ -278,6 +278,40 @@ def test_zonal_fallback_gives_tiny_ward_a_real_value():
 
 
 @_REQUIRES_CREDENTIALS
+def test_zonal_fallback_point_lies_inside_its_own_ward_geometry_even_when_concave():
+    """WR-04: build_fallback_ward_centroids must use pointOnSurface(), not
+    centroid() -- verified against a donut-shaped ward polygon whose raw
+    geometric centroid falls in the hole, entirely outside the polygon.
+    First confirms (as a sanity check, not a tautology) that the donut's
+    raw centroid really is outside its own geometry, then asserts the
+    fallback function's output point IS contained by the ward's original
+    geometry."""
+    from heatwave.auth import init_ee
+    from heatwave.zonal import build_fallback_ward_centroids
+
+    init_ee()
+
+    outer_ring = [[0, 0], [10, 0], [10, 10], [0, 10], [0, 0]]
+    inner_hole = [[4, 4], [6, 4], [6, 6], [4, 6], [4, 4]]
+    donut_geometry = ee.Geometry.Polygon([outer_ring, inner_hole])
+
+    raw_centroid_is_inside = donut_geometry.contains(donut_geometry.centroid()).getInfo()
+    assert raw_centroid_is_inside is False, (
+        "test fixture is not a genuine concave-geometry regression case -- "
+        "the donut's own centroid must fall in its hole"
+    )
+
+    small_wards = ee.FeatureCollection(
+        [ee.Feature(donut_geometry, {"wardcode": "W-DONUT"})]
+    )
+
+    fallback = build_fallback_ward_centroids(small_wards)
+    fallback_point = ee.Feature(fallback.first()).geometry()
+
+    assert donut_geometry.contains(fallback_point).getInfo() is True
+
+
+@_REQUIRES_CREDENTIALS
 def test_zonal_fallback_flags_provenance_per_row():
     """D-09: every row -- from both the fallback centroid path and the
     unchanged primary area-weighted path -- carries a used_fallback_reducer

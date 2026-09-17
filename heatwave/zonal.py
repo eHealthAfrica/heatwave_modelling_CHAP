@@ -14,13 +14,16 @@ timestamp.` on any feature lacking one.
 
 A row may also carry `used_fallback_reducer` (D-09): a boolean, set on every
 row of BOTH reduction paths, that is True when a ward listed in the caller's
-`fallback_ward_ids` was sampled at its centroid with a non-area-weighted
-reducer (D-08) rather than area-weighted-averaged over its full polygon.
-This exists because Earth Engine's `reduceRegions` area-weights regardless of
-which reducer is passed, so a ward polygon below the ~0.4% pixel-weight
-inclusion threshold yields nothing no matter what reducer is requested over
-the polygon itself -- only re-keying the geometry to a centroid point escapes
-that area-weighting. This resolves the caller obligation the null-value
+`fallback_ward_ids` was sampled at a representative in-polygon point with a
+non-area-weighted reducer (D-08, WR-04) rather than area-weighted-averaged
+over its full polygon. This exists because Earth Engine's `reduceRegions`
+area-weights regardless of which reducer is passed, so a ward polygon below
+the ~0.4% pixel-weight inclusion threshold yields nothing no matter what
+reducer is requested over the polygon itself -- only re-keying the geometry
+to a single point escapes that area-weighting; `_representative_point_in_geometry`
+(not a raw `.centroid()`) is used so that point is guaranteed to actually lie
+on the ward's own polygon even when it is concave, multi-part, or has a
+hole. This resolves the caller obligation the null-value
 paragraph below hands to Phase 4: a null is neither dropped nor coalesced to
 zero -- it is replaced by a genuine, lower-fidelity sampled value with its
 provenance flagged, so a downstream CSV consumer can always tell which rows
@@ -73,11 +76,42 @@ def find_small_wards(
     return missing_mean.aggregate_array(ward_id_property)
 
 
+def _representative_point_in_geometry(geometry: ee.Geometry) -> ee.Geometry:
+    """A point guaranteed to lie ON `geometry` (its interior or its
+    boundary), even when `geometry` is concave, multi-part, or has a hole
+    (WR-04).
+
+    GEE's JavaScript API and documentation describe `ee.Geometry
+    .pointOnSurface()` for exactly this guarantee, but this project's
+    Python client exposes no such algorithm -- live-verified against
+    heatwave-508110: `ee.ApiFunction.allSignatures()` lists no
+    `Geometry.pointOnSurface` (nor does `dir(ee.Geometry)`, before or
+    after `ee.Initialize()`). So this uses only APIs confirmed present in
+    that signature list: prefer the geometric `centroid()` when it is
+    actually `contains()`-ed by the geometry (the common convex/simple
+    case, matching the pre-WR-04 behaviour); otherwise fall back to the
+    geometry's own first vertex, which is always part of the geometry (a
+    polygon's boundary counts as contained). `ee.List(geometry
+    .coordinates()).flatten()` collapses Polygon-with-holes and
+    MultiPolygon's differing coordinate-nesting depths into one flat
+    `[lon, lat, lon, lat, ...]` list uniformly, so the first two elements
+    are always a genuine vertex regardless of geometry shape -- verified
+    live for both a hole-containing donut polygon and a two-part
+    MultiPolygon.
+    """
+    centroid = geometry.centroid()
+    flat_coords = ee.List(geometry.coordinates()).flatten()
+    first_vertex = ee.Geometry.Point([flat_coords.get(0), flat_coords.get(1)])
+    return ee.Geometry(
+        ee.Algorithms.If(geometry.contains(centroid), centroid, first_vertex)
+    )
+
+
 def build_fallback_ward_centroids(
     small_wards: ee.FeatureCollection,
     ward_id_property: str = "wardcode",
 ) -> ee.FeatureCollection:
-    """Re-key each small ward's geometry to its centroid POINT (D-08).
+    """Re-key each small ward's geometry to a representative POINT (D-08, WR-04).
 
     `reduceRegions` area-weights regardless of which reducer is passed, so a
     sub-pixel-weight polygon yields nothing from a non-area-weighted reducer
@@ -88,16 +122,24 @@ def build_fallback_ward_centroids(
     small ward's original polygon can fail even when its centroid falls
     squarely inside a pixel. Do not "simplify" this into that approach.
 
+    Uses `_representative_point_in_geometry`, not raw `.centroid()` (WR-04):
+    a small ward selected by `find_small_wards` is exactly the kind of
+    irregular, possibly concave or multi-part polygon whose raw geometric
+    centroid can fall outside the polygon entirely (e.g. a crescent or
+    donut shape) or inside a neighboring ward -- silently sampling a value
+    that has no relationship to the ward it is nominally representing.
+
     Each output feature carries only `ward_id_property` as a property.
     """
 
-    def to_centroid(feature: ee.Feature) -> ee.Feature:
+    def to_representative_point(feature: ee.Feature) -> ee.Feature:
         feature = ee.Feature(feature)
         return ee.Feature(
-            feature.geometry().centroid(), {ward_id_property: feature.get(ward_id_property)}
+            _representative_point_in_geometry(feature.geometry()),
+            {ward_id_property: feature.get(ward_id_property)},
         )
 
-    return small_wards.map(to_centroid)
+    return small_wards.map(to_representative_point)
 
 
 def reduce_to_ward_daily(
@@ -123,9 +165,10 @@ def reduce_to_ward_daily(
         doy                    int     1-366, ee.Date.getRelative('day','year') + 1
         system:time_start      long    image date in millis
         used_fallback_reducer  bool    True when this row came from the
-                                        centroid-point sample (D-08), False
-                                        when it came from the primary
-                                        area-weighted mean (D-09)
+                                        representative-in-polygon-point
+                                        sample (D-08, WR-04), False when it
+                                        came from the primary area-weighted
+                                        mean (D-09)
 
     Caller obligation (data-integrity, T-03-01): a null `value` means the ward
     polygon was too small relative to the ~11.1km pixel grid to receive a
@@ -136,9 +179,11 @@ def reduce_to_ward_daily(
 
     `fallback_ward_ids` (D-08, optional, default None): a static list of ward
     ids -- computed once via `find_small_wards`, never re-derived per day
-    (04-RESEARCH.md Pitfall 5) -- to sample at their centroid with a
-    non-area-weighted, first-value reducer instead of area-weight-averaging
-    their polygon with the primary mean reducer. When None, behaviour is
+    (04-RESEARCH.md Pitfall 5) -- to sample at a guaranteed-in-polygon
+    representative point (WR-04, see `_representative_point_in_geometry`)
+    with a non-area-weighted, first-value reducer instead of
+    area-weight-averaging their polygon with the primary mean reducer.
+    When None, behaviour is
     unchanged from Phase 3 except every row now also carries an explicit
     fallback-provenance flag set to False. When supplied, the ward
     collection is partitioned once (outside the per-day map) via an
