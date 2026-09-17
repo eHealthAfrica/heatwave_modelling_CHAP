@@ -839,6 +839,100 @@ def test_select_well_separated_sample_indices_handles_small_totals():
     assert all(0 <= i < 2 for i in indices_2)
 
 
+def test_fetch_small_ward_sample_images_never_materialises_full_collection(monkeypatch):
+    """Regression test for 04-VERIFICATION.md's gap: the pre-fix
+    `sample_image_collection.toList(sample_image_collection.size())`
+    followed by `.size().getInfo()` eagerly materialised the ENTIRE
+    ~35-year default-range ERA5-Land collection into one server-side List
+    just to count it, exceeding Earth Engine's "User memory limit" at that
+    scale (reproduced live, twice, at both 100 wards and the full 4,841
+    -ward count -- see the gap entry). This proves the fix's contract
+    without needing a real multi-decade live collection in the fast suite:
+    a fake collection declares a size far larger than a single request
+    could ever afford to list, and raises immediately if the code under
+    test ever asks for anything other than a length-1 sublist -- so this
+    test fails loudly if someone reintroduces `.toList(n)` with the full
+    collection size."""
+    module = _load_run_batch_export()
+
+    class _FakeSublist:
+        def __init__(self, offset):
+            self._offset = offset
+
+        def get(self, index):
+            return self._offset
+
+    class _RecordingImageCollection:
+        """Stands in for a huge ee.ImageCollection; records every
+        `.toList()` call so the test can assert none of them tried to
+        list more than one element."""
+
+        def __init__(self, total):
+            self._total = total
+            self.toList_calls: list[tuple[int, int]] = []
+
+        def size(self):
+            return self
+
+        def getInfo(self):
+            return self._total
+
+        def toList(self, count, offset=0):
+            self.toList_calls.append((count, offset))
+            if count != 1:
+                raise AssertionError(
+                    f"fetch_small_ward_sample_images must only ever request "
+                    f"a length-1 sublist, got toList({count!r}, {offset!r}) "
+                    "-- this is exactly the WR-05 regression "
+                    "(04-VERIFICATION.md gap) that eagerly materialised the "
+                    "whole collection just to count it"
+                )
+            return _FakeSublist(offset)
+
+    class _FakeEE:
+        """Stands in for the `ee` module inside run_batch_export.py --
+        `fetch_small_ward_sample_images` only ever touches `ee.Image`."""
+
+        @staticmethod
+        def Image(value):
+            return value
+
+    monkeypatch.setattr(module, "ee", _FakeEE)
+
+    # A declared size far larger than any real single request could afford
+    # to materialise as one List -- proves the fix's cost is independent of
+    # collection size (~35 years of daily ERA5-Land images).
+    total = 12_784
+    fake_collection = _RecordingImageCollection(total=total)
+
+    result = module.fetch_small_ward_sample_images(fake_collection, sample_count=3)
+
+    expected_offsets = module.select_well_separated_sample_indices(total, 3)
+    assert result == expected_offsets
+    assert fake_collection.toList_calls == [(1, offset) for offset in expected_offsets]
+    assert len(fake_collection.toList_calls) <= 3
+
+
+def test_fetch_small_ward_sample_images_returns_empty_for_empty_collection():
+    """An empty collection must short-circuit before any `.toList()` call
+    -- `select_well_separated_sample_indices(0)` returns `[]`, so no sample
+    should ever be fetched from an empty range."""
+    module = _load_run_batch_export()
+
+    class _EmptyImageCollection:
+        def size(self):
+            return self
+
+        def getInfo(self):
+            return 0
+
+        def toList(self, count, offset=0):
+            raise AssertionError("must not call toList() on an empty collection")
+
+    result = module.fetch_small_ward_sample_images(_EmptyImageCollection())
+    assert result == []
+
+
 def test_batch_export_script_module_exports():
     """EXPORT-01/EXPORT-04: scripts/run_batch_export.py loads via an
     explicit file-path import and exposes its full documented interface, no

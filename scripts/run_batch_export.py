@@ -185,6 +185,37 @@ def select_well_separated_sample_indices(total: int, sample_count: int = 3) -> l
     return sorted(positions)
 
 
+def fetch_small_ward_sample_images(
+    sample_image_collection: ee.ImageCollection, sample_count: int = 3
+) -> list[ee.Image]:
+    """Fetch up to `sample_count` well-separated images from
+    `sample_image_collection` for WR-05 small-ward classification, WITHOUT
+    ever materialising the whole collection into one server-side List
+    (04-VERIFICATION.md's gap: the previous
+    `sample_image_collection.toList(sample_image_collection.size())`
+    followed by `.size().getInfo()` eagerly listed every element of the
+    full multi-decade default-range (~35-year) ERA5-Land collection just to
+    count it, exceeding Earth Engine's per-request "User memory limit" --
+    crashing every `--stage` unconditionally, before printing anything).
+
+    `ee.ImageCollection.size()` returns the element count directly, with no
+    listing required, and each sampled index is fetched independently via
+    its own length-1 `.toList(1, index)` sublist. So this function's cost
+    scales with `sample_count` (at most 3 images fetched), never with the
+    size of `sample_image_collection` itself -- safe at the script's true
+    default full 1991-present range. Returns `[]` when the collection is
+    empty (caller is responsible for treating that as an error).
+    """
+    sample_image_count = sample_image_collection.size().getInfo()
+    if sample_image_count == 0:
+        return []
+    sample_indices = select_well_separated_sample_indices(sample_image_count, sample_count)
+    return [
+        ee.Image(sample_image_collection.toList(1, index).get(0))
+        for index in sample_indices
+    ]
+
+
 def build_chunk_collection(
     ward_ids,
     start_date: str,
@@ -423,17 +454,14 @@ def main(argv: list[str] | None = None) -> int:
     # EE nodata sliver, boundary rasterization jitter) can no longer, by
     # itself, permanently and silently downgrade an otherwise normal-sized
     # ward to the lower-fidelity centroid-fallback path for the entire run.
-    sample_image_list = sample_image_collection.toList(sample_image_collection.size())
-    sample_image_count = sample_image_list.size().getInfo()
-    if sample_image_count == 0:
+    sample_images = fetch_small_ward_sample_images(sample_image_collection)
+    if not sample_images:
         print(
             f"No ERA5-Land images available in {start_date}..{end_date} to "
             "determine small-ward classification from",
             file=sys.stderr,
         )
         return 2
-    sample_indices = select_well_separated_sample_indices(sample_image_count)
-    sample_images = [ee.Image(sample_image_list.get(i)) for i in sample_indices]
 
     small_ward_ids = find_small_wards(
         sample_images, wards_fc, ward_id_property=WARD_ID_PROPERTY
