@@ -6,7 +6,7 @@ A ward-level heatwave-detection pipeline for Nigeria. It ingests ERA5-Land clima
 
 ## Development Status
 
-This branch (`feature/heatwave-508110-phase-0-3-gsd`) reworks the project's original prototype through a structured plan → execute → verify pipeline, fixing several issues found along the way and adding the core heatwave-detection algorithm. It supersedes an earlier, ad-hoc version of the same Phase 0-2 work ([PR #1](https://github.com/eHealthAfrica/heatwave_modelling_CHAP/pull/1)) and extends it through Phase 3.
+This branch (`feature/heatwave-508110-phase-0-4-gsd`) reworks the project's original prototype through a structured plan → execute → verify pipeline, fixing several issues found along the way and adding the core heatwave-detection algorithm and its production batch pipeline. It supersedes an earlier, ad-hoc version of the same Phase 0-2 work ([PR #1](https://github.com/eHealthAfrica/heatwave_modelling_CHAP/pull/1)) and extends it through Phase 4.
 
 ### What changed from the original prototype
 
@@ -33,11 +33,20 @@ The pipeline's core new scientific capability, not present in the original proto
 - `heatwave/science/heatwave.py` — flags days where a ward's Heat Index exceeds its own climatological threshold, then groups consecutive hot days into heatwave events (3 or more consecutive days).
 - Verified on small samples (a handful of test wards); running this across all 4,841 wards for the full 30-year baseline is Phase 4's job.
 
-All three phases are covered by 49 tests that run live against the real Earth Engine project (`heatwave-508110`) — no mocked Earth Engine calls anywhere in the suite.
+### Phase 4 — Batch Export & Covariate Table
 
-### What's next (Phases 4-7)
+The production deliverable: `scripts/run_batch_export.py` runs the full pipeline (ingest → Heat Index → climatology → detection → weekly aggregation) across all 4,841 wards and writes the CHAP-facing covariate table.
 
-- **Phase 4 — Batch Export & Covariate Table:** run the full pipeline across all 4,841 wards and produce the weekly covariate table CHAP consumes.
+- **Asynchronous execution.** At this scale, Earth Engine's synchronous computation limits would be exceeded, so the script submits `ee.batch.Export.table` tasks and polls for completion, rather than blocking inline. Each run's progress is tracked in a resumable state file, keyed by a fingerprint of the parameters that built each chunk (so a differently-configured rerun can never silently reuse stale results).
+- **Chunked by ward batch.** A live benchmark of the event-detection step suggested the full 35-year run could take on the order of 34-40 hours if attempted as a single computation, so the export is split into ~20 chunks of ~250 wards each, concatenated into one final CSV once every chunk completes.
+- **Small-ward fallback.** `heatwave/zonal.py` gained a fallback path for wards too small relative to an ERA5-Land pixel to get a valid area-weighted value — it samples a representative in-polygon point instead, so every ward gets a real value in the final table (73 of the 4,841 real wards use this path), each one flagged for transparency, never silently dropped or defaulted to zero.
+- **Human checkpoint before the real backfill.** Before any multi-hour production run, the pipeline surfaces a `--stage plan` preview (ward/chunk/small-ward counts, a quota-and-runtime warning) and a real small-scale smoke export for review — the actual full 1991-present backfill is a deliberate, separate operation the operator triggers when ready, not something that happens automatically.
+- Research along the way caught two bugs before they shipped: pairing a calendar year with an ISO week number is wrong at the December/January boundary (needs the "Thursday of the same week" convention instead), and Earth Engine silently returns wrong values if you chain two `.group()` reducer calls instead of grouping by one composite key. A code review after execution found and fixed two critical issues (a task-tracking bug that could leave a failed export chunk permanently stuck as "in progress," and a resumability gap that could silently mix data from differently-configured runs), plus a follow-up regression the fixes themselves introduced (a scale bug that broke the `--stage plan` preview at full scale) — caught during phase verification and fixed before merge.
+
+Phases 1-4 combined are covered by 90 tests that run live against the real Earth Engine project (`heatwave-508110`), plus two additional opt-in tests that submit real Earth Engine batch tasks (kept out of the default fast test loop since they take minutes, not seconds).
+
+### What's next (Phases 5-7)
+
 - **Phase 5 — Presentation Layer Rewrite:** the Streamlit app reads the precomputed table instead of computing live.
 - **Phase 6 — Documentation:** full methodology write-up and a rewritten README covering setup, architecture, and usage end-to-end (this section will be superseded by that pass).
 - **Phase 7 — Polish:** optional test/CI hardening.
