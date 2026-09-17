@@ -51,6 +51,7 @@ from heatwave.batch import (
     DEFAULT_POLL_INTERVAL_S,
     DEFAULT_STATE_FILE,
     chunk_asset_id,
+    chunk_fingerprint,
     load_task_state,
     save_task_state,
     submit_or_resume,
@@ -235,6 +236,25 @@ def assert_ward_coverage(collected_ward_ids: set, expected_ward_ids: set) -> Non
         )
 
 
+def is_chunk_fingerprint_stale(entry: dict, expected_fingerprint: str) -> bool:
+    """True when a chunk's recorded state entry was built from different
+    parameters than the ones just computed for it (CR-02, collect-stage
+    half).
+
+    `--stage collect` recomputes `chunks` independently from
+    `args.ward_batch_size` (and the current date range / small-ward set),
+    just like `--stage submit` does -- if either changed between the two
+    invocations while reusing the same state file, `chunk_id` could now
+    map to a different ward subset than the one the recorded asset was
+    actually built from. Returns False (not stale) when the recorded entry
+    predates fingerprinting (`entry.get("fingerprint")` is None), so a
+    legacy state file written before this fix does not spuriously lose all
+    resumability.
+    """
+    recorded_fingerprint = entry.get("fingerprint")
+    return recorded_fingerprint is not None and recorded_fingerprint != expected_fingerprint
+
+
 def persist_polled_task_states(
     state: dict,
     chunks: list[tuple[str, list[str]]],
@@ -406,6 +426,17 @@ def main(argv: list[str] | None = None) -> int:
     if args.stage in ("submit", "all"):
         for chunk_id, chunk_ward_ids in chunks:
             chunk_fallback_ids = [w for w in chunk_ward_ids if w in small_ward_set]
+            # CR-02: fingerprint the exact parameters this chunk is built
+            # from (its ward-id list, the date range, its fallback-ward
+            # subset) so submit_or_resume can detect a config change across
+            # runs that share the same (often default, fixed-path) state
+            # file -- e.g. a different --start-date/--end-date or a
+            # different --ward-batch-size that reshuffles which ward ids
+            # this chunk_id maps to -- and force a resubmission instead of
+            # silently trusting stale/mismatched recorded state.
+            fingerprint = chunk_fingerprint(
+                chunk_ward_ids, start_date, end_date, chunk_fallback_ids
+            )
             submit_or_resume(
                 chunk_id,
                 build_collection_fn=lambda wids=chunk_ward_ids, fbids=chunk_fallback_ids: build_chunk_collection(
@@ -413,6 +444,7 @@ def main(argv: list[str] | None = None) -> int:
                 ),
                 asset_id=chunk_asset_id(chunk_id),
                 state_file=args.state_file,
+                fingerprint=fingerprint,
             )
 
     if args.stage == "submit":
@@ -434,10 +466,33 @@ def main(argv: list[str] | None = None) -> int:
         chunk_dir = args.output.parent
         chunk_dir.mkdir(parents=True, exist_ok=True)
 
-        for chunk_id, _ in chunks:
+        for chunk_id, chunk_ward_ids in chunks:
             entry = state.get(chunk_id)
             if entry is None:
                 print(f"No recorded task for chunk {chunk_id}; skipping", file=sys.stderr)
+                continue
+
+            # CR-02: chunks are recomputed here from args.ward_batch_size,
+            # independently of whatever partition was used at --stage
+            # submit time. If --ward-batch-size (or the date range, or the
+            # small-ward set) differs between the submit and collect
+            # invocations, chunk_id could now map to a different ward
+            # subset than the one the recorded asset was actually built
+            # from -- refuse to pair mismatched expectations rather than
+            # silently collecting them.
+            chunk_fallback_ids = [w for w in chunk_ward_ids if w in small_ward_set]
+            expected_fingerprint = chunk_fingerprint(
+                chunk_ward_ids, start_date, end_date, chunk_fallback_ids
+            )
+            if is_chunk_fingerprint_stale(entry, expected_fingerprint):
+                print(
+                    f"Chunk {chunk_id}'s recorded fingerprint does not match this "
+                    "run's current parameters (date range/--ward-batch-size/ward "
+                    "set changed since --stage submit); refusing to collect "
+                    "potentially mismatched state -- rerun --stage submit with a "
+                    "fresh --state-file",
+                    file=sys.stderr,
+                )
                 continue
 
             final_state = final_states.get(entry["task_id"], "UNKNOWN")

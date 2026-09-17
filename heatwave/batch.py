@@ -14,6 +14,7 @@ Engine's documented 10MB-request / 100MiB-result limits.
 from __future__ import annotations
 
 import csv
+import hashlib
 import json
 import time
 from pathlib import Path
@@ -87,11 +88,45 @@ def submit_table_export(collection: Any, asset_id: str, description: str) -> "ee
     return task
 
 
+def chunk_fingerprint(
+    ward_ids: Iterable[str],
+    start_date: str,
+    end_date: str,
+    fallback_ward_ids: Iterable[str] = (),
+) -> str:
+    """Fingerprint the parameters that determine a chunk's contents (CR-02).
+
+    `submit_or_resume` keys resumability on `chunk_id` alone (e.g.
+    `"c000"`), which carries no information about the ward-id list, date
+    range, or fallback-ward set that a particular submission actually used
+    to build that chunk's collection. Two runs that reuse the same (often
+    default, fixed-path) state file but pass a different `--start-date`/
+    `--end-date` or a different `--ward-batch-size` (which changes
+    `plan_ward_chunks`'s partition, and therefore which ward ids `"c000"`
+    maps to) would otherwise have their stale/mismatched state silently
+    trusted. Hashing `sorted(ward_ids)` (order-independent: the same ward
+    set must fingerprint identically regardless of iteration order) plus
+    the date range plus `sorted(fallback_ward_ids)` lets a caller detect
+    that mismatch before trusting a resumable state entry.
+    """
+    payload = json.dumps(
+        {
+            "ward_ids": sorted(ward_ids),
+            "start": start_date,
+            "end": end_date,
+            "fallback": sorted(fallback_ward_ids),
+        },
+        sort_keys=True,
+    )
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+
+
 def submit_or_resume(
     chunk_id: str,
     build_collection_fn: Callable[[], Any],
     asset_id: str | None = None,
     state_file: Path = DEFAULT_STATE_FILE,
+    fingerprint: str | None = None,
 ) -> str:
     """Submit a chunk's export, or resume its already-recorded task id.
 
@@ -100,6 +135,17 @@ def submit_or_resume(
     it. `submit_table_export` is called through this module's own global
     name (not a local alias captured at import time) so a test can
     monkeypatch `heatwave.batch.submit_table_export`.
+
+    `fingerprint` (CR-02, optional): the caller's freshly-computed
+    `chunk_fingerprint(...)` for the parameters it is about to build this
+    chunk from. When a recorded, otherwise-resumable state entry carries a
+    *different* fingerprint than the one just supplied, that recorded state
+    was produced by different parameters (a changed date range, a changed
+    `--ward-batch-size` partition, or a changed fallback-ward set) and must
+    never be silently reused -- this forces a resubmission instead, exactly
+    as if no state had been recorded at all. When `fingerprint` is None
+    (the default, preserving prior behaviour for callers that do not pass
+    one), no fingerprint check is performed.
     """
     if asset_id is None:
         asset_id = chunk_asset_id(chunk_id)
@@ -107,13 +153,21 @@ def submit_or_resume(
     state = load_task_state(state_file)
     recorded = state.get(chunk_id)
     if recorded is not None and recorded.get("state") in RESUMABLE_STATES:
-        return recorded["task_id"]
+        if fingerprint is None or recorded.get("fingerprint") == fingerprint:
+            return recorded["task_id"]
+        # Fingerprint mismatch: fall through and force a resubmission rather
+        # than trusting state built from different parameters (CR-02).
 
     collection = build_collection_fn()
     description = asset_id.rsplit("/", 1)[-1]
     task = submit_table_export(collection, asset_id, description)
 
-    state[chunk_id] = {"task_id": task.id, "asset_id": asset_id, "state": "SUBMITTED"}
+    state[chunk_id] = {
+        "task_id": task.id,
+        "asset_id": asset_id,
+        "state": "SUBMITTED",
+        "fingerprint": fingerprint,
+    }
     save_task_state(state, state_file)
     return task.id
 

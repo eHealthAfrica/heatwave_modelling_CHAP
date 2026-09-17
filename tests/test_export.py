@@ -161,6 +161,113 @@ def test_batch_submit_or_resume_resubmits_failed_chunk(tmp_path, monkeypatch):
     assert persisted["c001"]["task_id"] == "T-NEW"
 
 
+def test_chunk_fingerprint_is_ward_id_and_fallback_order_independent():
+    """CR-02: chunk_fingerprint hashes sorted(ward_ids)/sorted(fallback_ward_ids),
+    so the same logical chunk fingerprints identically regardless of the
+    order its ward-id list happens to be iterated in."""
+    from heatwave.batch import chunk_fingerprint
+
+    fp1 = chunk_fingerprint(["W-B", "W-A"], "2020-01-01", "2020-02-01", ["W-B"])
+    fp2 = chunk_fingerprint(["W-A", "W-B"], "2020-01-01", "2020-02-01", ["W-B"])
+    assert fp1 == fp2
+
+
+def test_chunk_fingerprint_changes_with_date_range_or_ward_set():
+    """CR-02: chunk_fingerprint must be sensitive to exactly the parameters
+    that determine a chunk's actual contents -- a changed start date, end
+    date, ward-id set, or fallback-ward set must each produce a different
+    fingerprint."""
+    from heatwave.batch import chunk_fingerprint
+
+    base = chunk_fingerprint(["W-A", "W-B"], "2020-01-01", "2020-02-01", [])
+
+    assert chunk_fingerprint(["W-A", "W-B"], "2021-01-01", "2020-02-01", []) != base
+    assert chunk_fingerprint(["W-A", "W-B"], "2020-01-01", "2021-02-01", []) != base
+    assert chunk_fingerprint(["W-A", "W-C"], "2020-01-01", "2020-02-01", []) != base
+    assert chunk_fingerprint(["W-A", "W-B"], "2020-01-01", "2020-02-01", ["W-A"]) != base
+
+
+def test_batch_submit_or_resume_reuses_when_fingerprint_matches(tmp_path):
+    """CR-02: a recorded, resumable state entry IS reused when the caller's
+    freshly-computed fingerprint matches the one recorded at submission --
+    the fingerprint check must not break ordinary, unchanged-parameters
+    resumability."""
+    from heatwave.batch import chunk_fingerprint, save_task_state, submit_or_resume
+
+    state_file = tmp_path / "tasks.json"
+    fp = chunk_fingerprint(["W-A"], "2020-01-01", "2020-02-01", [])
+    save_task_state(
+        {"c001": {"task_id": "T-EXISTING", "state": "COMPLETED", "fingerprint": fp}},
+        state_file,
+    )
+
+    def _raising_builder():
+        raise AssertionError("build_collection_fn must not run when the fingerprint matches")
+
+    task_id = submit_or_resume(
+        "c001", build_collection_fn=_raising_builder, state_file=state_file, fingerprint=fp
+    )
+
+    assert task_id == "T-EXISTING"
+
+
+def test_batch_submit_or_resume_resubmits_on_fingerprint_mismatch(tmp_path, monkeypatch):
+    """CR-02: a chunk recorded as COMPLETED (a RESUMABLE_STATES member) is
+    NOT silently reused when the caller supplies a fingerprint that does
+    not match the one recorded at submission time -- e.g. because the date
+    range or --ward-batch-size partition changed between runs sharing the
+    same (often default) --state-file. The mismatch forces the builder to
+    run again, a genuinely new task id is submitted, and the persisted
+    state records both the new task id and the new fingerprint -- proving
+    a config change can never silently serve/mix stale data."""
+    import heatwave.batch as batch
+    from heatwave.batch import chunk_fingerprint, save_task_state, submit_or_resume
+
+    state_file = tmp_path / "tasks.json"
+    old_fingerprint = chunk_fingerprint(["W-A", "W-B"], "2020-01-01", "2020-02-01", [])
+    save_task_state(
+        {
+            "c001": {
+                "task_id": "T-OLD",
+                "asset_id": "projects/p/assets/covariate_chunk_c001",
+                "state": "COMPLETED",
+                "fingerprint": old_fingerprint,
+            }
+        },
+        state_file,
+    )
+
+    class _StubTask:
+        id = "T-NEW"
+
+    build_calls = []
+
+    def _builder():
+        build_calls.append(1)
+        return "fake-collection"
+
+    def _stub_submit_table_export(collection, asset_id, description):
+        return _StubTask()
+
+    monkeypatch.setattr(batch, "submit_table_export", _stub_submit_table_export)
+
+    # A different date range now maps to the same chunk_id "c001" -- the
+    # exact silent-stale-data scenario CR-02 describes.
+    new_fingerprint = chunk_fingerprint(["W-A", "W-B"], "2021-01-01", "2021-02-01", [])
+    task_id = submit_or_resume(
+        "c001",
+        build_collection_fn=_builder,
+        state_file=state_file,
+        fingerprint=new_fingerprint,
+    )
+
+    assert task_id == "T-NEW"
+    assert len(build_calls) == 1
+    persisted = batch.load_task_state(state_file)
+    assert persisted["c001"]["task_id"] == "T-NEW"
+    assert persisted["c001"]["fingerprint"] == new_fingerprint
+
+
 def test_batch_chunk_asset_id_is_namespaced_under_the_configured_project():
     """D-07: chunk_asset_id derives its parent namespace from config, not a
     hardcoded project id, and never collides with the configured ward asset."""
@@ -674,6 +781,32 @@ def test_persist_polled_task_states_leaves_unknown_entries_untouched(tmp_path):
     persisted = load_task_state(state_file)
     assert persisted["c000"]["state"] == "SUBMITTED"
     assert "c999" not in persisted
+
+
+def test_is_chunk_fingerprint_stale_detects_mismatch_but_not_legacy_entries():
+    """CR-02 (collect-stage half): a recorded state entry whose fingerprint
+    does not match the freshly-computed one for the chunk's CURRENT
+    parameters is stale (e.g. --ward-batch-size changed between --stage
+    submit and --stage collect, reshuffling which ward ids this chunk_id
+    now maps to) -- but a legacy entry with no recorded fingerprint at all
+    is never considered stale, so a state file written before this fix
+    does not spuriously lose all resumability."""
+    from heatwave.batch import chunk_fingerprint
+
+    module = _load_run_batch_export()
+
+    fp_a = chunk_fingerprint(["W-A", "W-B"], "2020-01-01", "2020-02-01", [])
+    fp_b = chunk_fingerprint(["W-A", "W-C"], "2020-01-01", "2020-02-01", [])
+    assert fp_a != fp_b
+
+    matching_entry = {"task_id": "T1", "fingerprint": fp_a}
+    assert module.is_chunk_fingerprint_stale(matching_entry, fp_a) is False
+
+    mismatched_entry = {"task_id": "T1", "fingerprint": fp_a}
+    assert module.is_chunk_fingerprint_stale(mismatched_entry, fp_b) is True
+
+    legacy_entry = {"task_id": "T1"}
+    assert module.is_chunk_fingerprint_stale(legacy_entry, fp_b) is False
 
 
 def test_batch_export_script_module_exports():
