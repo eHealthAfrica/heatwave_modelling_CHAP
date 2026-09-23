@@ -60,6 +60,14 @@ Research caught two silent-bug landmines before implementation (naive calendar-y
 
 The human checkpoint built into Phase 4's plan (a real, live `--stage plan` run: 4,841 wards / 20 chunks / 73 small wards / quota warning, plus a real small-scale smoke export) was reviewed and approved. **The full 1991-present historical backfill itself has NOT been run** — it is a separate, deliberately-deferred, multi-hour operation (`scripts/run_batch_export.py` with no `--max-wards`/`--stage` limiting flags), independent of this phase's completion per the locked D-01/D-02 decision.
 
+**Backfill launch attempted 2026-09-21/22, both attempts timed out — important finding for whoever runs it next.** Two real attempts to submit a single ward-batch chunk across the full historical range (1990-12-31 → 2026-09-14) both ended in Earth Engine's own `FAILED: "Computation timed out."` after ~12 hours each:
+| Wards | EECU-hours used before timeout |
+|---|---|
+| 250 (the script's default ward-batch-size) | 37.7 |
+| 25 | 21.3 |
+
+Both hit the *same* ~12-hour wall despite a 10x difference in ward count — strong evidence the **date range (35+ years), not ward count, drives the cost**, most likely the day-of-year climatology graph (`heatwave/science/climatology.py`) walking the full multi-decade image collection largely independent of how many wards are in the batch. **Practical implication: `plan_ward_chunks` currently only chunks by ward, never by date range — the 20-chunk production plan as designed may hit this same per-task timeout at full scale, regardless of the ~250-ward batch size, since every chunk still spans the full 35-year range.** Before attempting the full backfill again, whoever picks this up should either (a) add date-range chunking alongside the existing ward-batch chunking (e.g., one task per ward-batch × per few years, then concatenate across both dimensions), or (b) confirm with GCP support/docs whether Earth Engine's batch-task timeout can be raised for this project's tier. A genuine small-scale *real* sample (not the full backfill) — 5 wards, a 2-month window — completed quickly and is documented in `outputs/README.md`; `scripts/run_batch_export.py` and all `heatwave/` modules are unmodified by this finding.
+
 **Already-provisioned cloud infrastructure** (done, not being re-decided — see Constraints):
 - GCP project `heatwave-508110`, registered for Earth Engine.
 - Service account `heatwave-pipeline@heatwave-508110.iam.gserviceaccount.com`, key at local `keys/service_account.json` (gitignored, never committed).
