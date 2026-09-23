@@ -16,7 +16,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 1: Foundation Rework** - Fix 4 audit-identified issues in the existing GCP/EE auth, boundary, and ingest code before this branch supersedes PR #1 (completed 2026-09-13)
 - [x] **Phase 2: Heat Index Relocation** - Move RH/Heat-Index math out of the Streamlit script into a tested module (completed 2026-09-13)
 - [x] **Phase 3: Climatology & Heatwave Detection** - Per-ward 90th-percentile climatology and heatwave day/event flagging (core new capability) (completed 2026-09-13)
-- [ ] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable)
+- [x] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable) (completed 2026-09-17)
 - [ ] **Phase 5: Presentation Layer Rewrite** - Streamlit app reads the precomputed covariate table instead of computing live
 - [ ] **Phase 6: Documentation** - Methodology doc and rewritten README
 - [ ] **Phase 7: Polish (Optional)** - Config edge-case tests and optional CI
@@ -114,7 +114,27 @@ Plans:
   3. Running the pipeline end-to-end for a full sample period produces a complete table (no missing wards, no null aggregates) ready for CHAP handoff
   4. `tests/test_export.py` verifies covariate table schema and aggregation correctness
 
-**Plans**: TBD
+**Scope note**: the plans below verify the export machinery on small bounded samples inside a 30-second
+feedback loop. The real full 1991-present, 4,841-ward backfill is a separate, deliberate, monitored,
+hours-long invocation of `scripts/run_batch_export.py` (see 04-VALIDATION.md "Manual-Only
+Verifications"); a full-scale `outputs/covariate_table.csv` is explicitly NOT a completion criterion
+for this phase.
+
+**Plans**: 4 plans
+
+Plans:
+**Wave 1**
+
+- [x] 04-01-PLAN.md — Earth Engine async batch-export harness (`heatwave/batch.py`) plus a real live `Export.table.toAsset` round-trip de-risk, and the `tests/test_export.py` scaffold (EXPORT-01, EXPORT-04)
+- [x] 04-02-PLAN.md — D-08 small-ward centroid fallback and D-09 provenance flag in `heatwave/zonal.py` (EXPORT-03)
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 04-03-PLAN.md — `heatwave/export.py`: ISO week-year keying, single-composite-key weekly aggregation, event-start-week counting, exact EXPORT-02 schema (EXPORT-02, EXPORT-03, EXPORT-04)
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 04-04-PLAN.md — `scripts/run_batch_export.py`: validated CLI, ward-batch chunk planner, chunked submit/poll/collect, coverage-gated CSV concatenation, operator checkpoint (EXPORT-01..EXPORT-04)
 
 ### Phase 5: Presentation Layer Rewrite
 
@@ -164,7 +184,7 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 1. Foundation Rework | 3/3 | Complete    | 2026-09-13 |
 | 2. Heat Index Relocation | 2/2 | Complete    | 2026-09-13 |
 | 3. Climatology & Heatwave Detection | 4/4 | Complete    | 2026-09-13 |
-| 4. Batch Export & Covariate Table | 0/TBD | Not started | - |
+| 4. Batch Export & Covariate Table | 4/4 | Complete    | 2026-09-17 |
 | 5. Presentation Layer Rewrite | 0/TBD | Not started | - |
 | 6. Documentation | 0/TBD | Not started | - |
 | 7. Polish (Optional) | 0/TBD | Not started | - |
