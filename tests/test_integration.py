@@ -105,11 +105,38 @@ def test_era5_land_bands_aligned():
 
 
 def test_streamlit_app_boots_cleanly():
-    """REWORK-08: streamlit run nigeria_heat_index.py boots without raising an exception."""
+    """REWORK-08: streamlit app boots without raising an exception.
+
+    REWORK-08 originally targeted `nigeria_heat_index.py`. Phase 5 (APP-02) retired that
+    script in favor of `heatwave/app/streamlit_app.py`, which reads a precomputed covariate
+    table instead of computing Heat Index live -- this test now re-targets the app that
+    actually exists, preserving the "app boots cleanly" regression coverage rather than
+    losing it. See `tests/test_streamlit_app.py` for APP-03's own dedicated coverage
+    (metric/week browsing, missing-table handling).
+    """
+    import csv
+    import os
     from streamlit.testing.v1 import AppTest
 
-    script = Path(__file__).resolve().parent.parent / "nigeria_heat_index.py"
-    at = AppTest.from_file(str(script), default_timeout=30)
-    at.run()
+    script = Path(__file__).resolve().parent.parent / "heatwave" / "app" / "streamlit_app.py"
 
-    assert not at.exception, f"App raised: {at.exception}"
+    # A tiny, self-contained fixture -- this test only needs the app to boot without
+    # raising, not to exercise real covariate data (see test_streamlit_app.py for that).
+    fixture_dir = Path(__file__).resolve().parent.parent / "outputs"
+    fixture_dir.mkdir(exist_ok=True)
+    fixture_csv = fixture_dir / ".test_boot_fixture.csv"
+    with open(fixture_csv, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(
+            ["time_period", "location", "heatwave_days", "mean_heat_index", "max_heat_index", "heatwave_event_count"]
+        )
+        writer.writerow(["2020-W23", "10101", "2", "95.5", "98.2", "0"])
+
+    try:
+        os.environ["COVARIATE_TABLE_PATH"] = str(fixture_csv)
+        at = AppTest.from_file(str(script), default_timeout=30)
+        at.run()
+        assert not at.exception, f"App raised: {at.exception}"
+    finally:
+        os.environ.pop("COVARIATE_TABLE_PATH", None)
+        fixture_csv.unlink(missing_ok=True)
