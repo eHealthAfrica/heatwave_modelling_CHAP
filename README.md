@@ -45,6 +45,8 @@ The production deliverable: `scripts/run_batch_export.py` runs the full pipeline
 
 Phases 1-4 combined are covered by 90 tests that run live against the real Earth Engine project (`heatwave-508110`), plus two additional opt-in tests that submit real Earth Engine batch tasks (kept out of the default fast test loop since they take minutes, not seconds).
 
+**Update — full backfill attempted, not yet completed.** After the checkpoint above was approved, the real 1991-present historical backfill was launched. Two attempts (one at the script's default 250-ward chunk size, one at 25 wards) both ended in Earth Engine's own `"Computation timed out."` after ~12 hours each, despite the 10x difference in ward count — strong evidence that the 35+ year date range, not ward count, drives the cost, which means the current ward-only chunking may hit the same wall at every chunk of the full run, not just the one already tried. A genuine small-scale real sample (5 wards, a 2-month window) completed successfully and is available for Phase 5 development. See `outputs/README.md` for the full account, exact numbers, and suggested next steps (most likely: chunk by date range in addition to ward batch).
+
 ### What's next (Phases 5-7)
 
 - **Phase 5 — Presentation Layer Rewrite:** the Streamlit app reads the precomputed table instead of computing live.
