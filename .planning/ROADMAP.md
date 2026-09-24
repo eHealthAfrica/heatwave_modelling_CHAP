@@ -17,7 +17,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 2: Heat Index Relocation** - Move RH/Heat-Index math out of the Streamlit script into a tested module (completed 2026-09-13)
 - [x] **Phase 3: Climatology & Heatwave Detection** - Per-ward 90th-percentile climatology and heatwave day/event flagging (core new capability) (completed 2026-09-13)
 - [x] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable) (completed 2026-09-17)
-- [ ] **Phase 5: Presentation Layer Rewrite** - Streamlit app reads the precomputed covariate table instead of computing live
+- [x] **Phase 5: Presentation Layer Rewrite** - Streamlit app reads the precomputed covariate table instead of computing live (completed 2026-09-24)
 - [ ] **Phase 6: Documentation** - Methodology doc and rewritten README
 - [ ] **Phase 7: Polish (Optional)** - Config edge-case tests and optional CI
 
@@ -147,7 +147,18 @@ Plans:
   2. `nigeria_heat_index.py` is retired (removed or replaced) now that its logic lives in `heatwave/science/` and the new app module
   3. The rewritten app boots cleanly (HTTP 200, no stderr) and lets a user browse ward-level heatwave metrics (heatwave days, heat index, event counts) by week
 
-**Plans**: TBD
+**Scope note**: the real `outputs/covariate_table.csv` (full 1991-present backfill) has not been produced
+yet (see Phase 4's scope note and `outputs/README.md`); this phase's tests exercise the app against
+small fixture/sample CSVs. The app itself defaults to the real path and works unmodified once that
+file exists (`COVARIATE_TABLE_PATH` env var overrides it for development).
+
+**Plans**: 1 (done directly, minimal process per explicit user direction — no separate discuss/plan/review agents spawned)
+
+- [x] `heatwave/app/streamlit_app.py` — ward map colored by a selected metric (heatwave days, mean/max Heat Index, event count) for a selected week, reading the covariate CSV; clear error + stop when the table is missing (APP-01, APP-03)
+- [x] `nigeria_heat_index.py` removed; its RH/Heat-Index math already lived in `heatwave/science/` since Phase 2 (APP-02)
+- [x] `tests/test_streamlit_app.py` — pure-Python unit tests for the color/scale helpers plus live boot, week-switching, missing-table, and real-ward-geometry tests (APP-01, APP-03)
+- [x] `tests/test_integration.py::test_streamlit_app_boots_cleanly` (REWORK-08) retargeted from the retired script to the new app, preserving regression coverage
+
 **UI hint**: yes
 
 ### Phase 6: Documentation
@@ -185,6 +196,6 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 2. Heat Index Relocation | 2/2 | Complete    | 2026-09-13 |
 | 3. Climatology & Heatwave Detection | 4/4 | Complete    | 2026-09-13 |
 | 4. Batch Export & Covariate Table | 4/4 | Complete    | 2026-09-17 |
-| 5. Presentation Layer Rewrite | 0/TBD | Not started | - |
+| 5. Presentation Layer Rewrite | 1/1 | Complete    | 2026-09-24 |
 | 6. Documentation | 0/TBD | Not started | - |
 | 7. Polish (Optional) | 0/TBD | Not started | - |

@@ -42,9 +42,9 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Presentation Layer Rewrite
 
-- [ ] **APP-01**: `heatwave/app/streamlit_app.py` loads and displays data from the precomputed covariate table rather than computing Heat Index live per selected date
-- [ ] **APP-02**: `nigeria_heat_index.py` is retired (removed or replaced) now that its logic lives in `heatwave/science/` and the new app module
-- [ ] **APP-03**: The rewritten app boots cleanly (HTTP 200, no stderr) and lets a user browse ward-level heatwave metrics (heatwave days, heat index, event counts) by week
+- [x] **APP-01**: `heatwave/app/streamlit_app.py` loads and displays data from the precomputed covariate table rather than computing Heat Index live per selected date
+- [x] **APP-02**: `nigeria_heat_index.py` is retired (removed or replaced) now that its logic lives in `heatwave/science/` and the new app module
+- [x] **APP-03**: The rewritten app boots cleanly (HTTP 200, no stderr) and lets a user browse ward-level heatwave metrics (heatwave days, heat index, event counts) by week
 
 ### Documentation
 
@@ -102,9 +102,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EXPORT-02 | Phase 4 | Complete |
 | EXPORT-03 | Phase 4 | Complete |
 | EXPORT-04 | Phase 4 | Complete |
-| APP-01 | Phase 5 | Pending |
-| APP-02 | Phase 5 | Pending |
-| APP-03 | Phase 5 | Pending |
+| APP-01 | Phase 5 | Complete |
+| APP-02 | Phase 5 | Complete |
+| APP-03 | Phase 5 | Complete |
 | DOC-01 | Phase 6 | Pending |
 | DOC-02 | Phase 6 | Pending |
 | POLISH-01 | Phase 7 | Pending |
