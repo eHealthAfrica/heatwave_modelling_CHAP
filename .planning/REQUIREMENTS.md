@@ -48,8 +48,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Documentation
 
-- [ ] **DOC-01**: `docs/METHODOLOGY.md` documents the heatwave detection methodology (WMO/ETCCDI percentile-exceedance, NOAA/NWS Rothfusz Heat Index) and the covariate table schema
-- [ ] **DOC-02**: `README.md` is rewritten to accurately describe the current architecture (`heatwave/` package, `scripts/`, `config.yaml`), setup steps, and how to run the batch export and the Streamlit viewer
+- [x] **DOC-01**: `docs/METHODOLOGY.md` documents the heatwave detection methodology (WMO/ETCCDI percentile-exceedance, NOAA/NWS Rothfusz Heat Index) and the covariate table schema
+- [x] **DOC-02**: `README.md` is rewritten to accurately describe the current architecture (`heatwave/` package, `scripts/`, `config.yaml`), setup steps, and how to run the batch export and the Streamlit viewer
 
 ### Polish (optional, lower priority)
 
@@ -105,8 +105,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APP-01 | Phase 5 | Complete |
 | APP-02 | Phase 5 | Complete |
 | APP-03 | Phase 5 | Complete |
-| DOC-01 | Phase 6 | Pending |
-| DOC-02 | Phase 6 | Pending |
+| DOC-01 | Phase 6 | Complete |
+| DOC-02 | Phase 6 | Complete |
 | POLISH-01 | Phase 7 | Pending |
 | POLISH-02 | Phase 7 | Pending |
 
@@ -117,4 +117,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-09-11*
-*Last updated: 2026-09-11 after initial roadmap creation*
+*Last updated: 2026-09-28 after Phase 6 (Documentation) completion*
