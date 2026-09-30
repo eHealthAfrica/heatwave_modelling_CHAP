@@ -18,8 +18,8 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 3: Climatology & Heatwave Detection** - Per-ward 90th-percentile climatology and heatwave day/event flagging (core new capability) (completed 2026-09-13)
 - [x] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable) (completed 2026-09-17)
 - [x] **Phase 5: Presentation Layer Rewrite** - Streamlit app reads the precomputed covariate table instead of computing live (completed 2026-09-24)
-- [ ] **Phase 6: Documentation** - Methodology doc and rewritten README
-- [ ] **Phase 7: Polish (Optional)** - Config edge-case tests and optional CI
+- [x] **Phase 6: Documentation** - Methodology doc and rewritten README (completed 2026-09-28)
+- [x] **Phase 7: Polish (Optional)** - Config edge-case tests and optional CI (completed 2026-09-30)
 
 ## Phase Details
 
@@ -171,7 +171,10 @@ file exists (`COVARIATE_TABLE_PATH` env var overrides it for development).
   1. `docs/METHODOLOGY.md` documents the heatwave detection methodology (WMO/ETCCDI percentile-exceedance, NOAA/NWS Rothfusz Heat Index) and the covariate table schema
   2. `README.md` accurately describes the current architecture (`heatwave/` package, `scripts/`, `config.yaml`), setup steps, and how to run the batch export and the Streamlit viewer
 
-**Plans**: TBD
+**Plans**: 1 (done directly, minimal process per the same explicit user direction as Phase 5 — no separate discuss/plan/review agents spawned)
+
+- [x] `docs/METHODOLOGY.md` — Heat Index formula, zonal reduction and small-ward fallback, climatology definition, heatwave day/event detection, weekly aggregation and null-vs-zero rules, covariate table schema, production execution model including the documented backfill-timeout limitation (DOC-01)
+- [x] `README.md` — rewritten around current architecture (`heatwave/` package layout), setup (venv, credentials, `heatwave.auth` verification), running the test suite, running the batch export (plan/full/sample), running the Streamlit viewer, and current status (DOC-02)
 
 ### Phase 7: Polish (Optional)
 
@@ -183,7 +186,10 @@ file exists (`COVARIATE_TABLE_PATH` env var overrides it for development).
   1. `tests/test_config.py` covers config-loading edge cases (missing keys, malformed YAML)
   2. (Optional) a CI workflow runs the test suite automatically on push
 
-**Plans**: TBD
+**Plans**: 1 (done directly, minimal process per the same explicit user direction as Phases 5-6 — no separate discuss/plan/review agents spawned)
+
+- [x] `tests/test_config.py` — 35 credential-free tests: `load_settings` happy path, missing top-level/`bands`/`climatology` keys, malformed YAML, missing file, empty file, and `ClimatologyConfig`'s runtime validation (percentile range, baseline year ordering, pooling window, min consecutive days) at both rejecting and boundary-accepting values (POLISH-01)
+- [x] `.github/workflows/tests.yml` — runs `pytest -v` on every push/PR against `ubuntu-latest` + Python 3.11; reads an optional `EE_SA_JSON` repo secret so credential-gated live tests run when configured and skip cleanly (not fail) when not (POLISH-02)
 
 ## Progress
 
@@ -197,5 +203,5 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 3. Climatology & Heatwave Detection | 4/4 | Complete    | 2026-09-13 |
 | 4. Batch Export & Covariate Table | 4/4 | Complete    | 2026-09-17 |
 | 5. Presentation Layer Rewrite | 1/1 | Complete    | 2026-09-24 |
-| 6. Documentation | 0/TBD | Not started | - |
-| 7. Polish (Optional) | 0/TBD | Not started | - |
+| 6. Documentation | 1/1 | Complete    | 2026-09-28 |
+| 7. Polish (Optional) | 1/1 | Complete    | 2026-09-30 |

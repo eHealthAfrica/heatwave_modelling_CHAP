@@ -48,13 +48,13 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Documentation
 
-- [ ] **DOC-01**: `docs/METHODOLOGY.md` documents the heatwave detection methodology (WMO/ETCCDI percentile-exceedance, NOAA/NWS Rothfusz Heat Index) and the covariate table schema
-- [ ] **DOC-02**: `README.md` is rewritten to accurately describe the current architecture (`heatwave/` package, `scripts/`, `config.yaml`), setup steps, and how to run the batch export and the Streamlit viewer
+- [x] **DOC-01**: `docs/METHODOLOGY.md` documents the heatwave detection methodology (WMO/ETCCDI percentile-exceedance, NOAA/NWS Rothfusz Heat Index) and the covariate table schema
+- [x] **DOC-02**: `README.md` is rewritten to accurately describe the current architecture (`heatwave/` package, `scripts/`, `config.yaml`), setup steps, and how to run the batch export and the Streamlit viewer
 
 ### Polish (optional, lower priority)
 
-- [ ] **POLISH-01**: `tests/test_config.py` covers config-loading edge cases (missing keys, malformed YAML)
-- [ ] **POLISH-02**: (Optional) a CI workflow runs the test suite automatically on push — not required for v1 completion
+- [x] **POLISH-01**: `tests/test_config.py` covers config-loading edge cases (missing keys, malformed YAML)
+- [x] **POLISH-02**: (Optional) a CI workflow runs the test suite automatically on push — not required for v1 completion
 
 ## v2 Requirements
 
@@ -105,10 +105,10 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APP-01 | Phase 5 | Complete |
 | APP-02 | Phase 5 | Complete |
 | APP-03 | Phase 5 | Complete |
-| DOC-01 | Phase 6 | Pending |
-| DOC-02 | Phase 6 | Pending |
-| POLISH-01 | Phase 7 | Pending |
-| POLISH-02 | Phase 7 | Pending |
+| DOC-01 | Phase 6 | Complete |
+| DOC-02 | Phase 6 | Complete |
+| POLISH-01 | Phase 7 | Complete |
+| POLISH-02 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 28 total
@@ -117,4 +117,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-09-11*
-*Last updated: 2026-09-11 after initial roadmap creation*
+*Last updated: 2026-09-30 after Phase 7 (Polish) completion — all 28 v1 requirements complete*
