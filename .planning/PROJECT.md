@@ -20,12 +20,13 @@ A correct, complete weekly covariate table (`time_period`, `location`/ward, `hea
 - ✓ Batch export mechanism producing the CHAP-facing weekly covariate table — async Earth Engine harness, ward-batch chunking, resumable state, small-ward centroid fallback, ISO-week aggregation — Phase 4 (verified 2026-09-17: 10/10 must-haves, 90/90 non-gated live tests passing; 2 critical + 2 data-quality code-review findings fixed, plus one review-fix regression caught by the verifier and fixed, all re-verified live — see Context). Full 1991-present, 4,841-ward historical backfill deliberately deferred as a separate manual operation; two launch attempts since (2026-09-21/22) both hit Earth Engine's own timeout — see Context.
 - ✓ Streamlit presentation layer reads the precomputed covariate table instead of computing Heat Index live — `heatwave/app/streamlit_app.py`, a ward map colored by a selectable metric (heatwave days, mean/max Heat Index, event count) for a selectable week — Phase 5 (2026-09-24: 101/101 non-gated tests passing including a live check against the real 4,841-ward asset; `nigeria_heat_index.py` retired)
 - ✓ Methodology and usage are documented — `docs/METHODOLOGY.md` (Heat Index formula, climatology definition, detection logic, covariate schema, the documented backfill-timeout limitation) and a rewritten root `README.md` (architecture, setup, credential resolution, running tests/batch export/viewer, current status) — Phase 6 (2026-09-28)
+- ✓ Config-loading edge cases are covered and a CI safety net runs the suite on every push — `tests/test_config.py` (35 tests) and `.github/workflows/tests.yml` — Phase 7 (2026-09-30). All 28 v1 requirements are now complete.
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- (none — all v1 phases through Phase 6 complete; Phase 7 Polish is optional and not yet started)
+- (none — all v1 phases 1-7 complete)
 
 ### Out of Scope
 
@@ -81,6 +82,8 @@ Both hit the *same* ~12-hour wall despite a 10x difference in ward count — str
 
 **Phase 6 complete (2026-09-28):** `docs/METHODOLOGY.md` (new) documents the full pipeline end-to-end — the Rothfusz Heat Index formula with its coefficient table, the small-ward centroid-fallback mechanism and the ~0.4% pixel-weight threshold that triggers it (73 of 4,841 real wards), the WMO/ETCCDI percentile-exceedance climatology definition and its config-driven parameters, heatwave day/event detection semantics (strict exceedance, event-starts-in-its-starting-week-only), the covariate table schema with its explicit null-vs-zero rules, and the production execution model including the still-unresolved backfill-timeout finding from Phase 4's follow-up work. The root `README.md` was rewritten around current architecture rather than the phase-by-phase narrative used through Phase 5 — a package-layout diagram, setup/credential instructions, exact commands for running tests/the batch export (plan, full, and small-sample forms)/the Streamlit viewer, and a "Current status" section that states plainly that the real full-history covariate table does not exist yet, rather than glossing over it. Built directly, same minimal process as Phase 5, per the same standing user direction to limit GSD ceremony.
 
+**Phase 7 complete (2026-09-30), v1 fully delivered:** `tests/test_config.py` (35 tests, no credentials required) covers `load_settings`'s happy path plus every missing-top-level-key, missing-`bands`-key, missing-`climatology`-key, malformed-YAML, missing-file, and empty-file case, and `ClimatologyConfig`'s `__post_init__` runtime validation (percentile range, baseline-year ordering, pooling-window non-negativity, min-consecutive-days floor) at both its rejecting and boundary-accepting edges — each `load_settings` case writes its own temporary YAML via `tmp_path` rather than touching the real `config.yaml`, so these tests can never affect (or be affected by) the project's actual configuration. `.github/workflows/tests.yml` (new) runs `pytest -v` on every push/PR against `ubuntu-latest` + Python 3.11; it reads an optional `EE_SA_JSON` repository secret so credential-gated live tests run for real when that secret is configured and skip cleanly — not fail — when it isn't, meaning the workflow is useful (catches config/import/pure-logic regressions) from the moment it exists, with full live coverage available the moment a maintainer adds the secret. This closes out all 28 v1 requirements across all 7 phases.
+
 **GitHub state:** PR #1 (`eHealthAfrica/heatwave_modelling_CHAP`, the original ad-hoc Phase 0-2 work) is open but not merged as of last check. PR #3 (`feature/heatwave-508110-phase-0-3-gsd` → `main`) currently tracks Phases 1-3 through GSD's rework; PR #2 briefly existed and was accidentally closed when its source branch was renamed (server-side GitHub branch-rename closes rather than retargets an open PR — noted so it isn't rediscovered as a mystery). A GitHub PAT was pasted into a prior chat session; treat as potentially compromised, do not reuse if it resurfaces — GitHub CLI's `gh auth login --web` device flow is the established re-authentication method for this project, no PAT needed.
 
 ## Constraints
@@ -107,4 +110,4 @@ Both hit the *same* ~12-hour wall despite a 10x difference in ward count — str
 | Rework/rebuild Phases 1-5 and remaining phases with reduced GSD ceremony after Phase 4 | Explicit user instruction ("limit the use of gsd at this point") following an environment reset; full discuss/plan/research/review agent sequence no longer required for every phase | ✓ Good — Phase 5 delivered directly, 101/101 non-gated tests passing, no regressions |
 
 ---
-*Last updated: 2026-09-28 after Phase 6 (Documentation) completion*
+*Last updated: 2026-09-30 after Phase 7 (Polish) completion — all v1 phases (1-7) complete*

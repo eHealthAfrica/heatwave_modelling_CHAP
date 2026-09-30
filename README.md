@@ -69,7 +69,9 @@ prints `Earth Engine ready: True` on success.
 pytest
 ```
 
-The suite runs live against the real Earth Engine project (no mocking) but is fast — small, bounded samples, not production-scale data. A handful of tests are automatically skipped if no credentials are configured (`keys/service_account.json` or `EE_SA_JSON` absent). As of the last full run: **101 passed, 2 skipped** (the 2 skips are opt-in tests that submit real Earth Engine batch export tasks and take minutes rather than seconds — not part of the default fast loop).
+The suite runs live against the real Earth Engine project (no mocking) but is fast — small, bounded samples, not production-scale data. A handful of tests are automatically skipped if no credentials are configured (`keys/service_account.json` or `EE_SA_JSON` absent); `tests/test_config.py` and `tests/test_requirements.py` never need credentials at all. As of the last full run: **136 passed, 2 skipped** (the 2 skips are opt-in tests that submit real Earth Engine batch export tasks and take minutes rather than seconds — not part of the default fast loop).
+
+A GitHub Actions workflow (`.github/workflows/tests.yml`) runs this same suite on every push/PR. It reads an optional `EE_SA_JSON` repository secret — configure it to get full live coverage in CI, or leave it unset and the credential-gated tests skip cleanly while the credential-free tests still catch regressions.
 
 ## Running the batch export
 
@@ -132,8 +134,10 @@ All planned functionality (Phases 1-5) is implemented and tested:
 - **Batch export** — the production pipeline that produces the weekly covariate table, with small-ward fallback handling and resumable async execution.
 - **Presentation layer** — the Streamlit viewer described above, reading the precomputed table.
 
+- **Polish** — config-loading edge cases (`tests/test_config.py`) and an optional CI workflow (`.github/workflows/tests.yml`) that runs the suite on every push/PR.
+
 **What's outstanding:** the real full-history covariate table (`outputs/covariate_table.csv`) has not been successfully produced yet — see "Running the batch export" above and `outputs/README.md` for the timeout finding and suggested next steps. Everything else (all pipeline code, all tests) is unaffected and works correctly at the scales it has been run at.
 
-Documentation and methodology write-up (this file and `docs/METHODOLOGY.md`) are current as of Phase 6. A config-loading edge-case test suite and optional CI are tracked as an optional, lower-priority Phase 7.
+All 28 v1 requirements across all 7 phases are complete.
 
 For full phase-by-phase project history, decisions, and rationale, see `.planning/PROJECT.md` and `.planning/ROADMAP.md`.

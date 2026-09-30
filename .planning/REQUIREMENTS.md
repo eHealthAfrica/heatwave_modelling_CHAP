@@ -53,8 +53,8 @@ Requirements for initial release. Each maps to roadmap phases.
 
 ### Polish (optional, lower priority)
 
-- [ ] **POLISH-01**: `tests/test_config.py` covers config-loading edge cases (missing keys, malformed YAML)
-- [ ] **POLISH-02**: (Optional) a CI workflow runs the test suite automatically on push — not required for v1 completion
+- [x] **POLISH-01**: `tests/test_config.py` covers config-loading edge cases (missing keys, malformed YAML)
+- [x] **POLISH-02**: (Optional) a CI workflow runs the test suite automatically on push — not required for v1 completion
 
 ## v2 Requirements
 
@@ -107,8 +107,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | APP-03 | Phase 5 | Complete |
 | DOC-01 | Phase 6 | Complete |
 | DOC-02 | Phase 6 | Complete |
-| POLISH-01 | Phase 7 | Pending |
-| POLISH-02 | Phase 7 | Pending |
+| POLISH-01 | Phase 7 | Complete |
+| POLISH-02 | Phase 7 | Complete |
 
 **Coverage:**
 - v1 requirements: 28 total
@@ -117,4 +117,4 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 ---
 *Requirements defined: 2026-09-11*
-*Last updated: 2026-09-28 after Phase 6 (Documentation) completion*
+*Last updated: 2026-09-30 after Phase 7 (Polish) completion — all 28 v1 requirements complete*

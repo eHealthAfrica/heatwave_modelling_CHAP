@@ -19,7 +19,7 @@ Decimal phases appear between their surrounding integers in numeric order.
 - [x] **Phase 4: Batch Export & Covariate Table** - Produce the CHAP-facing weekly covariate table for all 4,841 wards (production deliverable) (completed 2026-09-17)
 - [x] **Phase 5: Presentation Layer Rewrite** - Streamlit app reads the precomputed covariate table instead of computing live (completed 2026-09-24)
 - [x] **Phase 6: Documentation** - Methodology doc and rewritten README (completed 2026-09-28)
-- [ ] **Phase 7: Polish (Optional)** - Config edge-case tests and optional CI
+- [x] **Phase 7: Polish (Optional)** - Config edge-case tests and optional CI (completed 2026-09-30)
 
 ## Phase Details
 
@@ -186,7 +186,10 @@ file exists (`COVARIATE_TABLE_PATH` env var overrides it for development).
   1. `tests/test_config.py` covers config-loading edge cases (missing keys, malformed YAML)
   2. (Optional) a CI workflow runs the test suite automatically on push
 
-**Plans**: TBD
+**Plans**: 1 (done directly, minimal process per the same explicit user direction as Phases 5-6 — no separate discuss/plan/review agents spawned)
+
+- [x] `tests/test_config.py` — 35 credential-free tests: `load_settings` happy path, missing top-level/`bands`/`climatology` keys, malformed YAML, missing file, empty file, and `ClimatologyConfig`'s runtime validation (percentile range, baseline year ordering, pooling window, min consecutive days) at both rejecting and boundary-accepting values (POLISH-01)
+- [x] `.github/workflows/tests.yml` — runs `pytest -v` on every push/PR against `ubuntu-latest` + Python 3.11; reads an optional `EE_SA_JSON` repo secret so credential-gated live tests run when configured and skip cleanly (not fail) when not (POLISH-02)
 
 ## Progress
 
@@ -201,4 +204,4 @@ Phases execute in numeric order: 1 → 2 → 3 → 4 → 5 → 6 → 7
 | 4. Batch Export & Covariate Table | 4/4 | Complete    | 2026-09-17 |
 | 5. Presentation Layer Rewrite | 1/1 | Complete    | 2026-09-24 |
 | 6. Documentation | 1/1 | Complete    | 2026-09-28 |
-| 7. Polish (Optional) | 0/TBD | Not started | - |
+| 7. Polish (Optional) | 1/1 | Complete    | 2026-09-30 |

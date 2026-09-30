@@ -1,0 +1,32 @@
+name: Tests
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+
+jobs:
+  pytest:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run test suite
+        # EE_SA_JSON is an optional repo secret holding the Earth Engine
+        # service-account key JSON. When it isn't configured, every test
+        # gated on live credentials (heatwave/auth._HAS_CREDENTIALS) is
+        # skipped automatically rather than failing -- the fast, credential
+        # -free tests (config, pure Heat Index/color/scale helpers, import
+        # sanity) still run and catch regressions on every push.
+        env:
+          EE_SA_JSON: ${{ secrets.EE_SA_JSON }}
+        run: pytest -v
