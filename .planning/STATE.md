@@ -1,17 +1,16 @@
 ---
 gsd_state_version: 1.0
-milestone: v1.0
-milestone_name: milestone
-status: ready_to_plan
-stopped_at: Phase 4 complete (4/4) — ready to discuss Phase 5
-last_updated: 2026-09-17T10:20:55.743Z
-last_activity: 2026-09-17
+milestone: v2.0
+milestone_name: Heat Forecasting
+status: planning
+last_updated: "2026-10-02T10:36:26.329Z"
+last_activity: 2026-10-02
 progress:
-  total_phases: 7
-  completed_phases: 4
-  total_plans: 13
-  completed_plans: 13
-  percent: 57
+  total_phases: 0
+  completed_phases: 0
+  total_plans: 0
+  completed_plans: 0
+  percent: 0
 ---
 
 # Project State
@@ -25,12 +24,10 @@ See: .planning/PROJECT.md (updated 2026-09-11)
 
 ## Current Position
 
-Phase: 5
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-09-17
-
-Progress: [██████████] 100% (Phases 1-4 of 7)
+Phase: Not started (defining requirements)
+Plan: —
+Status: Defining requirements
+Last activity: 2026-10-02 — Milestone v2.0 started
 
 ## Performance Metrics
 
@@ -132,3 +129,7 @@ Items acknowledged and carried forward from previous milestone close:
 Last session: 2026-09-17T00:00:00.000Z
 Stopped at: 04-04-PLAN.md complete -- Phase 4 (Batch Export & Covariate Table) fully complete. Operator approved the chunk plan and smoke export; full 1991-present historical backfill explicitly deferred to a separate, later, operator-triggered run (does not block Phase 4 completion). Next: plan Phase 5 (Presentation Layer Rewrite) when ready, and separately consider launching the full backfill via `scripts/run_batch_export.py` at the operator's discretion.
 Resume file: none (Phase 4 closed; Phase 5 not yet planned)
+
+## Operator Next Steps
+
+- Start the next milestone with /gsd-new-milestone

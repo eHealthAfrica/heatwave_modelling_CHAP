@@ -2,11 +2,24 @@
 
 ## What This Is
 
-A ward-level heatwave-detection pipeline for Nigeria. It ingests ERA5-Land climate data via Google Earth Engine, computes NOAA/NWS Heat Index per ward, detects heatwave days/events using a WMO/ETCCDI percentile-exceedance climatology, and produces a weekly covariate table for downstream disease-forecasting platforms (CHAP / chap-core / dhis2-chap). It does not forecast disease itself — it produces an upstream climate covariate.
+A ward-level heatwave pipeline for 4,841 wards in 19 northern Nigerian states plus the FCT (not nationwide). It downloads ERA5-Land daily data through Google Earth Engine, computes the NOAA/NWS Heat Index per ward, detects heatwave days, events and hot nights with a WMO/ETCCDI percentile-exceedance climatology, and produces a weekly covariate table for downstream disease-forecasting platforms (CHAP / chap-core / dhis2-chap). The detection layer is rule-based. Milestone v2.0 adds a trained **forecast layer** that predicts the table's heat indicators 1-6 weeks ahead. The project still does not forecast disease itself.
 
 ## Core Value
 
-A correct, complete weekly covariate table (`time_period`, `location`/ward, `heatwave_days`, `mean_heat_index`, `max_heat_index`, `heatwave_event_count`) can be generated end-to-end from ERA5-Land data for all 4,841 Nigerian wards and handed off to CHAP. The Streamlit app is a dev/QA visualization tool, not the production surface — if it broke entirely, the pipeline would still deliver value as long as the covariate table generates correctly.
+A correct, complete weekly covariate table (`time_period`, `location`/ward, `heatwave_days`, `mean_heat_index`, `max_heat_index`, `heatwave_event_count`, `hot_nights`, `total_precipitation_mm`, `mean_relative_humidity`, `mean_soil_moisture`) can be generated end-to-end from ERA5-Land data for all 4,841 wards in the study area and handed off to CHAP. For v2.0, add honest, calibrated forecasts of those heat indicators that demonstrably beat simple baselines. The Streamlit app is a dev/QA visualization tool, not the production surface — if it broke entirely, the pipeline would still deliver value as long as the covariate table generates correctly.
+
+## Current Milestone: v2.0 Heat Forecasting
+
+**Goal:** Forecast each ward's weekly heat indicators 1-6 weeks ahead, with calibrated probabilities that are proven to beat simple baselines on held-out years and can be passed to CHAP.
+
+**Target features:**
+- Feature store of lagged features from the frozen `covariates-v1.0`, with an automated leakage test
+- Baselines: climatology, 10-year recent climatology, persistence
+- Models per lead (1-6 weeks from the last observed week): regularised logistic regression, LightGBM, LightGBM quantile models for the Heat Index anomaly; isotonic calibration
+- Evaluation on a time split (train 1991-2014, validate 2015-2020, test 2021-2026 once): Brier skill score as the headline, ROC AUC, reliability, precision/recall/F1, anomaly error and interval coverage; by lead, season and region; week-block bootstrap CIs; SHAP and ablations
+- Go/no-go decision and evaluation report
+- Climate drivers (ENSO, tropical Atlantic SST, MJO) added in a later phase, measured by the skill they add
+- Operational weekly forecast table for CHAP, versioned and documented
 
 ## Requirements
 
@@ -21,18 +34,24 @@ A correct, complete weekly covariate table (`time_period`, `location`/ward, `hea
 - ✓ Streamlit presentation layer reads the precomputed covariate table instead of computing Heat Index live — `heatwave/app/streamlit_app.py`, a ward map colored by a selectable metric (heatwave days, mean/max Heat Index, event count) for a selectable week — Phase 5 (2026-09-24: 101/101 non-gated tests passing including a live check against the real 4,841-ward asset; `nigeria_heat_index.py` retired)
 - ✓ Methodology and usage are documented — `docs/METHODOLOGY.md` (Heat Index formula, climatology definition, detection logic, covariate schema, the documented backfill-timeout limitation) and a rewritten root `README.md` (architecture, setup, credential resolution, running tests/batch export/viewer, current status) — Phase 6 (2026-09-28)
 - ✓ Config-loading edge cases are covered and a CI safety net runs the suite on every push — `tests/test_config.py` (35 tests) and `.github/workflows/tests.yml` — Phase 7 (2026-09-30). All 28 v1 requirements are now complete.
+- ✓ Humidity (Magnus) and Heat Index (full NOAA/NWS method) corrected — PR #8 (2026-10-02, outside GSD)
+- ✓ Full 1991-2026 table built by the local pipeline (`heatwave/local/`, `scripts/run_local_pipeline.py`) from ERA5-Land downloaded via Earth Engine computePixels: Heat Index from daily max temperature, hot nights, rainfall/humidity/soil-moisture columns, LGA average for 6 wards without geometry — PRs #9 and #10 (2026-10-02, outside GSD); 166 tests passing
+- ✓ Independent cross-check (TerraClimate, CHIRPS, MODIS) and station check (NOAA GSOD; NiMet data is not open) documented in METHODOLOGY sections 8-9 (2026-10-02)
+- ✓ Frozen dataset `covariates-v1.0` (git tag on 7ed8d1c; read-only copy and MANIFEST.json under `<local_data_dir>/frozen/covariates-v1.0/`) (2026-10-02)
 
 ### Active
 
 <!-- Current scope. Building toward these. -->
 
-- (none — all v1 phases 1-7 complete)
+- See Current Milestone above and `.planning/REQUIREMENTS.md` (v2.0)
 
 ### Out of Scope
 
 <!-- Explicit boundaries. Includes reasoning to prevent re-adding. -->
 
-- Disease forecasting itself — this pipeline produces an upstream climate covariate only; forecasting is CHAP's job downstream.
+- Disease forecasting itself — this pipeline produces upstream climate covariates (observed and, from v2.0, forecast heat indicators); disease forecasting is CHAP's job downstream.
+- Station-confirmed heatwave labels — NiMet data is not open (NGOs are a paid commercial category, no redistribution) and NOAA GSOD is too sparse for a 1991-2020 baseline, so labels stay ERA5-Land-based (METHODOLOGY section 9).
+- Building a physical forecast model — ECMWF extended-range (S2S) forecasts serve only as a benchmark or fallback if the trained model shows no skill.
 - Custom HTML/JS dashboard (Leaflet.js + FastAPI/Flask) — assessed as feasible in a prior side discussion but not pursued; Phase 6-equivalent (presentation rewrite) already plans a Streamlit rewrite reading a precomputed table, reducing the need for live tile serving. Revisit only if explicitly requested.
 - Re-litigating cloud infrastructure choices (GCP project, service account, ward boundary asset, ERA5-Land collection/bands) — these are already provisioned and verified; carried forward as constraints, not decisions to revisit in this roadmap.
 - CI/CD pipeline — optional stretch goal in the final phase, not required for v1 completion.
@@ -89,7 +108,9 @@ Both hit the *same* ~12-hour wall despite a 10x difference in ward count — str
 ## Constraints
 
 - **Cloud infra (fixed, not to be re-decided)**: GCP project `heatwave-508110`, service account `heatwave-pipeline@heatwave-508110.iam.gserviceaccount.com`, ward boundary asset `projects/heatwave-508110/assets/shp`, ERA5-Land collection `ECMWF/ERA5_LAND/DAILY_AGGR` with bands `temperature_2m_max`/`temperature_2m`/`dewpoint_temperature_2m` — already provisioned and verified live; carried forward as given.
-- **Tech stack**: Python >=3.11 (`pyproject.toml`), `earthengine-api`, `streamlit`, `geemap`, `pandas`, `pytest`/`PyYAML` already in `requirements.txt`.
+- **Tech stack**: Python >=3.11 (`pyproject.toml`), `earthengine-api`, `streamlit`, `geemap`, `pandas`, `pytest`/`PyYAML` already in `requirements.txt`, plus `shapely`, `xarray` and `netCDF4` for the local pipeline. v2.0 adds the first ML libraries (expected: scikit-learn, LightGBM).
+- **Training data (v2.0)**: models train and test only on the frozen `covariates-v1.0` dataset, never on `outputs/covariate_table.csv`, which is overwritten on every run.
+- **Reporting**: reports state that the detection layer is rule-based (with evidence) and keep it separate from the trained forecast layer. Coverage is always "4,841 wards in 19 northern states and the FCT".
 - **Credential handling**: service account key must never be committed (`keys/service_account.json`, gitignored, diff-scanned before every commit). `heatwave/auth.py` credential resolution order: Streamlit secrets → `EE_SA_JSON` env var → local key file.
 - **Climatology parameters (config.yaml, fixed)**: baseline period 1991-2020, 90th percentile threshold, ±5-day pooling window, ≥3 consecutive days = heatwave event.
 - **Windows/PowerShell tooling**: each shell tool call is a fresh shell (PATH/`cd` don't persist); multi-line git commit messages with embedded quotes break `git commit -m` on Windows (use `git commit -F <file>`); `robocopy` doesn't delete files absent from source.
@@ -108,6 +129,28 @@ Both hit the *same* ~12-hour wall despite a 10x difference in ward count — str
 | Custom HTML/JS dashboard (Leaflet.js + FastAPI) as Streamlit replacement | Feasible but a detour; presentation-layer rewrite phase already covers the real need (precomputed table, less live tile serving) | ⚠️ Revisit only if explicitly asked — not pursuing now |
 | Presentation layer shape: map of wards by week, selectable metric | User-selected option during Phase 5 discussion; matches the ward-level, weekly-aggregated shape of the covariate table itself | ✓ Good — implemented in `heatwave/app/streamlit_app.py` (2026-09-24) |
 | Rework/rebuild Phases 1-5 and remaining phases with reduced GSD ceremony after Phase 4 | Explicit user instruction ("limit the use of gsd at this point") following an environment reset; full discuss/plan/research/review agent sequence no longer required for every phase | ✓ Good — Phase 5 delivered directly, 101/101 non-gated tests passing, no regressions |
+| Build the full table locally instead of fixing the Earth Engine backfill | EE batch tasks hit a ~12 h timeout; the local pipeline builds everything in ~3 min | ✓ Good — PRs #9 and #10 (2026-10-02) |
+| Heat Index from daily max temperature + daily mean dewpoint; add hot nights | Describes peak heat stress; hot nights are a separate health risk | ✓ Good — local pipeline (2026-10-02) |
+| Rainfall column from ERA5-Land, not CHIRPS | One consistent source for every column; the ~25-30% low bias in the far north is documented | — Accepted with caveat (2026-10-02) |
+| Use GSD again for v2.0 | User request (2026-10-02): "put the workflows in phases and use GSD" | — Pending |
+| v2.0 forecast design | Agreed 2026-10-02: heatwave-week probability as the primary target; leads 1-6 from the last observed week; one model per lead; ward unit; train 1991-2014, validate 2015-2020, test 2021-2026 once; baselines climatology, recent climatology and persistence; logistic regression, then LightGBM; climate drivers in a later phase | — Pending |
+
+## Evolution
+
+This document evolves at phase transitions and milestone boundaries.
+
+**After each phase transition** (via `/gsd-transition`):
+1. Requirements invalidated? → Move to Out of Scope with reason
+2. Requirements validated? → Move to Validated with phase reference
+3. New requirements emerged? → Add to Active
+4. Decisions to log? → Add to Key Decisions
+5. "What This Is" still accurate? → Update if drifted
+
+**After each milestone** (via `/gsd:complete-milestone`):
+1. Full review of all sections
+2. Core Value check — still the right priority?
+3. Audit Out of Scope — reasons still valid?
+4. Update Context with current state
 
 ---
-*Last updated: 2026-09-30 after Phase 7 (Polish) completion — all v1 phases (1-7) complete*
+*Last updated: 2026-10-02 — milestone v2.0 Heat Forecasting started (v1.0 archived)*
