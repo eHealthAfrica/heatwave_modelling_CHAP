@@ -235,7 +235,10 @@ Only `python-version: "3.12"` changes (line `python-version: "3.11"`); the insta
 | A3 | Packages not slopchecked | Audit | Low; user-chosen major libs |
 | A4 | Pinning expected parquet sha in forecast.yaml is desirable | Patterns | Discretion; drop if unwanted |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All questions below are resolved in `08-CONTEXT.md` under "Resolved after phase research" (2026-10-02) and implemented in the plans.
+
 1. **Split cutoff semantics (inclusive/exclusive, which Monday)**: recommend `train_end_week_start` etc. as exclusive upper bounds = Monday of first week of next period, e.g. validate starts `2015-01-05` (2015-W02? note 2014-12-29 is 2015-W01, ISO year 2015). Decide whether "year" means ISO year (recommended, matches labels) and document; planner should make this an explicit task with a test. Embargo default suggestion: `max(leads)` = 6 weeks (Phase 9 may refine).
 2. **Should `verify_frozen.py` check read-only flags?** Discretion; recommend report-only (warn), not fail, because Windows ACL/attribute semantics differ across machines.
 3. **Inputs path**: 361 inputs under `frozen/covariates-v1.0/inputs/` (plus `wards.geojson` key resolution relative to `inputs/`); confirm MANIFEST keys are relative to `inputs/` (key `era5_land_daily_gee/.../1991.nc`, `wards.geojson`) - verify at implementation by checking the first key's file exists; hashing ~all inputs is slow-ish (GB of .nc) so script should show progress and support `--outputs-only`.
