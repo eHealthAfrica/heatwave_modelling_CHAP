@@ -134,6 +134,22 @@ Both hit the *same* ~12-hour wall despite a 10x difference in ward count — str
 | Rainfall column from ERA5-Land, not CHIRPS | One consistent source for every column; the ~25-30% low bias in the far north is documented | — Accepted with caveat (2026-10-02) |
 | Use GSD again for v2.0 | User request (2026-10-02): "put the workflows in phases and use GSD" | — Pending |
 | v2.0 forecast design | Agreed 2026-10-02: heatwave-week probability as the primary target; leads 1-6 from the last observed week; one model per lead; ward unit; train 1991-2014, validate 2015-2020, test 2021-2026 once; baselines climatology, recent climatology and persistence; logistic regression, then LightGBM; climate drivers in a later phase | — Pending |
+| Research adjustments adopted (user: "proceed with your recommendations", 2026-10-02) | From `.planning/research/SUMMARY.md` | — Pending |
+
+The adopted adjustments are:
+- Add damped-persistence and trend+season baselines. The go/no-go compares against the best baseline.
+- Use trend and base-rate level features, with no raw year index.
+- **The go/no-go judges leads 2-3** (the first real forecasts; lead 1 is a nowcast).
+- Keep the label name `heatwave_week` (`heatwave_days >= 3`), with a definition footnote.
+- Calibrate on out-of-fold CV predictions, choosing Platt or isotonic by CV Brier.
+- **Refit on 1991-2020 with frozen hyperparameters before the single test.** The operational model is retrained on all years and marked "not independently tested".
+- Enforce a test lock and pre-registration.
+- Split by target week with an embargo and `week_start` cutoffs.
+- Reporting rules and the reanalysis-label caption.
+- Pool per-lead models, with LGA-average and small wards flagged.
+- **CI moves to Python 3.12.**
+- Use provisional CHAP names `heatwave_prob` and `heatwave_week`, to be confirmed with the CHAP team.
+- Evaluate drivers with a fresh CV protocol.
 
 ## Evolution
 
