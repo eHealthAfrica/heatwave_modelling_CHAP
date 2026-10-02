@@ -57,7 +57,16 @@ Every phase runs through the same GSD cycle: discuss, then plan (checked), then 
   3. A validated `forecast.yaml` holds all forecast settings, and bad values (e.g. misordered split years) are rejected, while `config.yaml` and `tests/test_config.py` are unchanged.
   4. A run writes a folder outside the repo with config snapshot, data hash, git commit, library versions and seed.
   5. CI is green on Python 3.12 with scikit-learn, LightGBM and shap installed, the 166 existing tests still pass, and an import test shows the forecast package never imports `ee` or `geemap`.
-**Plans**: TBD
+**Plans**: 7 plans
+
+Plans:
+- [ ] 08-01-PLAN.md — Install scikit-learn/LightGBM/shap after dry-run approval; pin in requirements.txt; import smoke test
+- [ ] 08-02-PLAN.md — `heatwave/forecast` package, 53-week-safe week index, frozen marker + conftest, requires-python >=3.12
+- [ ] 08-03-PLAN.md — Validated `forecast.yaml` + config dataclasses (splits/cutoffs, leads, latency, baselines, gate, retrain policy, models, seed)
+- [ ] 08-04-PLAN.md — Hash-verified frozen loader (dense float32 Panel), live-CSV refusal, synthetic frozen dataset for CI
+- [ ] 08-05-PLAN.md — Reproducible run folders with RUN_MANIFEST provenance outside the repo
+- [ ] 08-06-PLAN.md — `scripts/verify_frozen.py` + real-data `@frozen` integration tests
+- [ ] 08-07-PLAN.md — Earth Engine import-isolation tests, CI on Python 3.12, README note, full regression, push + CI-green checkpoint
 
 ### Phase 9: Features, Targets, Splits and Leakage Suite
 **Goal**: Leakage-safe features, lead-aligned targets and time-honest splits exist and are proven leak-free before any model is trained.

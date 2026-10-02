@@ -37,19 +37,25 @@ created: 2026-10-02
 
 ## Per-Task Verification Map
 
-To be filled by the planner and executor: one row per task, mapped to the tests below.
+Filled by the planner (2026-10-02); the executor updates Status.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 8-xx | — | — | DATA-01 | T-8-01 | Hash checked before parse; byte-flipped copy, wrong columns/counts, missing file and the live CSV are all refused | unit | `pytest tests/forecast/test_forecast_data.py -x` | ❌ W0 | ⬜ pending |
-| 8-xx | — | — | DATA-01 | T-8-01 | Real frozen parquet loads as (4841, 1863, 8) with no NaN and sha `82583fbf…`; a modified copy is rejected | integration `@frozen` | `pytest -m frozen tests/forecast/test_forecast_frozen.py` | ❌ W0 | ⬜ pending |
-| 8-xx | — | — | DATA-02 | N/A | label↔index↔date round-trips for all 1,863 indices; the 53-week years are correct; 2020-W53 = 2020-12-28..2021-01-03; index 0 = 1991-W02 = 1991-01-07; an invalid `2021-W53` raises | unit | `pytest tests/forecast/test_forecast_weeks.py` | ❌ W0 | ⬜ pending |
-| 8-xx | — | — | DATA-02 | N/A | Frozen label set equals the generated labels 0..1862 | `@frozen` | `pytest -m frozen tests/forecast/test_forecast_frozen.py` | ❌ W0 | ⬜ pending |
-| 8-xx | — | — | DATA-03 | T-8-02, T-8-03 | Valid `forecast.yaml` loads; every bad value raises (duplicate/zero leads, overlapping splits, non-Monday cutoff, negative or boolean latency, gate leads not in leads, unknown key, wrong version or path-like version); uses `safe_load` only; `config.yaml` and `tests/test_config.py` unchanged | unit | `pytest tests/forecast/test_forecast_config.py tests/test_config.py` | ❌ W0 | ⬜ pending |
-| 8-xx | — | — | DATA-04 | T-8-04 | Run folder is written under the data root with config.yaml and a complete RUN_MANIFEST.json; a base inside the repo is refused; ids are unique; works without git | unit | `pytest tests/forecast/test_forecast_artifacts.py` | ❌ W0 | ⬜ pending |
-| 8-xx | — | — | DATA-05 | N/A | sklearn, lightgbm and shap import at the pinned versions; the forecast package never imports `ee`/`geemap`/`heatwave.auth` (subprocess + AST scan) | unit | `pytest tests/forecast/test_forecast_deps.py` | ❌ W0 | ⬜ pending |
-| 8-xx | — | — | DATA-05 | N/A | Existing suite intact; CI green on 3.12 | full suite / CI | `pytest -q`, then push and check Actions | ✅ | ⬜ pending |
-| 8-xx | — | — | DATA-01 | T-8-01 | `verify_frozen.py --outputs-only` exits 0 on real data and non-zero on a tampered copy | `@frozen` / subprocess | `python scripts/verify_frozen.py --outputs-only` | ❌ W0 | ⬜ pending |
+| 8-01-01 | 01 | 1 | DATA-05 | T-8-SC | Dry-run list human-approved before any install (blocking-human) | checkpoint | `pip install --dry-run scikit-learn==1.9.1 lightgbm==4.7.0 shap==0.52.0` | n/a | ⬜ pending |
+| 8-01-02 | 01 | 1 | DATA-05 | T-8-SC, T-8-05 | sklearn/lightgbm/shap at pins; numpy/pandas/pyarrow unchanged; pred_contrib works | unit | `pytest tests/forecast/test_forecast_deps.py tests/test_requirements.py` | ❌ W0 | ⬜ pending |
+| 8-02-01 | 02 | 1 | DATA-02 | T-8-07 | label<->index<->date round-trips 0..1862; 53-week years; 2020-W53 = 2020-12-28..2021-01-03; index 0 = 1991-W02; invalid `2021-W53` raises | unit | `pytest tests/forecast/test_forecast_weeks.py` | ❌ W0 | ⬜ pending |
+| 8-02-02 | 02 | 1 | DATA-05 | T-8-09 | frozen marker registered and auto-skipped without data; requires-python >=3.12; test_config untouched | unit | `pytest tests/forecast tests/test_config.py` | ❌ W0 | ⬜ pending |
+| 8-03-01 | 03 | 2 | DATA-03 | T-8-02 | forecast.yaml loads to frozen ForecastConfig; canonical hash; snapshot round-trip | unit | `pytest tests/forecast/test_forecast_config.py` | ❌ W0 | ⬜ pending |
+| 8-03-02 | 03 | 2 | DATA-03 | T-8-02, T-8-03, T-8-10 | Every bad value raises; safe_load refuses python tags; path-like version refused; config.yaml/tests unchanged | unit | `pytest tests/forecast/test_forecast_config.py tests/test_config.py` | ❌ W0 | ⬜ pending |
+| 8-04-01 | 04 | 3 | DATA-01, DATA-05 | T-8-12 | Synthetic frozen dataset (6 wards, 3 states, 1991-W02..1993-W05 incl. 1992-W53) matches real schema; chunked sha256 | unit | `pytest tests/forecast/test_forecast_data.py` | ❌ W0 | ⬜ pending |
+| 8-04-02 | 04 | 3 | DATA-01, DATA-02 | T-8-01, T-8-03, T-8-13 | Hash checked before parse (MANIFEST + forecast.yaml anchor); byte flip, schema, counts, contiguity, duplicates, missing file, live CSV refused | unit | `pytest tests/forecast/test_forecast_data.py` | ❌ W0 | ⬜ pending |
+| 8-05-01 | 05 | 3 | DATA-04 | T-8-15 | run_id format; git info tolerant of missing git; library versions incl. None | unit | `pytest tests/forecast/test_forecast_artifacts.py` | ❌ W0 | ⬜ pending |
+| 8-05-02 | 05 | 3 | DATA-04 | T-8-04, T-8-14 | Run folder under data root with config.yaml + complete RUN_MANIFEST.json; in-repo base refused; unique ids; atomic manifest | unit | `pytest tests/forecast/test_forecast_artifacts.py` | ❌ W0 | ⬜ pending |
+| 8-06-01 | 06 | 4 | DATA-01 | T-8-01, T-8-17 | verify_frozen.py exit 0/1/2; tamper, missing, BAD-KEY, copied-input checks; never writes | subprocess (synthetic) | `pytest tests/forecast/test_forecast_verify_script.py` | ❌ W0 | ⬜ pending |
+| 8-06-02 | 06 | 4 | DATA-01, DATA-02, DATA-04 | T-8-01, T-8-12 | Real parquet loads (4841, 1863, 8), sha 82583fbf…; frozen labels == generated 0..1862; modified copy rejected; `verify_frozen.py --outputs-only` 0/1; run folder with real hash | integration `@frozen` | `pytest -m frozen tests/forecast/test_forecast_frozen.py` | ❌ W0 | ⬜ pending |
+| 8-07-01 | 07 | 5 | DATA-05 | T-8-19 | Forecast package never imports ee/geemap/heatwave.auth (subprocess + AST, scanner self-test); CI on 3.12 | unit | `pytest tests/forecast/test_forecast_isolation.py` | ❌ W0 | ⬜ pending |
+| 8-07-02 | 07 | 5 | DATA-05 | T-8-09 | Existing 166 tests + forecast tests green; frozen suite green; CI simulation skips frozen | full suite | `pytest -q`; `pytest -m frozen -q` | ✅ | ⬜ pending |
+| 8-07-03 | 07 | 5 | DATA-05 | T-8-20, T-8-21 | User-approved push; CI green on Python 3.12 | CI / checkpoint | `gh run list --branch milestone/v2.0-heat-forecasting --workflow tests.yml --limit 1` | n/a | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
