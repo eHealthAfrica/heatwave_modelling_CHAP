@@ -65,6 +65,17 @@ Requirements: DATA-01, DATA-02, DATA-03, DATA-04, DATA-05.
 - CI must pass without the frozen data. Add a synthetic-panel fixture (a few wards x a few years, including a 53-week year) under `tests/forecast/`. Add a pytest marker `frozen` for tests that need the real frozen data, skipped automatically when it's absent.
 - The existing 166 tests must still pass (local result: 166 passed, 2 skipped).
 
+### Resolved after phase research (2026-10-02)
+- **Split cutoffs:** expressed as exclusive upper-bound Monday dates (`week_start < cutoff`), documented once and tested. Each boundary is the Monday of ISO week 1 of the next split's first year:
+- **Train:** `week_start < 2014-12-29` (2015-W01 Monday).
+- **Validate:** `2014-12-29 <= week_start < 2021-01-04` (2021-W01 Monday). This includes 2020-W53, 28 Dec 2020 to 3 Jan 2021.
+- **Test:** `week_start >= 2021-01-04`, to the end (2026-W38). Default `embargo_weeks` = max(leads) = 6. Phase 9 may raise it once lag lengths are known.
+- **`verify_frozen.py` read-only flags:** report only, not a failure.
+- **Parquet sha256:** pinned in `forecast.yaml` (`data.expected_parquet_sha256`) as a second anchor beside MANIFEST.json, so a tampered MANIFEST can't pass silently.
+- **MANIFEST `inputs_sha256` keys** are relative to `local_data_dir`, not to the frozen `inputs/` folder: `wards.geojson` and `era5_land_daily_gee/<band>/<year>.nc` (verified by whoever built the MANIFEST). Only `wards.geojson` and each band's `2026.nc` are copied into `frozen/covariates-v1.0/inputs/`. `verify_frozen.py` hashes the files under `local_data_dir` and also checks that the copied `inputs/` files match. It gets an `--outputs-only` flag, because hashing 361 .nc files (about 3 GB) is slow.
+- **Test naming:** use unique file names under `tests/forecast/` (for example `test_forecast_config.py`) to avoid colliding with `tests/test_config.py`. Add a `tests/conftest.py` that auto-skips `@pytest.mark.frozen` when the frozen data is absent, and register the marker in `pyproject.toml`.
+- **Dependency install:** dry-run resolution succeeded (cp312 win_amd64 wheels; numpy stays 2.3.3). Install for real during execution, then import-smoke-test shap. Append the new transitive pins to `requirements.txt` (it's a full freeze).
+
 ### Claude's Discretion
 - Internal module names within `heatwave/forecast/`. The suggested ones are `config.py`, `data.py`, `weeks.py`, `artifacts.py`, `fixtures`.
 - The exact dataclass layout and error messages.
