@@ -24,14 +24,27 @@ data. Python only ever requests small, already-aggregated results (a chunk's
 finished weekly table, a task's status), never the gridded daily rasters or
 the per-ward daily rows themselves.
 
-## 2. Heat Index (NOAA/NWS Rothfusz regression)
+## 2. Heat Index (NOAA/NWS algorithm)
 
 Source: `heatwave/science/heat_index.py`.
 
 The Heat Index ("apparent temperature") combines air temperature and
-humidity into a single felt-temperature value. This pipeline uses the
-standard NOAA/National Weather Service Rothfusz regression, in degrees
-Fahrenheit:
+humidity into a single felt-temperature value. This pipeline follows the
+full NOAA/National Weather Service procedure
+(wpc.ncep.noaa.gov/html/heatindex_equation.shtml), in degrees Fahrenheit:
+
+1. Compute Steadman's simple formula
+   `HI = 0.5 * (T + 61 + (T - 68) * 1.2 + R * 0.094)`.
+2. If the average of that result and `T` is below 80°F, it is the Heat Index.
+3. Otherwise use the Rothfusz regression below, then subtract
+   `(13 - R)/4 * sqrt((17 - |T - 95|)/17)` when `R < 13` and 80 ≤ `T` ≤ 112,
+   or add `(R - 85)/10 * (87 - T)/5` when `R > 85` and 80 ≤ `T` ≤ 87.
+
+The Rothfusz regression on its own is only valid above roughly 80°F, which
+matters here: much of the Harmattan season in northern Nigeria is cooler
+than that.
+
+The Rothfusz regression:
 
 ```
 HI = c1 + c2*T + c3*R + c4*T*R + c5*T^2 + c6*R^2 + c7*T^2*R + c8*T*R^2 + c9*T^2*R^2
@@ -56,17 +69,27 @@ Inputs, both derived from ERA5-Land bands:
 
 - **Temperature (`T`)** — `temperature_2m` (mean 2m air temperature), converted
   from Kelvin to Fahrenheit.
-- **Relative humidity (`R`)** — not a native ERA5-Land band; approximated
-  from the 2m temperature and 2m dewpoint temperature via the standard
-  linear approximation `RH = 100 - 5*(T - D)` (both `T` and `D` in °C),
-  then **clamped to [0, 100]**. The clamp exists because the raw linear
-  approximation can otherwise drift outside a physically valid humidity
-  range at extreme temperature/dewpoint spreads; clamping is applied to the
+- **Relative humidity (`R`)** — not a native ERA5-Land band; computed
+  from the 2m temperature and 2m dewpoint temperature with the Magnus
+  formula, `RH = 100 * e_s(D) / e_s(T)` where
+  `e_s(x) = exp(17.625 * x / (243.04 + x))` (Alduchov & Eskridge 1996, `T`
+  and `D` in °C), then **clamped to [0, 100]**. The clamp is applied to the
   single-band RH image *before* it is attached to the multi-band composite,
   so it never touches the temperature bands.
 
+  Until 2026-10-02 the pipeline used the linear rule `RH = 100 - 5*(T - D)`.
+  That rule is only valid above about 50% RH. In the northern-Nigeria dry
+  season, where temperature and dewpoint are often 20-30°C apart, it gave
+  0% RH on 63-135 days of 2020 at Abuja, Kano and Maiduguri. Applied to
+  ERA5-Land for 2011-2026, the corrected RH and Heat Index leave total
+  hot-day counts about the same, but 26-41% of hot days change: days the
+  old formula flagged are dropped and others take their place. The biggest
+  Heat Index changes (2-4°F higher) are in the hot pre-monsoon months
+  (April-June).
+
 Validated in `tests/test_heat_index.py` against NOAA's own published
-Heat Index reference table (not a self-derived expectation).
+Heat Index reference table (not a self-derived expectation), and against
+a plain-Python version of each branch of the NWS procedure.
 
 ## 3. Zonal reduction: gridded pixels -> per-ward daily values
 
@@ -228,7 +251,7 @@ batch export" section for exact commands. In brief:
 
 ## References
 
-- NOAA/NWS Rothfusz Heat Index regression — the standard US National
+- NOAA/NWS Heat Index algorithm (Steadman simple formula + Rothfusz regression with adjustments) — the standard US National
   Weather Service formula (as also used in the original prototype this
   pipeline supersedes).
 - WMO/ETCCDI percentile-exceedance heatwave definition — the standard
