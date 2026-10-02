@@ -5,12 +5,27 @@ Everything in this folder except this file is gitignored (`outputs/*.csv`,
 This file exists to explain, to whoever runs the pipeline next, what state
 this folder is likely to be in and how to get the real production table.
 
-## The real production table
+## `covariate_table.csv` — the real production table
 
-`scripts/run_batch_export.py` (unmodified, fully tested — see
-`.planning/phases/04-batch-export-covariate-table/`) writes the real,
-full-history, all-4,841-ward covariate table to `outputs/covariate_table.csv`
-when run with no `--max-wards`/date-limiting flags:
+Built by the local pipeline (`python scripts/run_local_pipeline.py`, ~2-3 minutes once the
+ERA5-Land files are downloaded; see the root README). First built 2026-10-02:
+
+- 4,841 wards x 1,863 complete ISO weeks (1991-W02 to 2026-W38), 9,018,783 rows, ~520 MB.
+- Columns: `time_period, location, heatwave_days, mean_heat_index, max_heat_index,
+  heatwave_event_count, hot_nights, total_precipitation_mm, mean_relative_humidity,
+  mean_soil_moisture`. No nulls. ERA5-Land rainfall runs ~25-30% low in the far north
+  (see `docs/METHODOLOGY.md` section 8).
+- Heat Index from daily **maximum** temperature (see `docs/METHODOLOGY.md` section 8).
+- Six wards have empty geometry in the asset. They use their LGA's area-weighted average
+  and are listed in `wards_lga_average.csv`.
+
+`covariate_table_local_SAMPLE.csv` is the same pipeline on the first 20 wards.
+
+## The Earth Engine batch export (times out on the full record)
+
+`scripts/run_batch_export.py` (fully tested — see
+`.planning/phases/04-batch-export-covariate-table/`) was designed to write the
+full-history covariate table when run with no `--max-wards`/date-limiting flags:
 
 ```
 python scripts/run_batch_export.py
@@ -45,7 +60,8 @@ resumability logic will not blindly reuse them (they're recorded as
 
 ## `covariate_table_SAMPLE.csv`
 
-A small, **real** (not synthetic/fabricated) sample produced by the exact
+Made with the Earth Engine pipeline *before* the 2026-10-02 humidity/Heat Index fix, so its
+values are out of date. A small, **real** (not synthetic/fabricated) sample produced by the exact
 same unmodified script at a trivial scale — 5 wards, a 2-month window
 (2020-01-01 to 2020-03-01) — to prove the pipeline still works end-to-end
 without spending hours of compute:
