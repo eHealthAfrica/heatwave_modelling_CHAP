@@ -22,7 +22,7 @@ operations). Python only ever requests small, already-aggregated results (a chun
 finished weekly table, a task's status), never the gridded daily rasters or
 the per-ward daily rows themselves.
 
-**The full 1991-present table is produced by the local pipeline instead** (section 8),
+**The full 1991-present table is produced by the local pipeline instead** (section 8; station validation in section 9),
 because the Earth Engine backfill hits a ~12-hour per-task timeout (section 7). Sections
 2-6 describe the method both pipelines share. Where the local pipeline differs, section 8
 says so: it computes the Heat Index from daily *maximum* temperature and adds hot nights.
@@ -358,6 +358,47 @@ two regions, 2016-2024 vs 1991-2020. TerraClimate ends in 2024, and the MODIS ro
   been examined.
 - ERA5-Land also underestimates mean annual rainfall, by about 25-30% in the north (479 mm
   vs 643-674 mm) and about 10% in the middle belt.
+
+## 9. Validation against weather stations
+
+Checked 2026-10-02. **A full validation against station-observed heatwaves is not possible
+with open data**, so the table's heatwave indicators are reanalysis-based (ERA5-Land), not
+station-confirmed.
+
+**NiMet data is not open.** The NiMet data policy (nimet.gov.ng, *Policy Guidelines on
+Access, Use and Sharing of Meteorological Data*) places NGOs and non-profits in the
+commercial, fee-paying user category (section 6.1.1). It also forbids passing the data to
+third parties without the Director-General's written approval (section 7, clause k). Data
+can be bought through nimet.gov.ng/datarequest.
+
+**The open alternative is too sparse.** NOAA's Global Surface Summary of the Day (GSOD) is
+free and is built from the synoptic reports that NiMet stations send internationally. It
+lists about 20 stations in or near the study area, but none has a usable 1991-2020 record:
+the best, Kano, has only 4 of 30 years with 300 or more days of maximum temperature. So
+station-based thresholds can't be built on the same baseline as the table. Only Kano (7 of
+10), Abuja (6), Minna (5) and Ilorin (3) have mostly complete years in 2016-2025.
+
+**Limited check, 2011-2025.** ERA5-Land daily maximum temperature (nearest grid cell) is
+compared with GSOD on the days both have data. "Hot" means above that source's own 90th
+percentile for the calendar month, over those common days.
+
+| | Kano | Abuja | Minna | Ilorin |
+|---|---|---|---|---|
+| Common days | 4,093 | 3,400 | 3,131 | 2,903 |
+| Daily Tmax: mean difference (ERA5-Land minus station) / correlation | −0.2°C / 0.89 | −0.1°C / 0.90 | −0.2°C / 0.89 | +0.5°C / 0.82 |
+| Weekly mean Tmax anomaly: correlation | 0.86 | 0.79 | 0.80 | 0.62 |
+| Weekly count of hot days: correlation | 0.68 | 0.66 | 0.66 | 0.39 |
+| Weeks ERA5-Land calls hot (3+ hot days) that the station also calls hot | 37% | 46% | 50% | 24% |
+
+ERA5-Land matches the stations closely on temperature itself and on how unusual each week
+is. Agreement on *which* weeks are heatwave weeks is moderate: about half, against about
+10% by chance. That is expected when an ~11 km grid cell is compared with a single point,
+and Ilorin is the weakest match.
+
+**Implications.** A model trained on this table forecasts ERA5-Land-based heat indicators,
+not station-observed heatwaves, and reports should say so. The decisive test of the table's
+value is whether it improves CHAP's disease forecasts. If NiMet data is obtained later,
+repeat this check with station-based thresholds on the full baseline.
 
 ## References
 
