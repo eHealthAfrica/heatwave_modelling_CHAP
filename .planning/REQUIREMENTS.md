@@ -124,3 +124,36 @@ Which phases cover which requirements. Updated during roadmap creation.
 
 | Requirement | Phase | Status |
 |-------------|-------|--------|
+| DATA-01 | Phase 8 | Pending |
+| DATA-02 | Phase 8 | Pending |
+| DATA-03 | Phase 8 | Pending |
+| DATA-04 | Phase 8 | Pending |
+| DATA-05 | Phase 8 | Pending |
+| FEAT-01 | Phase 9 | Pending |
+| FEAT-02 | Phase 9 | Pending |
+| FEAT-03 | Phase 9 | Pending |
+| FEAT-04 | Phase 9 | Pending |
+| FEAT-05 | Phase 9 | Pending |
+| FEAT-06 | Phase 9 | Pending |
+| EVAL-01 | Phase 10 | Pending |
+| EVAL-02 | Phase 10 | Pending |
+| EVAL-03 | Phase 10 | Pending |
+| EVAL-04 | Phase 10 | Pending |
+| EVAL-05 | Phase 10 | Pending |
+| EVAL-06 | Phase 11 | Pending |
+| MODEL-01 | Phase 11 | Pending |
+| MODEL-02 | Phase 12 | Pending |
+| MODEL-03 | Phase 12 | Pending |
+| MODEL-04 | Phase 12 | Pending |
+| SEC-01 | Phase 13 | Pending |
+| SEC-02 | Phase 13 | Pending |
+| DEC-01 | Phase 14 | Pending |
+| OPS-01 | Phase 15 | Pending |
+| DEC-02 | Phase 14 | Pending |
+| OPS-02 | Phase 15 | Pending |
+| DEC-03 | Phase 14 | Pending |
+| OPS-03 | Phase 15 | Pending |
+| DEC-04 | Phase 14 | Pending |
+| OPS-04 | Phase 15 | Pending |
+| DRV-01 | Phase 16 | Pending |
+| DRV-02 | Phase 16 | Pending |
