@@ -19,7 +19,7 @@ heatwave/
     boundary.py           Loads the 4,841-ward boundary asset
     ingest.py              Loads/filters the ERA5-Land image collection
   science/
-    heat_index.py          RH + Heat Index (Rothfusz regression)
+    heat_index.py          RH (Magnus) + Heat Index (NOAA/NWS algorithm)
     climatology.py          Per-ward, per-calendar-day 90th-percentile thresholds
     heatwave.py              Heatwave day flagging + consecutive-event detection
   app/
@@ -129,7 +129,7 @@ The app shows a ward map colored by a selectable metric (heatwave days, mean/max
 All planned functionality (Phases 1-5) is implemented and tested:
 
 - **Foundation** — Earth Engine auth, ward boundary loading (4,841 wards), ERA5-Land ingestion.
-- **Heat Index** — NOAA/NWS Rothfusz regression, in a tested standalone module.
+- **Heat Index** — NOAA/NWS algorithm (simple formula below 80°F, Rothfusz regression with adjustments above), with RH from the Magnus formula, in a tested standalone module.
 - **Climatology & detection** — per-ward 90th-percentile thresholds, heatwave day/event flagging.
 - **Batch export** — the production pipeline that produces the weekly covariate table, with small-ward fallback handling and resumable async execution.
 - **Presentation layer** — the Streamlit viewer described above, reading the precomputed table.
