@@ -159,9 +159,10 @@ CLIM = ClimatologyConfig(baseline_start_year=2001, baseline_end_year=2001, perce
                          pooling_window_days=5, min_consecutive_days=3)
 
 
-def _daily(dates, hi, tmin):
-    return WardDaily(pd.DatetimeIndex(dates), ["A"], np.asarray(hi, "float32")[:, None],
-                     np.asarray(tmin, "float32")[:, None])
+def _daily(dates, hi, tmin, precip=None, rh=None, soil=None):
+    col = lambda x, fill: np.asarray(x if x is not None else np.full(len(hi), fill), "float32")[:, None]  # noqa: E731
+    return WardDaily(pd.DatetimeIndex(dates), ["A"], col(hi, 0), col(tmin, 0),
+                     col(precip, 0.0), col(rh, 50.0), col(soil, 0.3))
 
 
 def test_weekly_table_schema_complete_weeks_and_iso_labels():
@@ -191,3 +192,19 @@ def test_weekly_table_counts_hot_days_events_and_nights():
     assert t.loc[w1, "max_heat_index"] == pytest.approx(200)
     week_vals = hi[(dates >= "2002-06-03") & (dates <= "2002-06-09")]
     assert t.loc[w1, "mean_heat_index"] == pytest.approx(week_vals.mean(), rel=1e-5)
+
+
+def test_weekly_table_sums_rain_and_averages_humidity_and_soil():
+    dates = pd.date_range("2001-01-01", "2001-12-30")  # a full baseline year of whole ISO weeks
+    n = len(dates)
+    precip = np.r_[np.full(7, 2.0), np.arange(7.0), np.zeros(n - 14)]
+    rh = np.r_[np.full(7, 40.0), np.linspace(20, 80, 7), np.full(n - 14, 50.0)]
+    soil = np.r_[np.full(7, 0.1), np.full(n - 7, 0.3)]
+    clim = ClimatologyConfig(baseline_start_year=2001, baseline_end_year=2001, percentile=90,
+                             pooling_window_days=5, min_consecutive_days=3)
+    t = weekly_table(_daily(dates, np.full(n, 90.0), np.full(n, 295.0), precip, rh, soil), clim)
+    t = t.set_index("time_period")
+    assert t.loc["2001-W01", "total_precipitation_mm"] == pytest.approx(14.0)
+    assert t.loc["2001-W02", "total_precipitation_mm"] == pytest.approx(21.0)
+    assert t.loc["2001-W02", "mean_relative_humidity"] == pytest.approx(50.0, abs=1e-4)
+    assert t.loc["2001-W01", "mean_soil_moisture"] == pytest.approx(0.1, abs=1e-6)

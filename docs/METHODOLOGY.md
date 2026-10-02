@@ -301,8 +301,24 @@ little difference with ~330 pooled values per day.
 temperature strictly exceeds its own day-of-year threshold, built the same way. This tracks
 nights that give no relief from the heat, which is a separate risk factor from daytime heat.
 
+**Extra covariates for CHAP.** Three columns are passed through for disease models. They
+don't enter the heatwave definition.
+
+| Column | Meaning |
+|---|---|
+| `total_precipitation_mm` | weekly total rainfall, mm (ERA5-Land; tiny negative rounding values set to 0) |
+| `mean_relative_humidity` | weekly mean of daily RH, %, from daily mean temperature and dewpoint (Magnus) |
+| `mean_soil_moisture` | weekly mean top-layer (0-7 cm) volumetric soil water, m³/m³ |
+
+Rainfall comes from ERA5-Land (chosen 2026-10-02) so that every column shares one source.
+**Caveat:** against CHIRPS and TerraClimate, ERA5-Land underestimates mean annual rainfall
+by about 25-30% in the far north and about 10% in the middle belt. It also shows a
+middle-belt drying trend that CHIRPS doesn't (see "Cross-check" below). Year-to-year
+variation agrees reasonably well (r = 0.5-0.8). It's fine as a relative covariate, but
+should not be used as an absolute rainfall amount or for rainfall trends.
+
 **Weekly table.** One row per (ISO week, ward), with the section 6 columns plus
-`hot_nights`. Only complete 7-day ISO weeks are written, so partial weeks at either end of the
+`hot_nights` and the three covariates above. Only complete 7-day ISO weeks are written, so partial weeks at either end of the
 record don't undercount. Every ward has data every day, so there are no nulls.
 
 **Reading trends.** Thresholds are fixed on 1991-2020, so a warming climate shows up as more
@@ -321,12 +337,27 @@ baseline period about 10% of days and nights are flagged, as a 90th percentile i
 - Giving every ward the same warming removes the gap (48 vs 47 days a year). Giving every
   ward the same variability keeps it (62 vs 42).
 
-The middle belt's ERA5-Land record also shows drying and more sunshine (rain −10%, topsoil
-moisture −4%, solar radiation +3%), with Tmax up 0.64 K. The far north has become slightly
-wetter and more humid (rain +5%, dewpoint +0.7 K), with Tmax up only 0.12 K. Drier soil
-evaporates less and heats more, so drying is a plausible mechanism. It is not proven, and
-ERA5-Land rainfall trends over West Africa need checking against CHIRPS (rainfall) and an
-independent temperature source before this is reported as a finding.
+**Cross-check against independent data (2026-10-02).** These are region means over the same
+two regions, 2016-2024 vs 1991-2020. TerraClimate ends in 2024, and the MODIS row compares
+2016-2024 with 2001-2015.
+
+| Source | Tmax / LST, north | Tmax / LST, middle | Rain, north | Rain, middle |
+|---|---|---|---|---|
+| ERA5-Land | +0.03°C | +0.60°C | +8.8% | −8.8% |
+| TerraClimate (station-based, CRU) | −0.01°C | +0.36°C | +7.2% | −5.5% |
+| CHIRPS (satellite + gauges) | — | — | +9.3% | −0.6% |
+| MODIS daytime land surface temperature | −0.49°C | +0.68°C | — | — |
+
+- **Middle-belt warming with a flat far north is confirmed** by every source. ERA5-Land's
+  warming is at the high end (TerraClimate shows about 60% of it), so the gap in hot-day
+  counts may be somewhat overstated.
+- **The far north getting wetter is confirmed** (+7-9% in all three rainfall sources).
+- **Middle-belt drying is not confirmed.** CHIRPS, the reference rainfall dataset for the
+  region, shows almost no change. Drying therefore can't be stated as the cause of the
+  middle-belt warming. Other candidates (land-use change, cloud or aerosol changes) have not
+  been examined.
+- ERA5-Land also underestimates mean annual rainfall, by about 25-30% in the north (479 mm
+  vs 643-674 mm) and about 10% in the middle belt.
 
 ## References
 

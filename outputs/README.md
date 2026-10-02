@@ -10,9 +10,11 @@ this folder is likely to be in and how to get the real production table.
 Built by the local pipeline (`python scripts/run_local_pipeline.py`, ~2-3 minutes once the
 ERA5-Land files are downloaded; see the root README). First built 2026-10-02:
 
-- 4,841 wards x 1,863 complete ISO weeks (1991-W02 to 2026-W38), 9,018,783 rows, ~340 MB.
+- 4,841 wards x 1,863 complete ISO weeks (1991-W02 to 2026-W38), 9,018,783 rows, ~520 MB.
 - Columns: `time_period, location, heatwave_days, mean_heat_index, max_heat_index,
-  heatwave_event_count, hot_nights`. No nulls.
+  heatwave_event_count, hot_nights, total_precipitation_mm, mean_relative_humidity,
+  mean_soil_moisture`. No nulls. ERA5-Land rainfall runs ~25-30% low in the far north
+  (see `docs/METHODOLOGY.md` section 8).
 - Heat Index from daily **maximum** temperature (see `docs/METHODOLOGY.md` section 8).
 - Six wards have empty geometry in the asset. They use their LGA's area-weighted average
   and are listed in `wards_lga_average.csv`.

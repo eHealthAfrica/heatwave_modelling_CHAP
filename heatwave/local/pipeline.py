@@ -4,6 +4,10 @@ Per day and ward:
   - Heat Index (deg F) from daily MAXIMUM 2m temperature and daily mean dewpoint, so it
     describes the hottest part of the day. Computed per grid cell, then area-averaged.
   - Daily minimum 2m temperature (K), area-averaged.
+  - Precipitation (mm, negatives from ERA5 rounding set to 0), relative humidity (%, from
+    daily mean temperature and dewpoint) and top-layer soil moisture (m3/m3), area-averaged.
+    These are passed through to the weekly table as covariates for CHAP; they don't enter
+    the heatwave definition.
 A day is a heatwave day when its Heat Index strictly exceeds the ward's own pooled
 day-of-year percentile threshold over the baseline; >= min_consecutive_days such days in a
 row make an event, counted in the ISO week it starts. A night is a hot night when Tmin
@@ -27,10 +31,13 @@ from heatwave.local.grid import WardWeights, build_weights
 log = logging.getLogger(__name__)
 
 TMAX, TMIN, DEWPOINT = "temperature_2m_max", "temperature_2m_min", "dewpoint_temperature_2m"
+TMEAN, PRECIP, SOIL = "temperature_2m", "total_precipitation_sum", "volumetric_soil_water_layer_1"
+BANDS = (TMAX, TMIN, DEWPOINT, TMEAN, PRECIP, SOIL)
 
 COVARIATE_COLUMNS = [
     "time_period", "location", "heatwave_days", "mean_heat_index", "max_heat_index",
-    "heatwave_event_count", "hot_nights",
+    "heatwave_event_count", "hot_nights", "total_precipitation_mm", "mean_relative_humidity",
+    "mean_soil_moisture",
 ]
 
 
@@ -38,13 +45,16 @@ COVARIATE_COLUMNS = [
 class WardDaily:
     dates: pd.DatetimeIndex
     ward_ids: list[str]
-    heat_index: np.ndarray  # (days, wards) deg F
-    tmin: np.ndarray        # (days, wards) K
+    heat_index: np.ndarray     # (days, wards) deg F
+    tmin: np.ndarray           # (days, wards) K
+    precip_mm: np.ndarray      # (days, wards) mm
+    rel_humidity: np.ndarray   # (days, wards) %
+    soil_moisture: np.ndarray  # (days, wards) m3/m3
 
 
 def available_years(era5_dir: Path) -> list[int]:
     years = sorted(int(p.stem) for p in (era5_dir / TMAX).glob("*.nc"))
-    for band in (TMIN, DEWPOINT):
+    for band in BANDS[1:]:
         missing = [y for y in years if not (era5_dir / band / f"{y}.nc").exists()]
         if missing:
             raise FileNotFoundError(f"{band} is missing years {missing}")
@@ -61,34 +71,39 @@ def ward_daily(era5_dir: Path, ward_ids: list[str], geoms: list,
     """Reduce every available day (optionally within [start, end]) to ward means."""
     years = [y for y in available_years(era5_dir)
              if (start is None or y >= start.year) and (end is None or y <= end.year)]
-    first = _open_year(era5_dir, TMAX, years[0])
-    lats, lons = first.latitude.values, first.longitude.values
-    weights = build_weights(geoms, lats, lons, valid=first.notnull().all("time").values)
+    first = {b: _open_year(era5_dir, b, years[0]) for b in BANDS}
+    lats, lons = first[TMAX].latitude.values, first[TMAX].longitude.values
+    valid = np.logical_and.reduce([a.notnull().all("time").values for a in first.values()])
+    weights = build_weights(geoms, lats, lons, valid=valid)
     log.info("weights: %d ward-cell pairs; %d point wards; %d wards on nearest valid cell",
              len(weights.cells), weights.n_point_wards, weights.n_nearest_wards)
 
-    dates, his, tmins = [], [], []
+    dates, cols = [], {k: [] for k in ("hi", "tmin", "precip", "rh", "soil")}
     for year in years:
-        tmax, tmin, dew = (_open_year(era5_dir, b, year) for b in (TMAX, TMIN, DEWPOINT))
-        if not (tmax.time.equals(tmin.time) and tmax.time.equals(dew.time)):
+        arrays = first if year == years[0] else {b: _open_year(era5_dir, b, year) for b in BANDS}
+        t = pd.DatetimeIndex(arrays[TMAX].time.values)
+        if any(not arrays[b].time.equals(arrays[TMAX].time) for b in BANDS):
             raise ValueError(f"{year}: band dates differ")
-        t = pd.DatetimeIndex(tmax.time.values)
         keep = np.ones(len(t), bool)
         if start is not None:
             keep &= t >= pd.Timestamp(start)
         if end is not None:
             keep &= t <= pd.Timestamp(end)
-        flat = lambda a: a.values[keep].reshape(int(keep.sum()), -1)  # noqa: E731
-        tx, tn, td = flat(tmax), flat(tmin), flat(dew)
-        hi = science.heat_index_f(tx, science.relative_humidity(tx, td))
-        his.append(weights.reduce(hi).astype("float32"))
-        tmins.append(weights.reduce(tn).astype("float32"))
+        v = {b: arrays[b].values[keep].reshape(int(keep.sum()), -1) for b in BANDS}
+        hi = science.heat_index_f(v[TMAX], science.relative_humidity(v[TMAX], v[DEWPOINT]))
+        for key, grid in (("hi", hi), ("tmin", v[TMIN]),
+                          ("precip", np.clip(v[PRECIP], 0, None) * 1000),
+                          ("rh", science.relative_humidity(v[TMEAN], v[DEWPOINT])),
+                          ("soil", v[SOIL])):
+            cols[key].append(weights.reduce(grid).astype("float32"))
         dates.append(t[keep])
         log.info("reduced %d (%d days)", year, keep.sum())
-    out = WardDaily(dates[0].append(dates[1:]), ward_ids, np.concatenate(his), np.concatenate(tmins))
+    out = WardDaily(dates[0].append(dates[1:]), ward_ids,
+                    *(np.concatenate(cols[k]) for k in ("hi", "tmin", "precip", "rh", "soil")))
     if not out.dates.equals(pd.date_range(out.dates[0], out.dates[-1])):
         raise ValueError("daily series has gaps")
-    if np.isnan(out.heat_index).any() or np.isnan(out.tmin).any():
+    if any(np.isnan(a).any() for a in (out.heat_index, out.tmin, out.precip_mm,
+                                        out.rel_humidity, out.soil_moisture)):
         raise ValueError("ward daily series contain NaN")
     return out, weights
 
@@ -129,5 +144,8 @@ def weekly_table(daily: WardDaily, clim: ClimatologyConfig) -> pd.DataFrame:
         "max_heat_index": per_week(daily.heat_index, np.maximum).ravel(),
         "heatwave_event_count": per_week(starts.astype("int16")).ravel(),
         "hot_nights": per_week(hot_night.astype("int16")).ravel(),
+        "total_precipitation_mm": per_week(daily.precip_mm.astype("float64")).ravel(),
+        "mean_relative_humidity": (per_week(daily.rel_humidity.astype("float64")) / 7).ravel(),
+        "mean_soil_moisture": (per_week(daily.soil_moisture.astype("float64")) / 7).ravel(),
     })
     return table[COVARIATE_COLUMNS]
