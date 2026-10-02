@@ -51,7 +51,12 @@ METRICS: dict[str, dict] = {
         "label": "Heatwave events (starting that week)",
         "palette": ["#ffffcc", "#fd8d3c", "#e31a1c", "#800026"],
     },
+    "hot_nights": {
+        "label": "Hot nights (per week)",
+        "palette": ["#ffffcc", "#fd8d3c", "#e31a1c", "#800026"],
+    },
 }
+COUNT_METRICS = ("heatwave_days", "heatwave_event_count", "hot_nights")
 
 
 @st.cache_resource
@@ -79,7 +84,7 @@ def metric_bounds(df: pd.DataFrame, metric: str) -> tuple[float, float]:
     range rather than a division by zero.
     """
     series = df[metric].dropna()
-    if metric in ("heatwave_days", "heatwave_event_count"):
+    if metric in COUNT_METRICS:
         vmin = 0.0
         vmax = float(series.max()) if not series.empty else 1.0
     else:
@@ -159,9 +164,8 @@ def _run_app() -> None:
     if not Path(covariate_csv_path).exists():
         st.error(
             f"No covariate table found at `{covariate_csv_path}`.\n\n"
-            "Run `python scripts/run_batch_export.py` to produce the real table "
-            "(the full 1991-present historical backfill has not yet completed -- "
-            "see `outputs/README.md`), or set the `COVARIATE_TABLE_PATH` "
+            "Run `python scripts/run_local_pipeline.py` to produce the real table "
+            "(see `outputs/README.md`), or set the `COVARIATE_TABLE_PATH` "
             "environment variable to point at a sample CSV for development, e.g. "
             "`outputs/covariate_table_SAMPLE.csv`."
         )
@@ -170,7 +174,7 @@ def _run_app() -> None:
     df = load_covariate_table(covariate_csv_path)
 
     weeks = sorted(df["time_period"].unique())
-    metric_keys = list(METRICS.keys())
+    metric_keys = [k for k in METRICS if k in df.columns]
 
     col1, col2 = st.columns(2)
     selected_week = col1.selectbox("Week", weeks, index=len(weeks) - 1)
@@ -200,7 +204,7 @@ def _run_app() -> None:
     st.subheader(f"Ward data for {selected_week}")
     st.dataframe(
         week_df[
-            ["location", "heatwave_days", "mean_heat_index", "max_heat_index", "heatwave_event_count"]
+            ["location"] + [k for k in METRICS if k in week_df.columns]
         ].sort_values("location"),
         use_container_width=True,
         hide_index=True,

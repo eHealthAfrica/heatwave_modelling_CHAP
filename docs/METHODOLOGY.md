@@ -17,12 +17,15 @@ ERA5-Land (ECMWF/ERA5_LAND/DAILY_AGGR)
   -> weekly covariate table              (heatwave/export.py)
 ```
 
-Every stage runs server-side inside Earth Engine (`ee.Image`/`ee.FeatureCollection`
-operations), not in Python with data pulled client-side — this is what makes
-the pipeline viable at the full scale of 4,841 wards x ~35 years of daily
-data. Python only ever requests small, already-aggregated results (a chunk's
+Every stage of this Earth Engine pipeline runs server-side (`ee.Image`/`ee.FeatureCollection`
+operations). Python only ever requests small, already-aggregated results (a chunk's
 finished weekly table, a task's status), never the gridded daily rasters or
 the per-ward daily rows themselves.
+
+**The full 1991-present table is produced by the local pipeline instead** (section 8),
+because the Earth Engine backfill hits a ~12-hour per-task timeout (section 7). Sections
+2-6 describe the method both pipelines share. Where the local pipeline differs, section 8
+says so: it computes the Heat Index from daily *maximum* temperature and adds hot nights.
 
 ## 2. Heat Index (NOAA/NWS algorithm)
 
@@ -248,6 +251,82 @@ batch export" section for exact commands. In brief:
   chunking alongside the existing ward-batch chunking, or confirm with
   GCP/Earth Engine support whether this project's tier allows a longer
   per-task timeout.
+
+## 8. Local pipeline (production path for the full table)
+
+Sources: `scripts/download_era5_land_gee.py`, `scripts/run_local_pipeline.py`,
+`heatwave/local/`. Added 2026-10-02.
+
+```
+ERA5-Land daily files on disk           (scripts/download_era5_land_gee.py)
+  -> Heat Index per grid cell per day   (heatwave/local/science.py)
+  -> area-weighted ward daily values    (heatwave/local/grid.py)
+  -> day-of-year thresholds, hot days,  (heatwave/local/science.py)
+     events, hot nights
+  -> weekly covariate table             (heatwave/local/pipeline.py)
+```
+
+**Data.** `ECMWF/ERA5_LAND/DAILY_AGGR` is downloaded once with Earth Engine's
+`computePixels` (one band-year per request, ~30 min for everything) to NetCDF files on the
+native 0.1° grid covering 2.5-15.0°E, 4.0-14.0°N. It is the same dataset the Earth Engine
+pipeline reads. The download script also fetches soil moisture, wind, pressure,
+precipitation and solar radiation, which are not used yet.
+
+**Heat Index from daily maximum temperature.** The Heat Index uses daily *maximum* 2m
+temperature with daily mean dewpoint, so it describes the hottest part of the day, when heat
+stress peaks. Dewpoint changes little over a day, so the daily mean is a reasonable estimate
+of the afternoon value. The formulas are the same as section 2. (The Earth Engine pipeline
+still uses daily mean temperature.)
+
+**Ward values.** Each ward's daily value is the mean of the grid cells it overlaps, weighted
+by overlap area (square degrees × cos(latitude), i.e. proportional to true area). This
+replaces the Earth Engine pipeline's centroid fallback for small wards: a ward smaller than a
+cell simply takes that cell's value. The Heat Index is computed per cell, then averaged, as in
+section 3. Cells without ERA5-Land data (sea, large lakes) are excluded. A ward that overlaps
+only such cells takes the nearest valid cell, and the run logs how many do. **Six wards in
+the asset have an empty geometry** (area 0): NASAKW04, PLSBSA20, PLSBKK06, PLSTNK08,
+PLSQAP14, BNSVDY02. Each takes the area-weighted average of its whole LGA, where the LGA's
+outline is the union of its other wards (10-19 per LGA). They're listed in
+`outputs/wards_lga_average.csv`, so their values can be treated as LGA-level rather than
+ward-level.
+
+**Thresholds, hot days, events.** Same definitions as sections 4-5: the 90th percentile of
+each ward's own values over the 1991-2020 baseline, pooled across a ±5-day window that wraps
+the year end, with Feb 29 as its own day of year. A hot day strictly exceeds its threshold,
+and 3 or more hot days in a row make an event, counted in the week it starts. Percentiles use
+numpy's linear interpolation. Earth Engine's reducer interpolates differently, which makes
+little difference with ~330 pooled values per day.
+
+**Hot nights (new column `hot_nights`).** A night is hot when the ward's daily *minimum*
+temperature strictly exceeds its own day-of-year threshold, built the same way. This tracks
+nights that give no relief from the heat, which is a separate risk factor from daytime heat.
+
+**Weekly table.** One row per (ISO week, ward), with the section 6 columns plus
+`hot_nights`. Only complete 7-day ISO weeks are written, so partial weeks at either end of the
+record don't undercount. Every ward has data every day, so there are no nulls.
+
+**Reading trends.** Thresholds are fixed on 1991-2020, so a warming climate shows up as more
+hot days and nights in later years. In the first 20 wards, hot days rose from ~14 a year in
+1991 to ~138 in 2024. That is the intended behaviour of a fixed baseline, not a bug. Within the
+baseline period about 10% of days and nights are flagged, as a 90th percentile implies.
+
+**Regional gradient (checked 2026-10-02).** In 2016-2025, middle-belt wards (latitude
+< 9.5°N) average ~79 hot days a year, against ~42 in the far north (> 11.5°N). The cause is
+**more warming in the middle belt, not lower day-to-day variability**:
+
+- Across wards, the hot-day rate correlates with recent warming (r = 0.96) far more than
+  with variability (r = −0.39).
+- Recent Heat Index warming is +1.25°F in the middle belt against +0.33°F in the north.
+  Day-to-day variability is similar (3.6°F vs 3.9°F).
+- Giving every ward the same warming removes the gap (48 vs 47 days a year). Giving every
+  ward the same variability keeps it (62 vs 42).
+
+The middle belt's ERA5-Land record also shows drying and more sunshine (rain −10%, topsoil
+moisture −4%, solar radiation +3%), with Tmax up 0.64 K. The far north has become slightly
+wetter and more humid (rain +5%, dewpoint +0.7 K), with Tmax up only 0.12 K. Drier soil
+evaporates less and heats more, so drying is a plausible mechanism. It is not proven, and
+ERA5-Land rainfall trends over West Africa need checking against CHIRPS (rainfall) and an
+independent temperature source before this is reported as a finding.
 
 ## References
 

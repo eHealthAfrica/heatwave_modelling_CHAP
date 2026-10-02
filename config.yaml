@@ -10,6 +10,11 @@ bands:
   tmean: temperature_2m
   dewpoint: dewpoint_temperature_2m
 
+# Locally downloaded data for the local pipeline (scripts/run_local_pipeline.py):
+# ERA5-Land files under era5_land_daily_gee/ and the ward boundaries as wards.geojson.
+# Relative to the repo root; override with the HEATWAVE_DATA_DIR environment variable.
+local_data_dir: "../../Heatwave Data"
+
 # Default ingestion window for the Streamlit viewer / batch scripts.
 start_date: "1980-01-01"
 end_date: "2025-09-15"

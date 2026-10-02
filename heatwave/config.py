@@ -1,12 +1,14 @@
 """Loads config.yaml into a typed, importable settings object."""
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from pathlib import Path
 
 import yaml
 
-_CONFIG_PATH = Path(__file__).resolve().parent.parent / "config.yaml"
+_REPO_ROOT = Path(__file__).resolve().parent.parent
+_CONFIG_PATH = _REPO_ROOT / "config.yaml"
 
 
 @dataclass(frozen=True)
@@ -49,6 +51,9 @@ class Settings:
     start_date: str
     end_date: str
     climatology: ClimatologyConfig
+    # Folder for locally downloaded data (ERA5-Land files, ward GeoJSON); relative paths
+    # resolve against the repo root. The HEATWAVE_DATA_DIR env var overrides it.
+    local_data_dir: Path = _REPO_ROOT / "data"
 
 
 def load_settings(path: Path = _CONFIG_PATH) -> Settings:
@@ -63,6 +68,7 @@ def load_settings(path: Path = _CONFIG_PATH) -> Settings:
         start_date=raw["start_date"],
         end_date=raw["end_date"],
         climatology=ClimatologyConfig(**raw["climatology"]),
+        local_data_dir=_REPO_ROOT / os.getenv("HEATWAVE_DATA_DIR", raw.get("local_data_dir", "data")),
     )
 
 

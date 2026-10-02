@@ -22,11 +22,17 @@ heatwave/
     heat_index.py          RH (Magnus) + Heat Index (NOAA/NWS algorithm)
     climatology.py          Per-ward, per-calendar-day 90th-percentile thresholds
     heatwave.py              Heatwave day flagging + consecutive-event detection
+  local/
+    science.py             Numpy RH, Heat Index, day-of-year thresholds, events
+    grid.py                 Ward boundaries on disk + area weights from grid cells to wards
+    pipeline.py              Ward daily series -> weekly covariate table (incl. hot nights)
   app/
     streamlit_app.py        Presentation layer: ward map by week/metric
 
 scripts/
-  run_batch_export.py    Production entry point: full pipeline -> outputs/covariate_table.csv
+  download_era5_land_gee.py   Downloads ERA5-Land daily files for the local pipeline
+  run_local_pipeline.py       Production entry point: full table -> outputs/covariate_table.csv
+  run_batch_export.py         Earth Engine batch pipeline (times out on the full record)
 
 config.yaml             Non-secret pipeline configuration (GCP project, climatology params, etc.)
 keys/service_account.json   Local GCP credential (gitignored, never committed)
@@ -69,13 +75,30 @@ prints `Earth Engine ready: True` on success.
 pytest
 ```
 
-The suite runs live against the real Earth Engine project (no mocking) but is fast — small, bounded samples, not production-scale data. A handful of tests are automatically skipped if no credentials are configured (`keys/service_account.json` or `EE_SA_JSON` absent); `tests/test_config.py` and `tests/test_requirements.py` never need credentials at all. As of the last full run: **136 passed, 2 skipped** (the 2 skips are opt-in tests that submit real Earth Engine batch export tasks and take minutes rather than seconds — not part of the default fast loop).
+The suite runs live against the real Earth Engine project (no mocking) but is fast — small, bounded samples, not production-scale data. A handful of tests are automatically skipped if no credentials are configured (`keys/service_account.json` or `EE_SA_JSON` absent); `tests/test_config.py` and `tests/test_requirements.py` never need credentials at all. As of the last full run: **163 passed, 2 skipped** (the 2 skips are opt-in tests that submit real Earth Engine batch export tasks and take minutes rather than seconds — not part of the default fast loop).
 
 A GitHub Actions workflow (`.github/workflows/tests.yml`) runs this same suite on every push/PR. It reads an optional `EE_SA_JSON` repository secret — configure it to get full live coverage in CI, or leave it unset and the credential-gated tests skip cleanly while the credential-free tests still catch regressions.
 
+## Building the full table locally
+
+This is how `outputs/covariate_table.csv` is produced. It runs the same method on locally
+downloaded ERA5-Land files, avoiding the Earth Engine timeout below. It computes the Heat
+Index from daily **maximum** temperature and adds a `hot_nights` column (see
+`docs/METHODOLOGY.md` section 8).
+
+```
+python scripts/download_era5_land_gee.py   # once; ~30 min, ~3 GB; re-run to add new days
+python scripts/run_local_pipeline.py       # all wards, 1991-present
+```
+
+Data goes under `local_data_dir` in `config.yaml` (default `../../Heatwave Data`, or set
+`HEATWAVE_DATA_DIR`). The ward boundaries are fetched from Earth Engine once and cached
+there as `wards.geojson`. For a quick check, use
+`python scripts/run_local_pipeline.py --max-wards 20 --output outputs/covariate_table_local_SAMPLE.csv`.
+
 ## Running the batch export
 
-`scripts/run_batch_export.py` is the production entry point: it runs the full ingest → Heat Index → climatology → detection → weekly-aggregation pipeline and writes the CHAP-facing covariate table.
+`scripts/run_batch_export.py` is the Earth Engine entry point: it runs the full ingest → Heat Index → climatology → detection → weekly-aggregation pipeline and writes the CHAP-facing covariate table.
 
 **Preview a run without submitting anything** (ward/chunk counts, small-ward count, a quota/runtime warning):
 
@@ -89,7 +112,7 @@ python scripts/run_batch_export.py --stage plan
 python scripts/run_batch_export.py
 ```
 
-> **Known limitation, not yet resolved:** two real attempts at the full backfill (2026-09-21/22) both hit Earth Engine's own ~12-hour per-task timeout — evidence that the multi-decade date range, not ward count, drives the cost, so the current ward-only chunking may hit this same wall at every chunk. See `docs/METHODOLOGY.md` section 7 and `outputs/README.md` for the full account, exact numbers, and suggested next steps before you retry this. As of this writing, `outputs/covariate_table.csv` does not exist.
+> **Known limitation:** two real attempts at the full backfill (2026-09-21/22) both hit Earth Engine's own ~12-hour per-task timeout — evidence that the multi-decade date range, not ward count, drives the cost, so the current ward-only chunking may hit this same wall at every chunk. See `docs/METHODOLOGY.md` section 7 and `outputs/README.md` for the full account. The full table is now built locally instead (above).
 
 **Run a small, real, fast sample instead** (useful for development — this is exactly how `outputs/covariate_table_SAMPLE.csv` was produced):
 
@@ -122,7 +145,7 @@ If launching the script directly (rather than through `streamlit run`) or otherw
 $env:PYTHONPATH = "<path to this repo>"    # PowerShell
 ```
 
-The app shows a ward map colored by a selectable metric (heatwave days, mean/max Heat Index, or event count) for a selectable ISO week, plus a sortable data table. Wards with no data for the selected week render grey rather than a misleading color — this is expected, not a bug, especially against the small sample table.
+The app shows a ward map colored by a selectable metric (heatwave days, mean/max Heat Index, event count, or hot nights when the table has them) for a selectable ISO week, plus a sortable data table. Wards with no data for the selected week render grey rather than a misleading color — this is expected, not a bug, especially against the small sample table.
 
 ## Current status
 
@@ -133,10 +156,11 @@ All planned functionality (Phases 1-5) is implemented and tested:
 - **Climatology & detection** — per-ward 90th-percentile thresholds, heatwave day/event flagging.
 - **Batch export** — the production pipeline that produces the weekly covariate table, with small-ward fallback handling and resumable async execution.
 - **Presentation layer** — the Streamlit viewer described above, reading the precomputed table.
+- **Local pipeline** — downloads ERA5-Land and builds the full 1991-present table on one machine, with Heat Index from daily maximum temperature and a hot-nights column.
 
 - **Polish** — config-loading edge cases (`tests/test_config.py`) and an optional CI workflow (`.github/workflows/tests.yml`) that runs the suite on every push/PR.
 
-**What's outstanding:** the real full-history covariate table (`outputs/covariate_table.csv`) has not been successfully produced yet — see "Running the batch export" above and `outputs/README.md` for the timeout finding and suggested next steps. Everything else (all pipeline code, all tests) is unaffected and works correctly at the scales it has been run at.
+**Full table:** `outputs/covariate_table.csv` is built by the local pipeline (see "Building the full table locally"). The Earth Engine batch export still times out on the full record.
 
 All 28 v1 requirements across all 7 phases are complete.
 
