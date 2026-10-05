@@ -2,7 +2,7 @@
 name = "heatwave-chap"
 version = "0.1.0"
 description = "Ward-level heatwave detection pipeline producing a weekly covariate table for CHAP"
-requires-python = ">=3.11"
+requires-python = ">=3.12"
 readme = "README.md"
 
 [tool.setuptools.packages.find]
@@ -14,3 +14,4 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+markers = ["frozen: needs the real covariates-v1.0 data under <local_data_dir>/frozen (skipped automatically when absent)"]

@@ -131,3 +131,8 @@ def test_labels_to_indices_accepts_numpy_object_array():
 def test_index_labels():
     assert index_labels(3) == ("1991-W02", "1991-W03", "1991-W04")
     assert index_labels(2, start=1) == ("1991-W03", "1991-W04")
+
+
+@pytest.mark.frozen
+def test_frozen_dir_fixture_points_at_manifest(frozen_dir):
+    assert (frozen_dir / "MANIFEST.json").is_file()
