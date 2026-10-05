@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: Heat Forecasting
 status: executing
 stopped_at: v2.0 roadmap created
-last_updated: "2026-10-02T15:51:25.001Z"
-last_activity: 2026-10-02 -- Phase 8 planning complete
+last_updated: "2026-10-05T10:49:26.851Z"
+last_activity: 2026-10-05
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 7
-  completed_plans: 0
+  completed_plans: 1
   percent: 0
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Phase 8 - Forecast Foundation (not started)
+**Current focus:** Phase 8 — Forecast Foundation
 
 ## Current Position
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
-Phase: 8 of 16 (Forecast Foundation), not started
-Plan: -
+Phase: 8 (Forecast Foundation) — EXECUTING
+Plan: 2 of 7
 Status: Ready to execute
-Last activity: 2026-10-02 -- Phase 8 planning complete
+Last activity: 2026-10-05
 
-Progress: [..........] 0% (0/9 phases)
+Progress: [█░░░░░░░░░] 14%
 
 ## Performance Metrics
 
@@ -49,6 +49,7 @@ Decisions are logged in PROJECT.md Key Decisions table. v2.0 roadmap-level decis
 - EVAL-06 (negative controls) is assigned to Phase 11, where the first model exists to test.
 - Training uses only frozen `covariates-v1.0`, never the live `outputs/covariate_table.csv`.
 - Test years 2021-2026 stay locked until pre-registration is committed (Phase 10 builds the lock, Phase 14 uses it once).
+- [Phase 08]: shap fallback not needed; shap 0.52.0 works with numpy 2.3.3
 
 ### Pending Todos
 
@@ -71,9 +72,9 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-02
+Last session: 2026-10-05T10:49:14.665Z
 Stopped at: v2.0 roadmap created
-Resume file: none
+Resume file: None
 
 ## Operator Next Steps
 

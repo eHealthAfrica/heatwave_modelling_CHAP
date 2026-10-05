@@ -65,7 +65,7 @@ Every phase runs through the same GSD cycle: discuss, then plan (checked), then 
 Plans:
 **Wave 1**
 
-- [ ] 08-01-PLAN.md — Install scikit-learn/LightGBM/shap after dry-run approval; pin in requirements.txt; import smoke test
+- [x] 08-01-PLAN.md — Install scikit-learn/LightGBM/shap after dry-run approval; pin in requirements.txt; import smoke test
 - [ ] 08-02-PLAN.md — `heatwave/forecast` package, 53-week-safe week index, frozen marker + conftest, requires-python >=3.12
 
 **Wave 2** *(blocked on Wave 1 completion)*

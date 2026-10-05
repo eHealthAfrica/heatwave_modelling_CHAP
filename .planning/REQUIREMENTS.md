@@ -128,7 +128,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-02 | Phase 8 | Pending |
 | DATA-03 | Phase 8 | Pending |
 | DATA-04 | Phase 8 | Pending |
-| DATA-05 | Phase 8 | Pending |
+| DATA-05 | Phase 8 | In progress (deps done in 08-01; CI 3.12 + isolation in 08-07) |
 | FEAT-01 | Phase 9 | Pending |
 | FEAT-02 | Phase 9 | Pending |
 | FEAT-03 | Phase 9 | Pending |
