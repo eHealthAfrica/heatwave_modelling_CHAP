@@ -74,7 +74,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 08-04-PLAN.md — Hash-verified frozen loader (dense float32 Panel), live-CSV refusal, synthetic frozen dataset for CI
+- [x] 08-04-PLAN.md — Hash-verified frozen loader (dense float32 Panel), live-CSV refusal, synthetic frozen dataset for CI
 - [ ] 08-05-PLAN.md — Reproducible run folders with RUN_MANIFEST provenance outside the repo
 
 **Wave 4** *(blocked on Wave 3 completion)*
