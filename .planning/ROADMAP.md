@@ -79,7 +79,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 08-06-PLAN.md — `scripts/verify_frozen.py` + real-data `@frozen` integration tests
+- [x] 08-06-PLAN.md — `scripts/verify_frozen.py` + real-data `@frozen` integration tests
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
