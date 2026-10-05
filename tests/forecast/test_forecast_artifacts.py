@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import importlib.metadata
+import json
+import platform
 import subprocess
 from datetime import datetime, timedelta, timezone
 
@@ -72,3 +74,99 @@ def test_library_versions_missing_package(monkeypatch):
 
     monkeypatch.setattr(artifacts.importlib.metadata, "version", fake)
     assert artifacts.library_versions()["shap"] is None
+
+
+# ---- Task 2: run folders ----
+SHA = "a" * 64
+
+
+def _manifest(ctx):
+    return json.loads((ctx.path / "RUN_MANIFEST.json").read_text(encoding="utf-8"))
+
+
+def test_start_run_creates_files(cfg, tmp_path):
+    ctx = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    assert ctx.path.parent == (tmp_path / "forecast_runs").resolve()
+    assert (ctx.path / "config.yaml").is_file()
+    assert (ctx.path / "RUN_MANIFEST.json").is_file()
+
+
+def test_manifest_contents(cfg, tmp_path):
+    ctx = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    m = _manifest(ctx)
+    assert m["status"] == "running"
+    assert m["schema_version"] == 1
+    assert m["run_id"] == ctx.run_id
+    assert m["data"] == {"version": "covariates-v1.0", "parquet_sha256": SHA}
+    assert set(m["code"]) == {"git_commit", "git_dirty"}
+    assert m["environment"]["python"] == platform.python_version()
+    assert m["environment"]["platform"]
+    assert set(m["environment"]["packages"]) == set(artifacts.TRACKED_PACKAGES)
+    assert m["seed"] == cfg.seed
+    assert m["config_sha256"] == config_hash(cfg)
+    assert m["started_utc"].endswith("Z")
+    assert m["finished_utc"] is None
+
+
+def test_finish_run(cfg, tmp_path):
+    ctx = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    artifacts.finish_run(ctx)
+    m = _manifest(ctx)
+    assert m["status"] == "completed" and m["finished_utc"].endswith("Z")
+    artifacts.finish_run(ctx, status="failed")
+    assert _manifest(ctx)["status"] == "failed"
+    assert not list(ctx.path.glob("*.tmp"))
+
+
+def test_finish_run_bad_status(cfg, tmp_path):
+    ctx = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    with pytest.raises(ValueError):
+        artifacts.finish_run(ctx, status="weird")
+
+
+def test_run_folder_context(cfg, tmp_path):
+    with artifacts.run_folder(cfg, data_sha256=SHA, data_root=tmp_path) as ctx:
+        pass
+    assert _manifest(ctx)["status"] == "completed"
+    with pytest.raises(RuntimeError):
+        with artifacts.run_folder(cfg, data_sha256=SHA, data_root=tmp_path) as ctx2:
+            raise RuntimeError("boom")
+    assert _manifest(ctx2)["status"] == "failed"
+
+
+def test_config_snapshot_roundtrip(cfg, tmp_path):
+    ctx = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    assert load_forecast_config(ctx.path / "config.yaml") == cfg
+
+
+def test_same_second_distinct_folders(cfg, tmp_path):
+    a = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    b = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    assert a.run_id != b.run_id and b.run_id.endswith("_01")
+    assert a.path.is_dir() and b.path.is_dir()
+    assert artifacts.RUN_ID_PATTERN.match(b.run_id)
+
+
+@pytest.mark.parametrize("sub", ["", "outputs"])
+def test_repo_base_refused(cfg, sub):
+    root = artifacts.REPO_ROOT / sub if sub else artifacts.REPO_ROOT
+    with pytest.raises(ValueError, match="repo"):
+        artifacts.start_run(cfg, data_sha256=SHA, data_root=root, now=NOW)
+    assert not (root / "forecast_runs").exists()
+
+
+@pytest.mark.parametrize("bad", ["abc", "A" * 64, "a" * 63])
+def test_bad_sha_rejected(cfg, tmp_path, bad):
+    with pytest.raises(ValueError):
+        artifacts.start_run(cfg, data_sha256=bad, data_root=tmp_path, now=NOW)
+    assert not (tmp_path / "forecast_runs").exists()
+
+
+def test_start_run_without_git(cfg, tmp_path, monkeypatch):
+    def fake(*a, **k):
+        raise FileNotFoundError()
+
+    monkeypatch.setattr(artifacts.subprocess, "run", fake)
+    ctx = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    m = _manifest(ctx)
+    assert m["code"]["git_commit"] is None and m["code"]["git_dirty"] is None
