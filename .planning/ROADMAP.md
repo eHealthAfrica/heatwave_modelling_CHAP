@@ -70,7 +70,7 @@ Plans:
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
-- [ ] 08-03-PLAN.md — Validated `forecast.yaml` + config dataclasses (splits/cutoffs, leads, latency, baselines, gate, retrain policy, models, seed)
+- [x] 08-03-PLAN.md — Validated `forecast.yaml` + config dataclasses (splits/cutoffs, leads, latency, baselines, gate, retrain policy, models, seed)
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
