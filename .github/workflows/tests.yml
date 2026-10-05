@@ -15,12 +15,15 @@ jobs:
 
       - uses: actions/setup-python@v5
         with:
-          python-version: "3.11"
+          python-version: "3.12"
+          cache: pip
 
       - name: Install dependencies
         run: pip install -r requirements.txt
 
       - name: Run test suite
+        # Tests marked @pytest.mark.frozen need the local covariates-v1.0
+        # data and are skipped automatically in CI.
         # EE_SA_JSON is an optional repo secret holding the Earth Engine
         # service-account key JSON. When it isn't configured, every test
         # gated on live credentials (heatwave/auth._HAS_CREDENTIALS) is
