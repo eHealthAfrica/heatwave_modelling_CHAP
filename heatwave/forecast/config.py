@@ -8,6 +8,8 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
+import math
+import re
 from dataclasses import dataclass
 from datetime import date, datetime
 from pathlib import Path
@@ -20,12 +22,63 @@ from heatwave.forecast.weeks import EPOCH_WEEK_START  # noqa: F401  (week index 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 FORECAST_CONFIG_PATH = _REPO_ROOT / "forecast.yaml"
 
+_BASELINE_NAMES = frozenset(
+    {"climatology", "recent_climatology", "persistence", "damped_persistence", "trend_season"}
+)
+_MODEL_NAMES = frozenset({"logistic_regression", "lightgbm"})
+_VERSION_RE = re.compile(r"^covariates-v\d+\.\d+$")
+_SUBDIR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
+_SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def _check_int(name: str, value, minimum: int | None = None) -> int:
+    if isinstance(value, bool) or not isinstance(value, int):
+        raise ValueError(f"{name} must be an int, got {value!r}")
+    if minimum is not None and value < minimum:
+        raise ValueError(f"{name} must be >= {minimum}, got {value}")
+    return value
+
+
+def _check_int_seq(name: str, value, minimum: int = 1) -> None:
+    if not isinstance(value, tuple) or len(value) == 0:
+        raise ValueError(f"{name} must be a non-empty list, got {value!r}")
+    for v in value:
+        _check_int(f"{name} item", v, minimum)
+    if len(set(value)) != len(value):
+        raise ValueError(f"{name} must not contain duplicates, got {value!r}")
+    if list(value) != sorted(value):
+        raise ValueError(f"{name} must be strictly ascending, got {value!r}")
+
+
+def _check_years(name: str, value) -> None:
+    if not isinstance(value, tuple) or len(value) != 2:
+        raise ValueError(f"{name} must be a [start, end] pair, got {value!r}")
+    for v in value:
+        _check_int(f"{name} item", v, 1)
+    if value[0] > value[1]:
+        raise ValueError(f"{name} start must be <= end, got {value!r}")
+
+
+def _check_finite_number(name: str, value) -> None:
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{name} must be a finite number, got {value!r}")
+
 
 @dataclass(frozen=True)
 class DataConfig:
     version: str
     frozen_subdir: str
     expected_parquet_sha256: str
+
+    def __post_init__(self):
+        if not isinstance(self.version, str) or not _VERSION_RE.match(self.version):
+            raise ValueError(f"data.version must match covariates-vN.N, got {self.version!r}")
+        if not isinstance(self.frozen_subdir, str) or not _SUBDIR_RE.match(self.frozen_subdir):
+            raise ValueError(f"data.frozen_subdir must be a plain folder name, got {self.frozen_subdir!r}")
+        if not isinstance(self.expected_parquet_sha256, str) or not _SHA_RE.match(
+            self.expected_parquet_sha256
+        ):
+            raise ValueError("data.expected_parquet_sha256 must be 64 lowercase hex chars")
 
 
 @dataclass(frozen=True)
@@ -36,6 +89,33 @@ class SplitsConfig:
     train_end: date
     validate_end: date
     embargo_weeks: int
+
+    def __post_init__(self):
+        _check_years("splits.train_years", self.train_years)
+        _check_years("splits.validate_years", self.validate_years)
+        _check_years("splits.test_years", self.test_years)
+        if self.train_years[1] + 1 != self.validate_years[0]:
+            raise ValueError(
+                "splits.validate_years must start the year after train_years ends (no gap or overlap)"
+            )
+        if self.validate_years[1] + 1 != self.test_years[0]:
+            raise ValueError(
+                "splits.test_years must start the year after validate_years ends (no gap or overlap)"
+            )
+        for name, value, year in (
+            ("train_end", self.train_end, self.validate_years[0]),
+            ("validate_end", self.validate_end, self.test_years[0]),
+        ):
+            if not isinstance(value, date) or isinstance(value, datetime):
+                raise ValueError(f"splits.{name} must be a date, got {value!r}")
+            if value.weekday() != 0:
+                raise ValueError(f"splits.{name} must be a Monday, got {value}")
+            expected = date.fromisocalendar(year, 1, 1)
+            if value != expected:
+                raise ValueError(
+                    f"splits.{name} must be {expected} (Monday of ISO week 1 of {year}), got {value}"
+                )
+        _check_int("splits.embargo_weeks", self.embargo_weeks, 0)
 
     def split_for_week_start(self, d) -> str:
         """Return 'train', 'validate' or 'test' for a Monday week_start."""
@@ -59,6 +139,16 @@ class BaselinesConfig:
     names: tuple
     recent_climatology_years: int
 
+    def __post_init__(self):
+        if not isinstance(self.names, tuple) or len(self.names) == 0:
+            raise ValueError(f"baselines.names must be a non-empty list, got {self.names!r}")
+        if len(set(self.names)) != len(self.names):
+            raise ValueError(f"baselines.names must be unique, got {self.names!r}")
+        for n in self.names:
+            if n not in _BASELINE_NAMES:
+                raise ValueError(f"unknown baseline {n!r}; allowed: {sorted(_BASELINE_NAMES)}")
+        _check_int("baselines.recent_climatology_years", self.recent_climatology_years, 1)
+
 
 @dataclass(frozen=True)
 class GateConfig:
@@ -69,6 +159,19 @@ class GateConfig:
     ci_level: float
     ci_must_exclude_threshold: bool
 
+    def __post_init__(self):
+        _check_int_seq("gate.primary_leads", self.primary_leads)
+        if self.metric != "brier_skill_score":
+            raise ValueError(f"gate.metric must be 'brier_skill_score', got {self.metric!r}")
+        if self.reference != "best_baseline":
+            raise ValueError(f"gate.reference must be 'best_baseline', got {self.reference!r}")
+        _check_finite_number("gate.threshold", self.threshold)
+        _check_finite_number("gate.ci_level", self.ci_level)
+        if not (0 < self.ci_level < 1):
+            raise ValueError(f"gate.ci_level must be in (0, 1), got {self.ci_level}")
+        if not isinstance(self.ci_must_exclude_threshold, bool):
+            raise ValueError("gate.ci_must_exclude_threshold must be a bool")
+
 
 @dataclass(frozen=True)
 class RetrainPolicy:
@@ -77,10 +180,36 @@ class RetrainPolicy:
     operational_refit: str
     operational_label: str
 
+    def __post_init__(self):
+        _check_years("retrain_policy.pre_test_refit_years", self.pre_test_refit_years)
+        if self.freeze_hyperparameters is not True:
+            raise ValueError("retrain_policy.freeze_hyperparameters must be true")
+        if self.operational_refit != "all_years":
+            raise ValueError(
+                f"retrain_policy.operational_refit must be 'all_years', got {self.operational_refit!r}"
+            )
+        if self.operational_label != "not independently tested":
+            raise ValueError("retrain_policy.operational_label must be 'not independently tested'")
+
 
 @dataclass(frozen=True)
 class ModelsConfig:
     entries: tuple  # tuple of (model_name, tuple of sorted (key, value) pairs)
+
+    def __post_init__(self):
+        if not isinstance(self.entries, tuple) or len(self.entries) == 0:
+            raise ValueError("models must be a non-empty mapping")
+        for name, pairs in self.entries:
+            if name not in _MODEL_NAMES:
+                raise ValueError(f"unknown model {name!r}; allowed: {sorted(_MODEL_NAMES)}")
+            for key, value in pairs:
+                if not isinstance(key, str):
+                    raise ValueError(f"models.{name}: parameter name must be str, got {key!r}")
+                if isinstance(value, (bool, str)):
+                    continue
+                if isinstance(value, (int, float)) and math.isfinite(value):
+                    continue
+                raise ValueError(f"models.{name}.{key} must be a finite scalar, got {value!r}")
 
     def params(self, name: str) -> dict:
         for model_name, pairs in self.entries:
@@ -100,6 +229,26 @@ class ForecastConfig:
     retrain_policy: RetrainPolicy
     models: ModelsConfig
     seed: int
+
+    def __post_init__(self):
+        _check_int_seq("leads", self.leads)
+        _check_int("latency_days", self.latency_days, 0)
+        _check_int("seed", self.seed, 0)
+        if self.splits.embargo_weeks < max(self.leads):
+            raise ValueError(
+                f"splits.embargo_weeks ({self.splits.embargo_weeks}) must be >= max(leads) "
+                f"({max(self.leads)})"
+            )
+        if not set(self.gate.primary_leads) <= set(self.leads):
+            raise ValueError(
+                f"gate.primary_leads {self.gate.primary_leads} must be a subset of leads {self.leads}"
+            )
+        expected = (self.splits.train_years[0], self.splits.validate_years[1])
+        if self.retrain_policy.pre_test_refit_years != expected:
+            raise ValueError(
+                f"retrain_policy.pre_test_refit_years must be {list(expected)} "
+                f"(train start..validate end), got {list(self.retrain_policy.pre_test_refit_years)}"
+            )
 
 
 def _as_date(section: str, key: str, value) -> date:
