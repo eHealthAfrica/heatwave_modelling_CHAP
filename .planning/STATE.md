@@ -4,13 +4,13 @@ milestone: v2.0
 milestone_name: Heat Forecasting
 status: executing
 stopped_at: v2.0 roadmap created
-last_updated: "2026-10-05T10:49:26.851Z"
+last_updated: "2026-10-05T10:52:54.336Z"
 last_activity: 2026-10-05
 progress:
   total_phases: 9
   completed_phases: 0
   total_plans: 7
-  completed_plans: 1
+  completed_plans: 2
   percent: 0
 ---
 
@@ -27,11 +27,11 @@ See: .planning/PROJECT.md (updated 2026-10-02)
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
 Phase: 8 (Forecast Foundation) — EXECUTING
-Plan: 2 of 7
+Plan: 3 of 7
 Status: Ready to execute
 Last activity: 2026-10-05
 
-Progress: [█░░░░░░░░░] 14%
+Progress: [███░░░░░░░] 29%
 
 ## Performance Metrics
 
@@ -50,6 +50,7 @@ Decisions are logged in PROJECT.md Key Decisions table. v2.0 roadmap-level decis
 - Training uses only frozen `covariates-v1.0`, never the live `outputs/covariate_table.csv`.
 - Test years 2021-2026 stay locked until pre-registration is committed (Phase 10 builds the lock, Phase 14 uses it once).
 - [Phase 08]: shap fallback not needed; shap 0.52.0 works with numpy 2.3.3
+- [Phase 08]: 08-02: week index 0 = 1991-W02; time arithmetic uses index/week_start, never label strings
 
 ### Pending Todos
 
@@ -69,10 +70,11 @@ None yet.
 |----------|------|--------|
 | Future | FUT-01 ECMWF S2S benchmark (triggered by a Phase 14 no-go) | Deferred |
 | Future | FUT-02 ordinal heatwave-days target, FUT-03 Streamlit forecast page, FUT-04 station re-validation | Deferred |
+| Phase 08 P02 | 10min | 2 tasks | 5 files |
 
 ## Session Continuity
 
-Last session: 2026-10-05T10:49:14.665Z
+Last session: 2026-10-05T10:52:43.480Z
 Stopped at: v2.0 roadmap created
 Resume file: None
 
