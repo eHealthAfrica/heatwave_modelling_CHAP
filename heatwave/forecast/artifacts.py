@@ -61,9 +61,24 @@ def _git(args: list[str], repo_root: Path) -> str | None:
 
 def git_info(repo_root: Path = REPO_ROOT) -> dict:
     """Current commit and dirty flag; None values when git is unavailable."""
+    top = _git(["rev-parse", "--show-toplevel"], repo_root)
+    if top is None:
+        return {"commit": None, "dirty": None}
+    try:
+        same = Path(top.strip()).samefile(Path(repo_root))
+    except OSError:
+        same = False
+    if not same:  # repo_root only sits inside some other repository
+        return {"commit": None, "dirty": None}
     head = _git(["rev-parse", "HEAD"], repo_root)
     commit = head.strip() if head is not None else None
-    status = _git(["status", "--porcelain", "--untracked-files=no"], repo_root)
+    # Untracked files count (a new module is code the commit cannot reproduce); data and
+    # artifact folders that are never part of the code are excluded.
+    status = _git(
+        ["status", "--porcelain", "--untracked-files=normal", "--", ".",
+         ":(exclude)outputs", ":(exclude)keys"],
+        repo_root,
+    )
     dirty = bool(status.strip()) if status is not None else None
     return {"commit": commit or None, "dirty": dirty}
 

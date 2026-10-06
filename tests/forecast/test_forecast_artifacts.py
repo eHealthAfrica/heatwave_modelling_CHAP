@@ -40,6 +40,45 @@ def test_git_info_real_repo():
     assert isinstance(info["dirty"], bool)
 
 
+def _git_cmd(repo, *args):
+    subprocess.run(
+        ["git", "-c", "user.name=t", "-c", "user.email=t@example.com", *args],
+        cwd=repo, check=True, capture_output=True,
+    )
+
+
+@pytest.fixture
+def tmp_repo(tmp_path):
+    repo = tmp_path / "repo"
+    repo.mkdir()
+    _git_cmd(repo, "init", "-q")
+    (repo / "a.py").write_text("x = 1", encoding="utf-8")
+    _git_cmd(repo, "add", "a.py")
+    _git_cmd(repo, "commit", "-q", "-m", "init")
+    return repo
+
+
+def test_git_info_clean_then_untracked_python_file_is_dirty(tmp_repo):
+    """WR-07: a new uncommitted module means the recorded commit cannot reproduce the run."""
+    assert artifacts.git_info(tmp_repo)["dirty"] is False
+    (tmp_repo / "new_feature.py").write_text("y = 2", encoding="utf-8")
+    info = artifacts.git_info(tmp_repo)
+    assert info["dirty"] is True and len(info["commit"]) == 40
+
+
+def test_git_info_ignores_untracked_artifact_dirs(tmp_repo):
+    (tmp_repo / "outputs").mkdir()
+    (tmp_repo / "outputs" / "report.docx").write_bytes(b"x")
+    assert artifacts.git_info(tmp_repo)["dirty"] is False
+
+
+def test_git_info_refuses_parent_repo_head(tmp_repo):
+    """WR-07: repo_root that merely sits inside another repo must not report the parent's HEAD."""
+    inner = tmp_repo / "pkg"
+    inner.mkdir()
+    assert artifacts.git_info(inner) == {"commit": None, "dirty": None}
+
+
 @pytest.mark.parametrize(
     "behaviour",
     [
