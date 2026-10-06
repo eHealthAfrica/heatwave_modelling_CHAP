@@ -14,7 +14,10 @@ splits:
   test_years: [2021, 2026]
   train_end: 2014-12-29
   validate_end: 2021-01-04
-  embargo_weeks: 6
+  # embargo = max(leads) 6 + longest short feature window 8 weeks (PITFALLS C4)
+  embargo_weeks: 14
+  # first expanding-window CV fold year (folds 2005..2020, each validates one ISO year)
+  cv_first_year: 2005
 
 # Forecast leads in weeks ahead.
 leads: [1, 2, 3, 4, 5, 6]
