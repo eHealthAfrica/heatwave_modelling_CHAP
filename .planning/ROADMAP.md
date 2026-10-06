@@ -19,7 +19,7 @@ Rule-based detection pipeline, local covariate table build, Streamlit viewer, me
 
 ## Phases
 
-- [ ] **Phase 8: Forecast Foundation** - Frozen-data access with checksum, week index, `forecast.yaml`, run folders, dependencies and CI on Python 3.12
+- [x] **Phase 8: Forecast Foundation** - Frozen-data access with checksum, week index, `forecast.yaml`, run folders, dependencies and CI on Python 3.12 (completed 2026-10-06)
 - [ ] **Phase 9: Features, Targets, Splits and Leakage Suite** - Leakage-safe as-of features, lead targets with timing fields, embargoed splits, prevalence/latency report
 - [ ] **Phase 10: Baselines, Evaluation Harness and Test Lock** - Five baselines, one scoring path, bootstrap CIs, slices, locked 2021-2026 test years
 - [ ] **Phase 11: Logistic Regression per Lead** - First trained model, validation BSS with CIs, negative controls
@@ -83,7 +83,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 08-07-PLAN.md — Earth Engine import-isolation tests, CI on Python 3.12, README note, full regression, push + CI-green checkpoint
+- [x] 08-07-PLAN.md — Earth Engine import-isolation tests, CI on Python 3.12, README note, full regression, push + CI-green checkpoint
 
 ### Phase 9: Features, Targets, Splits and Leakage Suite
 

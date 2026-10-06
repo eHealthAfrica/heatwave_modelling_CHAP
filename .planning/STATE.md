@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Heat Forecasting
-status: executing
-stopped_at: Completed 08-06-PLAN.md
-last_updated: "2026-10-05T11:11:19.492Z"
-last_activity: 2026-10-05
+status: ready_to_plan
+stopped_at: Phase 8 complete (7/7) — ready to discuss Phase 9
+last_updated: 2026-10-06T01:00:42.474Z
+last_activity: 2026-10-06
 progress:
   total_phases: 9
-  completed_phases: 0
+  completed_phases: 1
   total_plans: 7
-  completed_plans: 6
-  percent: 0
+  completed_plans: 7
+  percent: 11
 ---
 
 # Project State
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Phase 8 — Forecast Foundation
+**Current focus:** Phase 9 — features, targets, splits and leakage suite
 
 ## Current Position
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
-Phase: 8 (Forecast Foundation) — EXECUTING
-Plan: 7 of 7
-Status: Ready to execute
-Last activity: 2026-10-05
+Phase: 9
+Plan: Not started
+Status: Ready to plan
+Last activity: 2026-10-06
 
 Progress: [█████████░] 86%
 
