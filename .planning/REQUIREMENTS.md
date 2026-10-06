@@ -6,7 +6,7 @@
 **Conventions used below.**
 - "Analyst" means whoever trains, evaluates or runs the forecast layer. "CHAP" means the downstream platform.
 - **`heatwave_week`** = 1 when a ward-week has `heatwave_days >= 3`: three or more hot days, not necessarily consecutive. It is not the rule-based heatwave event (`heatwave_event_count`). Every report carries this definition.
-- **Lead *k*** means the target week is *k* weeks after the last observed week. ERA5-Land runs about 8 days behind, so lead 1 is a nowcast.
+- **Lead *k*** means the target week is *k* weeks after the last observed week, which is treated as "now" (user decision 2026-10-06). There is no latency offset, so lead 1 starts the day after the last observed week. The real ERA5-Land delay (~9 days) is an operational note only.
 
 ## v2.0 Requirements
 
@@ -21,7 +21,7 @@
 ### Features, targets and splits (FEAT)
 
 - [ ] **FEAT-01**: Analyst can build the `heatwave_week` target for each lead 1-6, aligned to the exact target week.
-- [ ] **FEAT-02**: Every training and forecast row carries `last_obs_week`, `issue_date` (week end + measured ERA5-Land latency), `target_week`, `lead_weeks` and `effective_days_ahead`.
+- [ ] **FEAT-02**: Every training and forecast row carries `last_obs_week`, `issue_date` (end of the last observed week + the configured `latency_days`, which is 0 under the "last observed day is now" framing), `target_week`, `lead_weeks` and `effective_days_ahead`.
 - [ ] **FEAT-03**: Analyst can build as-of features from data up to the last observed week only. They cover:
   - lags and rolling means of the Heat Index anomaly, hot days, hot nights, humidity, rainfall and soil moisture;
   - season;
@@ -31,7 +31,7 @@
   Every fitted statistic (climatology, standardisation) uses training years only and records its fit range.
 - [ ] **FEAT-04**: An automated leakage suite proves features at week *t* don't change when the panel is truncated at *t* or future weeks are overwritten. It also proves fitted statistics don't change when validation/test data changes, and that every registered feature declares `max_lookahead = 0`. The suite fails when a leak is deliberately injected.
 - [ ] **FEAT-05**: Analyst can split by target week with an embargo (train 1991-2014, validate 2015-2020, test 2021-2026) and generate expanding-window CV folds, with cutoffs defined by `week_start` dates.
-- [ ] **FEAT-06**: Analyst can see `heatwave_week` prevalence by year, region and era, and the measured ERA5-Land latency, before any model is trained.
+- [ ] **FEAT-06**: Analyst can see `heatwave_week` prevalence by year, region and era, and the measured real-world ERA5-Land delay (as an operational note), before any model is trained.
 
 ### Baselines and evaluation harness (EVAL)
 
@@ -69,7 +69,7 @@
 ### Decision and report (DEC)
 
 - [ ] **DEC-01**: Analyst can explain models with grouped SHAP and grouped permutation importance, and run the ablation ladder: season → +location → +trend → +persistence → +lagged heat → +soil/humidity/rain.
-- [ ] **DEC-02**: The confirmatory test runs once. The model is refit on 1991-2020 with frozen hyperparameters and scored on 2021-2026 against the pre-registered go/no-go: at leads 2-3, BSS > 0 against the best baseline, with a CI that excludes 0. The decision is recorded in `GATE.json`.
+- [ ] **DEC-02**: The confirmatory test runs once. The model is refit on 1991-2020 with frozen hyperparameters and scored on 2021-2026 against the pre-registered go/no-go: at leads 1-2, BSS > 0 against the best baseline, with a CI that excludes 0. The decision is recorded in `GATE.json`.
 - [ ] **DEC-03**: Stakeholders can read a forecast report (`docs/FORECAST_REPORT.md`). It includes:
   - skill by lead, season and region, with CIs;
   - an effective-lead table;

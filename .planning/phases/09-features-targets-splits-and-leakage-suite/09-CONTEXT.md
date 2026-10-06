@@ -31,17 +31,18 @@ Requirements: FEAT-01 to FEAT-06. Baselines, metrics and the test lock are Phase
 ### Target and timing (FEAT-01, FEAT-02)
 - **Label:** `heatwave_week = 1` when `heatwave_days >= 3` in the target week. Three or more hot days, not necessarily consecutive. It is **not** `heatwave_event_count`. Every doc and report repeats this definition.
 - **Alignment:** issue rows are (ward, `last_obs_week` = t). For lead k (1-6), `target_week` = t + k on the integer week index. Rows whose target falls past the end of the data have no label and are excluded from training and evaluation.
+- **Framing (user decision 2026-10-06; supersedes the earlier latency-based framing):** the last complete observed week is treated as "now". Forecasts are issued at the end of that week, and no real-world data delay is applied, so every lead is a genuine forecast of a week not yet in the data. For `covariates-v1.0` "now" is 2026-W38 (14-20 Sep 2026), and lead 1 = 2026-W39.
 - **Timing fields on every row:**
   - `last_obs_week` (index and label);
-  - `issue_date` = Sunday of week t + `latency_days`;
+  - `issue_date` = Sunday of week t + `latency_days`, where `latency_days` = 0 in `forecast.yaml`;
   - `target_week` (index and label) and `target_week_start`;
   - `lead_weeks`;
-  - `effective_days_ahead` = (`target_week_start` − `issue_date`) in days. Zero or negative means the target week had already started at issue time, i.e. a nowcast. With latency 8, lead 1 gives −2 and lead 2 gives +5.
-- **Latency:**
-  - Measure the real ERA5-Land `DAILY_AGGR` delay with a live Earth Engine query: the latest available date vs today.
-  - Store the measured value in `forecast.yaml` `latency_days`, rounded up to whole days.
-  - Record the measurement (date, latest image date, gap) in the data report.
-  - The live query is a script, not a CI test. CI uses the configured value.
+  - `effective_days_ahead` = (`target_week_start` − `issue_date`) in days, which is 7k − 6 − `latency_days`. With latency 0 the leads are +1, +8, +15, +22, +29 and +36 days. Unit-test these exact values.
+- **Real-world delay (operational note only):**
+  - Measured once by live Earth Engine query on 2026-10-06: latest `DAILY_AGGR` image 2026-09-27, about 9 days behind (about 8 on 2026-10-01).
+  - Record this measurement in the data report as an operational note. In real use, lead 1's week is mostly past and lead 2 is about 5 days ahead.
+  - Do **not** re-measure or query Earth Engine during this phase. No live query script is needed.
+- **Gate:** `forecast.yaml` `gate.primary_leads` = [1, 2] (changed 2026-10-06).
 
 ### Train-only climatology (FEAT-03, FEAT-04)
 - A per-ward, per-ISO-week-of-year mean and standard deviation for each weekly variable is fitted **only on training target years (1991-2014)**, pooled over ±2 weeks of the year *(orchestrator)*. W53 pools with W52 and W01.
@@ -94,8 +95,8 @@ It runs on the synthetic panel in CI, plus a `@frozen` real-data variant. It che
   - prevalence by region: geozone, plus latitude bands far north > 11.5°N and middle belt < 9.5°N, matching the METHODOLOGY section 8 analysis;
   - prevalence by era: 1991-2000, 2001-2010, 2011-2020 and 2021-2026;
   - prevalence by split;
-  - the measured latency;
-  - the effective-days-ahead table per lead.
+  - the measured real-world delay (2026-10-06: about 9 days) as an operational note;
+  - the effective-days-ahead table per lead (+1, +8, +15, +22, +29, +36 days at latency 0).
 - It always carries the caption "heatwave_week = heatwave_days >= 3; labels from ERA5-Land (reanalysis), 4,841 wards in 19 northern states and the FCT".
 
 ### Storage
@@ -120,7 +121,7 @@ It runs on the synthetic panel in CI, plus a `@frozen` real-data variant. It che
 
 <specifics>
 ## Specific Ideas
-- On 2026-10-01 the latest `DAILY_AGGR` date was 2026-09-23, a delay of about 8 days. Re-measure; don't assume.
+- Real-world delay measurements: 2026-10-01, latest date 2026-09-23 (about 8 days); 2026-10-06, latest date 2026-09-27 (about 9 days). These are informational only (see Framing).
 - In the 1991-2020 baseline, about 9.8% of days are hot. Weekly `heatwave_week` prevalence will differ, because it needs 3 or more hot days. Report the actual numbers.
 </specifics>
 
@@ -133,3 +134,18 @@ It runs on the synthetic panel in CI, plus a `@frozen` real-data variant. It che
 
 ---
 *Phase: 09-features-targets-splits-and-leakage-suite*
+
+## Resolved after phase research (2026-10-06)
+- **Framing:** latency 0, gate leads [1, 2] (see Target and timing).
+- **Embargo:** `embargo_weeks` = 14 in `forecast.yaml`. Update the test that asserts 6.
+- **`cv_first_year`:** add it to `SplitsConfig` and `forecast.yaml` as 2005. Validate it as an int (not bool) with `train_years[0] < cv_first_year <= validate_years[1]`. Add rejection tests (missing, 1991, 2021, True, 2005.5).
+- **Climatology:** build `Climatology.fit(panel, end)`. The main train/validate split uses the single 1991-2014 fit. **Each expanding-window CV fold refits on its own training years**, so folds aren't optimistic (PITFALLS C3).
+- **Warm-up:** keep NaN (no forward-fill). Training excludes issue weeks before index 159 (1994-W04), where the 10-year base rate first has 3 prior years. Expose `drop_warmup` (default on for training).
+- **Season encoding:** sin/cos of the day-of-year of the target week's midpoint over 365.25. This is robust to W53.
+- **Std floor:** 0.1 × the per-variable median std.
+- **Geozones:** the real values are NWZ (2004 wards), NCZ (1518) and NEZ (1319). Assert these in the `@frozen` static test.
+- **Fixtures:** extend the synthetic static fixture (wards.geojson with geometries, including an empty one, plus wards_lga_average.csv). Use an in-memory synthetic Panel of about 12 years for the leakage tests.
+- **Performance:**
+  - Load the real panel once per test session.
+  - Build feature families one at a time in float32.
+  - Precompute the (iso_year, iso_week) → index map instead of calling `date.fromisocalendar` per week.
