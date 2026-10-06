@@ -137,6 +137,18 @@ def test_load_panel_values(ds):
             assert p.values[i, j, k] == np.float32(getattr(row, v))
 
 
+@pytest.mark.parametrize("name", ["values", "week_index", "week_start"])
+def test_panel_arrays_are_read_only(ds, name):
+    """WR-05: consumers cannot mutate the shared panel in place."""
+    p = load_panel(_dcfg(ds.sha256), data_root=ds.data_root)
+    arr = getattr(p, name)
+    assert not arr.flags.writeable
+    with pytest.raises(ValueError, match="read-only"):
+        arr[(0,) * arr.ndim] = arr[(0,) * arr.ndim]
+    copy = arr.copy()
+    copy[(0,) * copy.ndim] = copy[(0,) * copy.ndim]  # explicit copies stay writable
+
+
 def test_week_53_contiguity(ds):
     p = load_panel(_dcfg(ds.sha256), data_root=ds.data_root)
     assert p.week_pos("1992-W53") + 1 == p.week_pos("1993-W01")

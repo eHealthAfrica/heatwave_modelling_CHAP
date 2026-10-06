@@ -171,6 +171,9 @@ class Panel:
     sha256: str
 
     def __post_init__(self):
+        # Freeze the data, not just the dataclass: consumers must .copy() before editing.
+        for arr in (self.values, self.week_index, self.week_start):
+            arr.flags.writeable = False
         object.__setattr__(self, "_ward_pos", {w: i for i, w in enumerate(self.wards)})
         object.__setattr__(self, "_week_pos", {w: i for i, w in enumerate(self.week_labels)})
 
