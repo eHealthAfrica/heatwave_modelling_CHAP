@@ -161,11 +161,57 @@ def test_byte_flip_refused_before_parse(ds, monkeypatch):
     ds.parquet_path.write_bytes(bytes(raw))
 
     def boom(*a, **k):
-        raise AssertionError("read_parquet called before hash check")
+        raise AssertionError("parquet parsed before hash check")
 
     monkeypatch.setattr(pd, "read_parquet", boom)
+    monkeypatch.setattr(pq, "read_table", boom)
+    monkeypatch.setattr(pq, "ParquetFile", boom)
     with pytest.raises(FrozenDataError, match="sha256"):
         load_panel(_dcfg(ds.sha256), data_root=ds.data_root)
+
+
+def test_swap_after_hash_is_not_parsed(ds, monkeypatch):
+    """CR-01: bytes are hashed once and parsed from the same buffer (no TOCTOU)."""
+    original = ds.parquet_path.read_bytes()
+    tampered = ds.frame.copy()
+    tampered["mean_heat_index"] = tampered["mean_heat_index"] + 5.0
+    swapped = {"done": False}
+
+    def swap_on_disk():
+        if not swapped["done"]:
+            swapped["done"] = True
+            pq.write_table(
+                pa.Table.from_pandas(tampered, schema=arrow_schema(), preserve_index=False),
+                ds.parquet_path,
+            )
+
+    real_pf, real_rt = pq.ParquetFile, pq.read_table
+
+    def pf(*a, **k):
+        swap_on_disk()
+        return real_pf(*a, **k)
+
+    def rt(*a, **k):
+        swap_on_disk()
+        return real_rt(*a, **k)
+
+    monkeypatch.setattr(pq, "ParquetFile", pf)
+    monkeypatch.setattr(pq, "read_table", rt)
+    real_rp = pd.read_parquet
+
+    def rp(*a, **k):
+        swap_on_disk()
+        return real_rp(*a, **k)
+
+    monkeypatch.setattr(pd, "read_parquet", rp)
+    panel = load_panel(_dcfg(ds.sha256), data_root=ds.data_root)
+    assert ds.parquet_path.read_bytes() != original  # the swap really happened
+    k = VARIABLES.index("mean_heat_index")
+    row = ds.frame.iloc[0]
+    assert panel.values[panel.ward_pos(row.location), panel.week_pos(row.time_period), k] == np.float32(
+        row.mean_heat_index
+    )
+    assert panel.sha256 == ds.sha256
 
 
 def test_tampered_pair_refused_by_yaml_anchor(ds):

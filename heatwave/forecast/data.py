@@ -7,6 +7,7 @@ opened read-only ("rb"); nothing in this module writes or alters file permission
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 from dataclasses import dataclass
 from pathlib import Path
@@ -107,6 +108,16 @@ def assert_frozen_source(path, data_cfg: DataConfig, data_root=None) -> Path:
 
 def verify_frozen_parquet(data_cfg: DataConfig, data_root=None):
     """Hash then schema-check the frozen parquet. Returns (path, manifest, sha)."""
+    path, manifest, sha, _raw = _verify_frozen_bytes(data_cfg, data_root)
+    return path, manifest, sha
+
+
+def _verify_frozen_bytes(data_cfg: DataConfig, data_root=None):
+    """Read the parquet bytes ONCE, verify them, return (path, manifest, sha, raw).
+
+    The caller must parse ``raw`` (never re-open the path): this pins the parsed
+    bytes to the hashed bytes and leaves no open file handle behind.
+    """
     dataset_dir = frozen_dataset_dir(data_cfg, data_root)
     manifest = read_manifest(dataset_dir)
     if manifest.get("version") != data_cfg.version:
@@ -117,7 +128,8 @@ def verify_frozen_parquet(data_cfg: DataConfig, data_root=None):
     if not path.is_file():
         raise FrozenDataError(f"frozen parquet missing: {path}")
     assert_frozen_source(path, data_cfg, data_root)
-    sha = sha256_file(path)
+    raw = path.read_bytes()
+    sha = hashlib.sha256(raw).hexdigest()
     try:
         want = manifest["outputs_sha256"][PARQUET_NAME]
     except (KeyError, TypeError) as exc:
@@ -132,7 +144,7 @@ def verify_frozen_parquet(data_cfg: DataConfig, data_root=None):
     table = manifest.get("table")
     if not isinstance(table, dict):
         raise FrozenDataError("MANIFEST lacks a table section")
-    pf = pq.ParquetFile(path)
+    pf = pq.ParquetFile(io.BytesIO(raw))
     schema = pf.schema_arrow
     names = tuple(schema.names)
     types = {f.name: str(f.type) for f in schema}
@@ -144,7 +156,7 @@ def verify_frozen_parquet(data_cfg: DataConfig, data_root=None):
         raise FrozenDataError(
             f"row count {pf.metadata.num_rows} != MANIFEST table.rows {table.get('rows')}"
         )
-    return path, manifest, sha
+    return path, manifest, sha, raw
 
 
 @dataclass(frozen=True, eq=False)
@@ -174,9 +186,10 @@ class Panel:
 
 
 def load_panel(data_cfg: DataConfig, data_root=None) -> Panel:
-    path, manifest, sha = verify_frozen_parquet(data_cfg, data_root)
+    _path, manifest, sha, raw = _verify_frozen_bytes(data_cfg, data_root)
     table = manifest["table"]
-    df = pd.read_parquet(path, columns=list(EXPECTED_COLUMNS))
+    df = pq.read_table(io.BytesIO(raw), columns=list(EXPECTED_COLUMNS)).to_pandas()
+    del raw
     if df.isna().any().any():
         raise FrozenDataError("frozen parquet contains nulls")
     wards = tuple(sorted(df["location"].unique()))
