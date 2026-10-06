@@ -103,7 +103,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 09-01-PLAN.md — Wave 0: cv_first_year + embargo 14 config, synthetic panel/static fixtures, session real-panel fixture
+- [x] 09-01-PLAN.md — Wave 0: cv_first_year + embargo 14 config, synthetic panel/static fixtures, session real-panel fixture
 
 **Wave 2** *(blocked on Wave 1 completion)*
 
