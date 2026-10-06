@@ -18,7 +18,7 @@ import numpy as np
 EPOCH_LABEL = "1991-W02"
 EPOCH_WEEK_START = date.fromisocalendar(1991, 2, 1)
 
-_LABEL_RE = re.compile(r"^(\d{4})-W(\d{2})$")
+_LABEL_RE = re.compile(r"([0-9]{4})-W([0-9]{2})")
 
 
 def _check_index(i) -> int:
@@ -31,7 +31,7 @@ def parse_label(label) -> tuple[int, int]:
     """Parse ``YYYY-Www`` into (iso_year, iso_week); ValueError if invalid."""
     if not isinstance(label, str):
         raise ValueError(f"week label must be a str, got {label!r}")
-    m = _LABEL_RE.match(label)
+    m = _LABEL_RE.fullmatch(label)
     if m is None:
         raise ValueError(f"invalid week label {label!r}: expected YYYY-Www")
     year, week = int(m.group(1)), int(m.group(2))

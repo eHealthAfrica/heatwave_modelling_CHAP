@@ -84,7 +84,9 @@ def test_negative_index_before_epoch():
 
 @pytest.mark.parametrize(
     "bad", ["2021-W53", "2014-W53", "2020-W5", "2020W05", "20-W05",
-            "2020-W00", "2020-W54", None, 202005, b"2020-W05"],
+            "2020-W00", "2020-W54", None, 202005, b"2020-W05",
+            "1991-W02" + chr(10), chr(10) + "1991-W02", "1991-W02 ", chr(0xFF11) * 4 + "-W02",
+            "1991-W" + chr(0x0660) + chr(0x0662)],
 )
 def test_invalid_labels(bad):
     with pytest.raises(ValueError):
