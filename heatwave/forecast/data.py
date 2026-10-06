@@ -112,6 +112,21 @@ def verify_frozen_parquet(data_cfg: DataConfig, data_root=None):
     return path, manifest, sha
 
 
+def _validate_table_section(table: dict) -> None:
+    """Every MANIFEST table key the loader uses must exist with the right type."""
+    for key in ("rows", "wards", "weeks"):
+        value = table.get(key)
+        if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+            raise FrozenDataError(f"MANIFEST table.{key} must be a non-negative int, got {value!r}")
+    for key in ("first_week", "last_week"):
+        try:
+            weeks.parse_label(table.get(key))
+        except ValueError as exc:
+            raise FrozenDataError(f"MANIFEST table.{key} invalid: {exc}") from exc
+    if not isinstance(table.get("columns"), (list, tuple)):
+        raise FrozenDataError("MANIFEST table.columns must be a list")
+
+
 def _verify_frozen_bytes(data_cfg: DataConfig, data_root=None):
     """Read the parquet bytes ONCE, verify them, return (path, manifest, sha, raw).
 
@@ -144,6 +159,7 @@ def _verify_frozen_bytes(data_cfg: DataConfig, data_root=None):
     table = manifest.get("table")
     if not isinstance(table, dict):
         raise FrozenDataError("MANIFEST lacks a table section")
+    _validate_table_section(table)
     pf = pq.ParquetFile(io.BytesIO(raw))
     schema = pf.schema_arrow
     names = tuple(schema.names)

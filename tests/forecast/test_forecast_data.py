@@ -284,6 +284,25 @@ def test_manifest_count_mismatch(ds, edit):
         load_panel(_dcfg(ds.sha256), data_root=ds.data_root)
 
 
+@pytest.mark.parametrize("key", ["rows", "wards", "weeks", "first_week", "last_week", "columns"])
+def test_truncated_manifest_table_is_frozen_data_error(ds, key):
+    """WR-06: missing table keys raise FrozenDataError, not a bare KeyError."""
+    _edit_manifest(ds, lambda m: m["table"].pop(key))
+    with pytest.raises(FrozenDataError, match=key):
+        load_panel(_dcfg(ds.sha256), data_root=ds.data_root)
+
+
+@pytest.mark.parametrize(
+    "key, value",
+    [("wards", "6"), ("weeks", None), ("rows", True), ("first_week", None), ("last_week", "1993-W99"),
+     ("first_week", "garbage")],
+)
+def test_malformed_manifest_table_values(ds, key, value):
+    _edit_manifest(ds, lambda m: m["table"].__setitem__(key, value))
+    with pytest.raises(FrozenDataError, match=key):
+        load_panel(_dcfg(ds.sha256), data_root=ds.data_root)
+
+
 def test_dropped_week_not_contiguous(ds):
     drop = ds.labels[50]
     frame = ds.frame[ds.frame.time_period != drop].reset_index(drop=True)
