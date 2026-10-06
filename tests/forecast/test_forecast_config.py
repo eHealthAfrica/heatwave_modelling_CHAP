@@ -240,16 +240,29 @@ def test_duplicate_yaml_keys_rejected(tmp_path, anchor, dup):
         load_forecast_config(p)
 
 
-def test_existing_config_untouched():
-    import subprocess
+# git blob ids of the v1 files at the fixed base (7ed8d1c, merge of PR #10), so the check does
+# not depend on index state, history depth, or the git binary.
+_BASE_BLOBS = {
+    "config.yaml": "bb63df8a9abd1376fd79011939d8f12ba9d40e40",
+    "heatwave/config.py": "f91b3558f32952fa8a54bd0c431cd288fa1b4440",
+    "tests/test_config.py": "51a3c97c1fbf304692fb0e7ea323be4a01bc8c45",
+}
 
-    try:
-        r = subprocess.run(
-            ["git", "diff", "--exit-code", "--", "config.yaml", "heatwave/config.py", "tests/test_config.py"],
-            cwd=FORECAST_CONFIG_PATH.parent, capture_output=True,
-        )
-    except FileNotFoundError:
-        pytest.skip("git unavailable")
-    if r.returncode not in (0, 1):
-        pytest.skip("not a git checkout")
-    assert r.returncode == 0
+
+def _git_blob_id(raw: bytes) -> str:
+    import hashlib
+
+    raw = raw.replace(bytes([13, 10]), bytes([10]))  # git normalises CRLF (autocrlf checkouts)
+    return hashlib.sha1(b"blob %d" % len(raw) + bytes([0]) + raw).hexdigest()  # noqa: S324 (git object id)
+
+
+def test_blob_id_helper_detects_changes():
+    assert _git_blob_id(b"") == "e69de29bb2d1d6434b8b29ae775ad8c2e48c5391"  # git's empty blob
+    assert _git_blob_id(b"a: 1" + bytes([10])) != _git_blob_id(b"a: 2" + bytes([10]))
+
+
+@pytest.mark.parametrize("rel, blob", sorted(_BASE_BLOBS.items()))
+def test_existing_config_untouched(rel, blob):
+    """The v1 config files must stay byte-identical to the base they had before v2.0."""
+    path = FORECAST_CONFIG_PATH.parent / rel
+    assert _git_blob_id(path.read_bytes()) == blob, f"{rel} differs from base 7ed8d1c"
