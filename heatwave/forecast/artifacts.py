@@ -8,9 +8,11 @@ from __future__ import annotations
 import contextlib
 import importlib.metadata
 import json
+import logging
 import os
 import platform
 import re
+import shutil
 import subprocess
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -21,10 +23,13 @@ import yaml
 from heatwave.config import settings
 from heatwave.forecast.config import ForecastConfig, config_hash, config_to_dict
 
+log = logging.getLogger(__name__)
+
 RUNS_SUBDIR = "forecast_runs"
 REPO_ROOT = Path(__file__).resolve().parents[2]
 TRACKED_PACKAGES = ("numpy", "pandas", "pyarrow", "scikit-learn", "lightgbm", "shap")
 RUN_ID_PATTERN = re.compile(r"^\d{8}T\d{6}Z_[0-9a-f]{8}(_\d{2})?$")
+_TERMINAL = frozenset({"completed", "failed"})
 MANIFEST_NAME = "RUN_MANIFEST.json"
 CONFIG_SNAPSHOT_NAME = "config.yaml"
 _SHA_RE = re.compile(r"^[0-9a-f]{64}$")
@@ -142,36 +147,46 @@ def start_run(
     if not RUN_ID_PATTERN.match(run_id) or folder.resolve().parent != base:
         raise ValueError(f"unsafe run folder {folder}")
 
-    snapshot = yaml.safe_dump(config_to_dict(cfg), sort_keys=False)
-    (folder / CONFIG_SNAPSHOT_NAME).write_text(
-        f"# Snapshot of forecast.yaml for run {run_id} (validated)\n" + snapshot,
-        encoding="utf-8",
-    )
+    try:
+        snapshot = yaml.safe_dump(config_to_dict(cfg), sort_keys=False)
+        (folder / CONFIG_SNAPSHOT_NAME).write_text(
+            f"# Snapshot of forecast.yaml for run {run_id} (validated)\n" + snapshot,
+            encoding="utf-8",
+        )
 
-    git = git_info(repo)
-    manifest = {
-        "schema_version": 1,
-        "run_id": run_id,
-        "status": "running",
-        "started_utc": _utc_str(now),
-        "finished_utc": None,
-        "seed": cfg.seed,
-        "config_sha256": config_hash(cfg),
-        "data": {"version": cfg.data.version, "parquet_sha256": data_sha256},
-        "code": {"git_commit": git["commit"], "git_dirty": git["dirty"]},
-        "environment": {
-            "python": platform.python_version(),
-            "platform": platform.platform(),
-            "packages": library_versions(),
-        },
-    }
-    _write_manifest(folder, manifest)
+        git = git_info(repo)
+        manifest = {
+            "schema_version": 1,
+            "run_id": run_id,
+            "status": "running",
+            "started_utc": _utc_str(now),
+            "finished_utc": None,
+            "seed": cfg.seed,
+            "config_sha256": config_hash(cfg),
+            "data": {"version": cfg.data.version, "parquet_sha256": data_sha256},
+            "code": {"git_commit": git["commit"], "git_dirty": git["dirty"]},
+            "environment": {
+                "python": platform.python_version(),
+                "platform": platform.platform(),
+                "packages": library_versions(),
+            },
+        }
+        _write_manifest(folder, manifest)
+    except BaseException:
+        # No orphan run folder without a manifest.
+        shutil.rmtree(folder, ignore_errors=True)
+        raise
     return RunContext(run_id=run_id, path=folder, manifest=manifest)
 
 
 def finish_run(ctx: RunContext, status: str = "completed") -> None:
     if status not in {"completed", "failed"}:
         raise ValueError(f"status must be 'completed' or 'failed', got {status!r}")
+    if ctx.manifest.get("status") in _TERMINAL:
+        raise ValueError(
+            f"run {ctx.run_id} is already {ctx.manifest['status']!r} (terminal); "
+            f"cannot change it to {status!r}"
+        )
     ctx.manifest["status"] = status
     ctx.manifest["finished_utc"] = _utc_str(datetime.now(timezone.utc))
     _write_manifest(ctx.path, ctx.manifest)
@@ -183,7 +198,11 @@ def run_folder(cfg: ForecastConfig, **kwargs):
     try:
         yield ctx
     except BaseException:
-        finish_run(ctx, status="failed")
+        if ctx.manifest.get("status") not in _TERMINAL:
+            try:
+                finish_run(ctx, status="failed")
+            except OSError:
+                log.exception("could not record failed status for run %s", ctx.run_id)
         raise
     else:
         finish_run(ctx)

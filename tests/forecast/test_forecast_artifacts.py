@@ -152,9 +152,50 @@ def test_finish_run(cfg, tmp_path):
     artifacts.finish_run(ctx)
     m = _manifest(ctx)
     assert m["status"] == "completed" and m["finished_utc"].endswith("Z")
-    artifacts.finish_run(ctx, status="failed")
-    assert _manifest(ctx)["status"] == "failed"
     assert not list(ctx.path.glob("*.tmp"))
+
+
+def test_finish_run_refuses_leaving_terminal_status(cfg, tmp_path):
+    """WR-08: a completed (or failed) run is never silently overwritten."""
+    ctx = artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    artifacts.finish_run(ctx)
+    with pytest.raises(ValueError, match="terminal|already"):
+        artifacts.finish_run(ctx, status="failed")
+    assert _manifest(ctx)["status"] == "completed"
+
+
+def test_original_exception_survives_failing_finish(cfg, tmp_path, monkeypatch):
+    """WR-08: an I/O error while recording 'failed' must not mask the training error."""
+    real = artifacts._write_manifest
+
+    def flaky(path, manifest):
+        if manifest["status"] == "failed":
+            raise OSError("disk full")
+        return real(path, manifest)
+
+    monkeypatch.setattr(artifacts, "_write_manifest", flaky)
+    with pytest.raises(RuntimeError, match="boom"):
+        with artifacts.run_folder(cfg, data_sha256=SHA, data_root=tmp_path):
+            raise RuntimeError("boom")
+
+
+def test_run_folder_body_may_finish_then_raise(cfg, tmp_path):
+    with pytest.raises(RuntimeError, match="late"):
+        with artifacts.run_folder(cfg, data_sha256=SHA, data_root=tmp_path) as ctx:
+            artifacts.finish_run(ctx)
+            raise RuntimeError("late")
+    assert _manifest(ctx)["status"] == "completed"
+
+
+def test_start_run_failure_leaves_no_orphan_folder(cfg, tmp_path, monkeypatch):
+    def boom(*a, **k):
+        raise RuntimeError("git exploded")
+
+    monkeypatch.setattr(artifacts, "git_info", boom)
+    with pytest.raises(RuntimeError, match="git exploded"):
+        artifacts.start_run(cfg, data_sha256=SHA, data_root=tmp_path, now=NOW)
+    runs = tmp_path / "forecast_runs"
+    assert not runs.exists() or not list(runs.iterdir())
 
 
 def test_finish_run_bad_status(cfg, tmp_path):
