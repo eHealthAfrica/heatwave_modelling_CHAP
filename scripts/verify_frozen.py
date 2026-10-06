@@ -40,6 +40,7 @@ class _Tally:
         self.missing = 0
         self.bad = 0
         self.unlisted = 0
+        self.unreadable = 0
 
     def report(self, status: str, rel: str) -> None:
         print(f"{status} {rel}")
@@ -47,6 +48,8 @@ class _Tally:
             self.mismatch += 1
         elif status == "MISSING":
             self.missing += 1
+        elif status == "UNREADABLE":
+            self.unreadable += 1
         elif status == "BAD-KEY":
             self.bad += 1
         elif status == "UNLISTED":
@@ -71,7 +74,12 @@ def _check_hash(tally: _Tally, path: Path, want: str, label: str) -> None:
     if not path.is_file():
         tally.report("MISSING", label)
         return
-    got = sha256_file(path)
+    try:
+        got = sha256_file(path)
+    except OSError as exc:
+        print(f"verify_frozen: cannot read {label}: {exc}", file=sys.stderr)
+        tally.report("UNREADABLE", label)
+        return
     tally.report("OK" if got == want else "MISMATCH", label)
 
 
@@ -154,8 +162,9 @@ def main(argv: list[str] | None = None) -> int:
         f"verify_frozen: {tally.checked} checked, {tally.mismatch} mismatches, "
         f"{tally.missing} missing, {tally.bad} bad keys"
         + (f", {tally.unlisted} unlisted" if tally.unlisted else "")
+        + (f", {tally.unreadable} unreadable" if tally.unreadable else "")
     )
-    bad = tally.mismatch + tally.missing + tally.bad + tally.unlisted
+    bad = tally.mismatch + tally.missing + tally.bad + tally.unlisted + tally.unreadable
     return 0 if bad == 0 else 1
 
 

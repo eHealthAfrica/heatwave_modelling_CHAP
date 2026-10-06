@@ -145,6 +145,37 @@ def test_non_string_output_hash_is_bad_key(ds):
     assert code == 1 and "BAD-KEY" in out and "Traceback" not in out
 
 
+@pytest.mark.parametrize("key", ["bad\x00key.nc", "a:b*?.nc", "CON:", "con\x00"])
+@pytest.mark.parametrize("section", ["inputs_sha256", "outputs_sha256"])
+def test_malformed_keys_do_not_crash(ds, key, section):
+    """WR-01: NUL bytes / invalid names give BAD-KEY (or MISSING), never a traceback."""
+    _edit_manifest(ds, lambda m: m[section].__setitem__(key, "0" * 64))
+    code, out = run(ds)
+    assert "Traceback" not in out, out
+    assert code == 1
+    assert "BAD-KEY" in out or "MISSING" in out
+
+
+def test_unreadable_file_is_reported_not_fatal(ds, monkeypatch, capsys):
+    """WR-01: an OSError while hashing is a reportable failure, not an abort."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("verify_frozen_under_test", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+
+    def locked(path, *a, **k):
+        raise PermissionError("locked")
+
+    monkeypatch.setattr(mod, "sha256_file", locked)
+    code = mod.main(
+        ["--data-root", str(ds.data_root), "--expected-parquet-sha256", ds.sha256, "--outputs-only"]
+    )
+    out = capsys.readouterr().out
+    assert code == 1
+    assert "UNREADABLE" in out
+
+
 def _digest_tree(root: Path):
     return {
         p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()
