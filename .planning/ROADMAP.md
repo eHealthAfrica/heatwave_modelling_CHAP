@@ -112,7 +112,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 09-04-PLAN.md — Feature registry (max_lookahead guard) and all as-of feature families
+- [x] 09-04-PLAN.md — Feature registry (max_lookahead guard) and all as-of feature families
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
