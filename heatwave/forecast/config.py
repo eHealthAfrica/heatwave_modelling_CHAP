@@ -17,8 +17,6 @@ from typing import Any
 
 import yaml
 
-from heatwave.forecast.weeks import EPOCH_WEEK_START  # noqa: F401  (week index contract)
-
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 FORECAST_CONFIG_PATH = _REPO_ROOT / "forecast.yaml"
 
@@ -213,6 +211,57 @@ class RetrainPolicy:
             raise ValueError("retrain_policy.operational_label must be 'not independently tested'")
 
 
+# Allowed hyper-parameters per model with their kinds. "float" accepts ints and numeric
+# strings such as "1e-5" (YAML 1.1 reads those as str) and normalises them to float.
+# Seeds and thread counts are deliberately absent: the global ``seed`` is the only seed.
+_PARAM_SPECS = {
+    "logistic_regression": {
+        "C": "float", "penalty": "str", "solver": "str", "max_iter": "int", "tol": "float",
+        "l1_ratio": "float", "fit_intercept": "bool", "class_weight": "str",
+    },
+    "lightgbm": {
+        "num_leaves": "int", "learning_rate": "float", "n_estimators": "int",
+        "min_child_samples": "int", "min_child_weight": "float", "min_split_gain": "float",
+        "subsample": "float", "subsample_freq": "int", "colsample_bytree": "float",
+        "reg_lambda": "float", "reg_alpha": "float", "max_depth": "int", "max_bin": "int",
+        "scale_pos_weight": "float", "is_unbalance": "bool", "class_weight": "str",
+        "deterministic": "bool", "force_row_wise": "bool", "boosting_type": "str",
+        "verbosity": "int",
+    },
+}
+_REQUIRED_TRUE = {"lightgbm": ("deterministic",)}
+
+
+def _normalise_param(model: str, key: str, value):
+    """Validate one hyper-parameter against its kind; return the normalised value."""
+    spec = _PARAM_SPECS[model]
+    if key not in spec:
+        raise ValueError(f"models.{model}: unknown parameter {key!r}; allowed: {sorted(spec)}")
+    kind = spec[key]
+    where = f"models.{model}.{key}"
+    if kind == "bool":
+        if not isinstance(value, bool):
+            raise ValueError(f"{where} must be a bool, got {value!r}")
+        return value
+    if kind == "str":
+        if not isinstance(value, str):
+            raise ValueError(f"{where} must be a str, got {value!r}")
+        return value
+    if kind == "int":
+        if isinstance(value, bool) or not isinstance(value, int):
+            raise ValueError(f"{where} must be an int, got {value!r}")
+        return value
+    # float
+    if isinstance(value, str):
+        try:
+            value = float(value)
+        except ValueError:
+            raise ValueError(f"{where} must be numeric, got {value!r}") from None
+    if isinstance(value, bool) or not isinstance(value, (int, float)) or not math.isfinite(value):
+        raise ValueError(f"{where} must be a finite number, got {value!r}")
+    return value
+
+
 @dataclass(frozen=True)
 class ModelsConfig:
     entries: tuple  # tuple of (model_name, tuple of sorted (key, value) pairs)
@@ -226,11 +275,14 @@ class ModelsConfig:
             for key, value in pairs:
                 if not isinstance(key, str):
                     raise ValueError(f"models.{name}: parameter name must be str, got {key!r}")
-                if isinstance(value, (bool, str)):
-                    continue
-                if isinstance(value, (int, float)) and math.isfinite(value):
-                    continue
-                raise ValueError(f"models.{name}.{key} must be a finite scalar, got {value!r}")
+                if type(_normalise_param(name, key, value)) is not type(value):
+                    raise ValueError(
+                        f"models.{name}.{key} must already be normalised, got {value!r}"
+                    )
+            values = dict(pairs)
+            for required in _REQUIRED_TRUE.get(name, ()):
+                if values.get(required) is not True:
+                    raise ValueError(f"models.{name}.{required} must be true (reproducibility)")
 
     def params(self, name: str) -> dict:
         for model_name, pairs in self.entries:
@@ -321,7 +373,12 @@ def _build_models(raw) -> ModelsConfig:
         params = raw[name]
         if not isinstance(params, dict):
             raise ValueError(f"models.{name} must be a mapping, got {params!r}")
-        entries.append((name, tuple(sorted(params.items(), key=lambda kv: str(kv[0])))))
+        if name not in _MODEL_NAMES:
+            raise ValueError(f"unknown model {name!r}; allowed: {sorted(_MODEL_NAMES)}")
+        normalised = {
+            k: _normalise_param(name, k, v) if isinstance(k, str) else v for k, v in params.items()
+        }
+        entries.append((name, tuple(sorted(normalised.items(), key=lambda kv: str(kv[0])))))
     return ModelsConfig(entries=tuple(entries))
 
 

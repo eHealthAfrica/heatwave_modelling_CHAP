@@ -156,6 +156,14 @@ _BAD = [
     ("retrain_policy.operational_label", "tested"),
     ("models", {}), ("models.unknown_model", {"a": 1}),
     ("models.lightgbm.learning_rate", [0.1]), ("models.lightgbm.learning_rate", float("nan")),
+    ("models.lightgbm.num_leafs", 15), ("models.lightgbm.seed", 1),
+    ("models.lightgbm.n_jobs", 4), ("models.lightgbm.num_threads", 2),
+    ("models.lightgbm.random_state", 3), ("models.lightgbm.deterministic", False),
+    ("models.lightgbm.num_leaves", "15"), ("models.lightgbm.num_leaves", 15.5),
+    ("models.lightgbm.learning_rate", "fast"), ("models.lightgbm.learning_rate", "inf"),
+    ("models.lightgbm.subsample", True), ("models.logistic_regression.C", "big"),
+    ("models.logistic_regression.penalty", 2), ("models.logistic_regression.random_state", 1),
+    ("models.logistic_regression.n_jobs", 2),
     ("seed", -1), ("seed", True), ("seed", "42"),
     ("extra", 1), ("splits.foo", 1),
 ]
@@ -192,6 +200,29 @@ def test_safe_load_refuses_python_tag(tmp_path):
     p.write_text('x: !!python/object/apply:os.system ["echo pwned"]\n', encoding="utf-8")
     with pytest.raises(yaml.YAMLError):
         load_forecast_config(p)
+
+
+def test_deterministic_must_be_present(tmp_path):
+    d = _base()
+    _del(d, "models.lightgbm.deterministic")
+    p = tmp_path / "f.yaml"
+    p.write_text(yaml.safe_dump(d), encoding="utf-8")
+    with pytest.raises(ValueError, match="deterministic"):
+        load_forecast_config(p)
+
+
+def test_scientific_notation_strings_become_floats(tmp_path):
+    """WR-03: PyYAML (YAML 1.1) reads 1e-5 as a str; the loader must turn it into a float."""
+    text = FORECAST_CONFIG_PATH.read_text(encoding="utf-8")
+    assert yaml.safe_load("x: 1e-5")["x"] == "1e-5"  # the pitfall being guarded
+    p = tmp_path / "f.yaml"
+    p.write_text(text.replace("learning_rate: 0.05", "learning_rate: 5e-2", 1), encoding="utf-8")
+    cfg = load_forecast_config(p)
+    lr = cfg.models.params("lightgbm")["learning_rate"]
+    assert isinstance(lr, float) and lr == 0.05
+    assert config_hash(cfg) == config_hash(load_forecast_config())
+    p.write_text(text.replace("reg_lambda: 1.0", "reg_lambda: 1e-5", 1), encoding="utf-8")
+    assert load_forecast_config(p).models.params("lightgbm")["reg_lambda"] == 1e-5
 
 
 @pytest.mark.parametrize(
