@@ -1,7 +1,7 @@
 """Validated forecast settings loaded from the repo-root forecast.yaml (DATA-03).
 
 Frozen dataclasses in the style of ``heatwave.config.ClimatologyConfig``. The file is
-parsed with ``yaml.safe_load`` only. This module never imports ``heatwave.config``.
+parsed with a ``yaml.SafeLoader`` subclass only (safe_load semantics, duplicate keys rejected). This module never imports ``heatwave.config``.
 """
 from __future__ import annotations
 
@@ -29,6 +29,27 @@ _MODEL_NAMES = frozenset({"logistic_regression", "lightgbm"})
 _VERSION_RE = re.compile(r"^covariates-v\d+\.\d+$")
 _SUBDIR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 _SHA_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+class _UniqueKeySafeLoader(yaml.SafeLoader):
+    """``yaml.SafeLoader`` that raises on duplicate mapping keys (still safe: no python tags)."""
+
+    def construct_mapping(self, node, deep=False):
+        if isinstance(node, yaml.MappingNode):
+            seen = set()
+            for key_node, _value_node in node.value:
+                key = self.construct_object(key_node, deep=True)
+                try:
+                    hash(key)
+                except TypeError:
+                    continue  # super() raises the standard "unhashable key" error
+                if key in seen:
+                    raise yaml.constructor.ConstructorError(
+                        "while constructing a mapping", node.start_mark,
+                        f"found duplicate key {key!r}", key_node.start_mark,
+                    )
+                seen.add(key)
+        return super().construct_mapping(node, deep=deep)
 
 
 def _check_int(name: str, value, minimum: int | None = None) -> int:
@@ -309,7 +330,7 @@ _TOP_KEYS = [f.name for f in dataclasses.fields(ForecastConfig)]
 
 def load_forecast_config(path: Path = FORECAST_CONFIG_PATH) -> ForecastConfig:
     with open(path, "r", encoding="utf-8") as f:
-        raw = yaml.safe_load(f.read())
+        raw = yaml.load(f.read(), Loader=_UniqueKeySafeLoader)  # noqa: S506 (SafeLoader subclass)
     if not isinstance(raw, dict):
         raise ValueError(f"{path}: top level must be a mapping, got {type(raw).__name__}")
     for key in raw:

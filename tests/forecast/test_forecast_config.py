@@ -194,6 +194,21 @@ def test_safe_load_refuses_python_tag(tmp_path):
         load_forecast_config(p)
 
 
+@pytest.mark.parametrize(
+    "anchor, dup",
+    [("seed: 20261002", "seed: 1"), ("  threshold:", "  threshold: 0.5"), ("    num_leaves: 15", "    num_leaves: 31")],
+    ids=["top-level", "gate", "models"],
+)
+def test_duplicate_yaml_keys_rejected(tmp_path, anchor, dup):
+    """WR-04: a duplicated key must raise instead of silently keeping the last value."""
+    text = FORECAST_CONFIG_PATH.read_text(encoding="utf-8")
+    line = next(l for l in text.splitlines() if l.startswith(anchor))
+    p = tmp_path / "f.yaml"
+    p.write_text(text.replace(line, f"{line}{chr(10)}{dup}", 1), encoding="utf-8")
+    with pytest.raises(yaml.YAMLError, match="duplicate"):
+        load_forecast_config(p)
+
+
 def test_existing_config_untouched():
     import subprocess
 
