@@ -100,7 +100,8 @@ def test_git_info_unavailable(monkeypatch, behaviour):
 def test_library_versions():
     v = artifacts.library_versions()
     assert set(v) == set(artifacts.TRACKED_PACKAGES)
-    assert v["numpy"] == "2.3.3"
+    for pkg in ("numpy", "pandas", "pyarrow"):  # core deps must resolve; no hard-coded pins
+        assert v[pkg] == importlib.metadata.version(pkg)
 
 
 def test_library_versions_missing_package(monkeypatch):

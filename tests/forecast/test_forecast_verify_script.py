@@ -45,7 +45,13 @@ def flip_byte(path: Path):
 def test_full_ok(ds):
     code, out = run(ds)
     assert code == 0, out
-    assert "OK" in out
+    lines = out.splitlines()
+    ok = [l for l in lines if l.startswith("OK ")]
+    assert "OK covariate_table.parquet" in lines
+    assert "OK wards.geojson" in lines
+    m = json.loads(ds.manifest_path.read_text(encoding="utf-8"))
+    assert len(ok) >= len(m["outputs_sha256"]) + len(m["inputs_sha256"])
+    assert not [l for l in lines if l.split(" ", 1)[0] in {"MISMATCH", "MISSING", "BAD-KEY", "UNLISTED"}]
     last = out.strip().splitlines()[-1]
     assert last.startswith("verify_frozen:") and "0 mismatches" in last
 

@@ -103,11 +103,11 @@ def test_synthetic_manifest_and_inputs(ds):
 
 
 def test_synthetic_rows_shuffled_within_week(ds):
-    first = ds.frame[ds.frame.time_period == ds.labels[0]].location.tolist()
-    assert first != sorted(first) or ds.frame[ds.frame.time_period == ds.labels[1]].location.tolist() != sorted(first)
-    assert any(
+    unsorted_weeks = sum(
         ds.frame[ds.frame.time_period == lab].location.tolist() != sorted(ds.wards) for lab in ds.labels
     )
+    # 6 wards -> a random order is sorted with p=1/720; nearly every week must be shuffled
+    assert unsorted_weeks > len(ds.labels) * 0.9
 
 
 def test_synthetic_deterministic(tmp_path):
@@ -358,5 +358,28 @@ def test_verify_returns_triplet(ds):
 
 
 def test_data_module_never_writes():
-    src = Path(fdata.__file__).read_text()
-    assert "chmod" not in src
+    """AST scan: no write-mode open(), no write/chmod/delete helpers called in data.py."""
+    import ast
+
+    tree = ast.parse(Path(fdata.__file__).read_text(encoding="utf-8"))
+    forbidden_attrs = {
+        "write_bytes", "write_text", "chmod", "unlink", "remove", "rename", "replace",
+        "rmtree", "to_parquet", "write_table", "to_csv", "touch", "mkdir", "truncate",
+    }
+    offenders = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        func = node.func
+        if isinstance(func, ast.Attribute) and func.attr in forbidden_attrs:
+            offenders.append(f"line {node.lineno}: .{func.attr}()")
+        if isinstance(func, ast.Name) and func.id == "open":
+            mode = None
+            if len(node.args) > 1 and isinstance(node.args[1], ast.Constant):
+                mode = node.args[1].value
+            for kw in node.keywords:
+                if kw.arg == "mode" and isinstance(kw.value, ast.Constant):
+                    mode = kw.value.value
+            if mode != "rb":
+                offenders.append(f"line {node.lineno}: open(mode={mode!r})")
+    assert not offenders, offenders
