@@ -18,3 +18,17 @@ def frozen_panel(forecast_cfg):
     if not ((d / "covariate_table.parquet").exists() and (d / "MANIFEST.json").exists()):
         pytest.skip(f"frozen {forecast_cfg.data.version} data not found at {d}")
     return load_panel(forecast_cfg.data)
+
+
+@pytest.fixture(scope="session")
+def frozen_static(forecast_cfg, frozen_panel):
+    from heatwave.forecast.static import load_static
+
+    return load_static(forecast_cfg.data, frozen_panel.wards)
+
+
+@pytest.fixture(scope="session")
+def frozen_clim(forecast_cfg, frozen_panel):
+    from heatwave.forecast.climatology import Climatology
+
+    return Climatology.fit(frozen_panel, forecast_cfg.splits.train_end)
