@@ -18,14 +18,14 @@ key-files:
 key-decisions:
   - "README names shap 0.52.0 (08-01 shap fallback was not used)"
 requirements-completed: []
-status: partial - Task 3 (push + CI green) pending user checkpoint; DATA-05 stays in progress
+status: complete
 duration: ~30min
 completed: 2026-10-05
 ---
 
 # Phase 8 Plan 07: Isolation, CI 3.12, Regression Summary
 
-The forecast package is proven free of Earth Engine imports at runtime and statically, CI is moved to Python 3.12, and all local suites are green. CI confirmation on GitHub is pending the user checkpoint (Task 3).
+The forecast package is proven free of Earth Engine imports at runtime and statically, CI is moved to Python 3.12, and all local suites are green. CI on GitHub is green on Python 3.12 (Task 3, confirmed 2026-10-06).
 
 ## Tasks
 
@@ -33,7 +33,7 @@ The forecast package is proven free of Earth Engine imports at runtime and stati
 |------|------|--------|--------|
 | 1 | Isolation tests, CI 3.12, README | done | 6513b55 |
 | 2 | Full local regression | done (verification only) | none |
-| 3 | Push and confirm CI green | PENDING user checkpoint | n/a |
+| 3 | Push and confirm CI green | Done: user approved push and PR #11 (2026-10-06) | n/a |
 
 ## Local results
 
@@ -48,15 +48,14 @@ The forecast package is proven free of Earth Engine imports at runtime and stati
 
 None - plan executed as written.
 
-## Pending: Task 3 (checkpoint:human-verify)
+## Task 3 (checkpoint:human-verify): done 2026-10-06
 
-User must approve pushing branch `milestone/v2.0-heat-forecasting` to origin, then confirm the "Tests" workflow is green on Python 3.12. If lightgbm fails with a libgomp error, add the `libgomp1` apt step. DATA-05 completes only after the user confirms green CI. CI run URL: pending.
+The user asked to push the branch and open a PR. The branch `milestone/v2.0-heat-forecasting` was pushed, and PR #11 was opened: https://github.com/eHealthAfrica/heatwave_modelling_CHAP/pull/11
 
-## Known Stubs
-None.
+CI "Tests" ran green twice, for the push and for the PR:
+- https://github.com/eHealthAfrica/heatwave_modelling_CHAP/actions/runs/37394258768
+- https://github.com/eHealthAfrica/heatwave_modelling_CHAP/actions/runs/37394228123
 
-## Threat Flags
-None.
+The runs used Python 3.12.14 with scikit-learn 1.9.1, lightgbm 4.7.0 and shap 0.52.0 installed, and no libgomp step was needed. Result: **288 passed, 72 skipped**. The skips are the 8 `frozen` tests (no real data on the runner) plus the credential-gated live Earth Engine tests (no `EE_SA_JSON` secret), the same pattern as before Phase 8.
 
-## Self-Check: PASSED
-Isolation test file, edited workflow and README exist; commit 6513b55 exists.
+DATA-05 is complete.

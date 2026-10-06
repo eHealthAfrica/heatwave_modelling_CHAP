@@ -16,7 +16,7 @@
 - [x] **DATA-02**: Analyst can convert between ISO week labels, an integer week index and `week_start` dates. All time arithmetic uses the index or dates, never label strings, and stays correct across 53-week ISO years (1992, 1998, 2004, 2009, 2015, 2020, 2026).
 - [x] **DATA-03**: Analyst can set all forecast settings (split years, leads, latency, baselines, model hyperparameters, gate thresholds, retrain policy) in a validated `forecast.yaml`, without changing `config.yaml` or the existing config tests.
 - [x] **DATA-04**: Each training or evaluation run writes a run folder outside the repo. It holds a config snapshot, the data hash, git commit, library versions and random seed, so any result can be reproduced.
-- [ ] **DATA-05**: The forecast package installs alongside the existing code (scikit-learn, LightGBM, shap), never imports Earth Engine modules, and passes CI on Python 3.12 together with the existing 166 tests.
+- [x] **DATA-05**: The forecast package installs alongside the existing code (scikit-learn, LightGBM, shap), never imports Earth Engine modules, and passes CI on Python 3.12 together with the existing 166 tests.
 
 ### Features, targets and splits (FEAT)
 
@@ -128,7 +128,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-02 | Phase 8 | Complete |
 | DATA-03 | Phase 8 | Complete |
 | DATA-04 | Phase 8 | Complete |
-| DATA-05 | Phase 8 | In progress (deps done in 08-01; CI 3.12 + isolation in 08-07) |
+| DATA-05 | Phase 8 | Complete |
 | FEAT-01 | Phase 9 | Pending |
 | FEAT-02 | Phase 9 | Pending |
 | FEAT-03 | Phase 9 | Pending |
