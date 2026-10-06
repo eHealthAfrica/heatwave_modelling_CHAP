@@ -98,7 +98,34 @@ Plans:
   4. Splits by target week with an embargo (train 1991-2014, validate 2015-2020, test 2021-2026) and expanding-window CV folds use `week_start` cutoffs.
   5. A pre-model report shows `heatwave_week` prevalence by year, region and era, and the measured ERA5-Land latency.
 
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+**Wave 1**
+
+- [ ] 09-01-PLAN.md — Wave 0: cv_first_year + embargo 14 config, synthetic panel/static fixtures, session real-panel fixture
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [ ] 09-02-PLAN.md — Hash-verified static ward table; train-only climatology (W53 pooling, std floor, fit range)
+- [ ] 09-03-PLAN.md — Lead 1-6 heatwave_week labels with timing fields; target-week splits, embargo, 16 CV folds
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [ ] 09-04-PLAN.md — Feature registry (max_lookahead guard) and all as-of feature families
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [ ] 09-05-PLAN.md — Issue/lead row tables, warm-up, per-fold climatology refit, out-of-repo cache
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 09-06-PLAN.md — Leakage suite (a)-(g) with mutation checks, synthetic + @frozen
+- [ ] 09-07-PLAN.md — Pre-model data report (prevalence, effective days, delay note) + docs/forecast/DATA_REPORT.md
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [ ] 09-08-PLAN.md — Phase gate: full + frozen suites, validation sign-off, user-approved push and CI
 
 ### Phase 10: Baselines, Evaluation Harness and Test Lock
 

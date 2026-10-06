@@ -30,28 +30,46 @@ created: 2026-10-06
 - **After every task commit:** run the quick run command.
 - **After every plan wave:** run the full suite command.
 - **Before `/gsd:verify-work`:** the full suite and the frozen command are green, and CI is green.
-- **Max feedback latency:** 60 seconds.
+- **Max feedback latency:** 60 seconds, for the quick `-m "not frozen"` suite only. Frozen (`-m frozen`) runs are local only: once per plan, for the tasks that have a @frozen test, and in full at the 09-08 gate. They are not bound by the 60 s limit (the session panel load alone takes about 20 s).
 
 ---
 
 ## Per-Task Verification Map
 
-To be filled in by the planner: one row per task.
+One row per task (filled by the planner, 2026-10-06). Wave 0 = plan 09-01 (fixtures + config); every later task has its own automated test.
 
 | Task ID | Plan | Wave | Requirement | Threat Ref | Secure Behavior | Test Type | Automated Command | File Exists | Status |
 |---------|------|------|-------------|------------|-----------------|-----------|-------------------|-------------|--------|
-| 9-xx | — | — | FEAT-01 | T-9-01 | label_k[:, t] == (heatwave_days[:, t+k] >= 3); rows past the end of the data are masked; the label differs from `heatwave_event_count`; an independent date-join check agrees | unit (synthetic) | `pytest tests/forecast/test_forecast_targets.py -q` | ❌ W0 | ⬜ pending |
-| 9-xx | — | — | FEAT-02 | N/A | issue_date = Sunday of t + latency_days (0); effective_days_ahead = 7k − 6 − latency gives +1, +8, +15, +22, +29, +36 at latency 0; correct across year-end and W53 boundaries | unit | same file | ❌ W0 | ⬜ pending |
-| 9-xx | — | — | FEAT-03 | T-9-01 | each feature family matches hand-computed values on a tiny panel; anomalies are zero-mean on train; W53 pooling; the base rate excludes current-year weeks; group means; warm-up NaN counts; no raw year or ward id in the registry | unit | `test_forecast_features.py`, `test_forecast_climatology.py`, `test_forecast_static.py` | ❌ W0 | ⬜ pending |
-| 9-xx | — | — | FEAT-04 | T-9-01, T-9-02 | (a) truncation, (b) poison the future, (c) train-only statistics, (d) registry, (e) mutation check, on synthetic data; a `@frozen` variant of (a) and (b) on ~10 origins × a 200-ward subset of the real panel | unit + `@frozen` | `test_forecast_leakage.py` | ❌ W0 | ⬜ pending |
-| 9-xx | — | — | FEAT-05 | T-9-02 | (f) no overlap between splits; embargo 14 respected; cutoffs on Mondays; 2020-W53 in validate; CV folds 2005-2020 with max(train target) < min(validate target) − embargo, refitting the per-fold climatology; test rows labelled; `cv_first_year` validation | unit | `test_forecast_splits.py`, `test_forecast_config.py` | ❌ W0 / modify | ⬜ pending |
-| 9-xx | — | — | FEAT-06 | N/A | the report builder returns its tables from a synthetic panel; caption present; the operational-delay note (9 days, measured 2026-10-06) is shown; the script on `@frozen` writes a run folder and `docs/forecast/DATA_REPORT.md`; overall real prevalence is within 0.10-0.13 | unit + `@frozen` | `test_forecast_report.py` | ❌ W0 | ⬜ pending |
+| 9-01-01 | 09-01 | 1 | FEAT-05 | T-9-02 | cv_first_year 2005 validated (int, train start < Y <= validate end); embargo_weeks 14; 5 rejection cases | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_config.py -q` | modify | ⬜ pending |
+| 9-01-02 | 09-01 | 1 | FEAT-04 | T-9-04, T-9-07 | synthetic_panel (1991-W02..2003-W20, W53 1992/1998), truncate/poison/subset return new Panels; static fixture hashes match MANIFEST; session frozen_panel | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_fixtures.py tests/forecast/test_forecast_data.py tests/forecast/test_forecast_verify_script.py -q` | ❌ W0 | ⬜ pending |
+| 9-02-01 | 09-02 | 2 | FEAT-03 | T-9-03, T-9-04 | static table from hash-verified geojson + LGA-average csv; 6 empty geometries take LGA-union centroid; 6 wards flagged; @frozen 4841 wards, geozones NWZ 2004 / NCZ 1518 / NEZ 1319 | unit + @frozen | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_static.py -q -m "not frozen"` (frozen: same file with `-m frozen`, local) | ❌ W0 | ⬜ pending |
+| 9-02-02 | 09-02 | 2 | FEAT-03, FEAT-04 | T-9-02 | climatology fit only on week_start < end; W53 pools with W52 and W01; std floor 0.1 x median; bit-identical under poisoned held-out weeks; @frozen fit range 1991-W02..2014-W52 (1251 weeks) | unit + @frozen | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_climatology.py -q` | ❌ W0 | ⬜ pending |
+| 9-03-01 | 09-03 | 2 | FEAT-01, FEAT-02 | T-9-01 | label_k[:, t] == heatwave_days[:, t+k] >= 3 (independent date join); tail masked; label differs from heatwave_event_count; effective days +1/+8/+15/+22/+29/+36 at latency 0 (and -8..27 at 9); W53/year-end boundaries; @frozen 2026-W38 -> 2026-W39 | unit + @frozen | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_targets.py -q` | ❌ W0 | ⬜ pending |
+| 9-03-02 | 09-03 | 2 | FEAT-05 | T-9-02 | assign by target week start; 2020-W53 validate; embargo 14 = max(leads)+8, last train target 2014-W38; 16 CV folds 2005-2020 with max(train) < min(validate) - embargo; index-only (no data values) | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_splits.py -q` | ❌ W0 | ⬜ pending |
+| 9-04-01 | 09-04 | 3 | FEAT-03, FEAT-04 | T-9-01 | registry rejects max_lookahead != 0 and duplicates; FORBIDDEN_NAME_PATTERN rejects ward_id/wardcode/location/year but accepts lga_average_ward; lag/trailing windows full-window-or-NaN hand-checked; recent-heat (35) and land/humidity (6) families | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_registry.py tests/forecast/test_forecast_features.py -q -m "not frozen"` | ❌ W0 | ⬜ pending |
+| 9-04-02 | 09-04 | 3 | FEAT-03 | T-9-01, T-9-07 | 10-year base rate vectorised over t, using prior-year anchors only (first valid 1994-W04 = position 159; matches an independent reference; W53 anchors fall back to W52); LGA/state same-week means | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_features.py -q -m "not frozen"` | ❌ W0 | ⬜ pending |
+| 9-04-03 | 09-04 | 3 | FEAT-03, FEAT-04 | T-9-01, T-9-02, T-9-07 | static (incl. lga_average_ward, accepted by FORBIDDEN_NAME_PATTERN) and season (target-week doy/365.25) features; 58 specs; never refits the climatology; @frozen full build float32, no NaN after position 159 | unit + @frozen | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_features.py tests/forecast/test_forecast_registry.py -q -m "not frozen"` (frozen: features file with `-m frozen`, local) | ❌ W0 | ⬜ pending |
+| 9-05-01 | 09-05 | 4 | FEAT-01, FEAT-02, FEAT-05 | T-9-01, T-9-02 | lead rows carry all timing fields, label and split; embargo and warm-up applied; issue table has one row per (ward, origin) with 6 lead label columns; store fitted on the wrong range rejected | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_dataset.py -q` | ❌ W0 | ⬜ pending |
+| 9-05-02 | 09-05 | 4 | FEAT-05, FEAT-03 | T-9-02, T-9-04, T-9-08 | per-fold climatology refit (fit_end = fold year start) unchanged by fold validation values; cache under <local_data_dir>/forecast_cache/<sha8>/<cfg8> only, refuses repo/frozen paths, meta mismatch = miss, allow_pickle=False | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_dataset.py -q` | ❌ W0 | ⬜ pending |
+| 9-06-01 | 09-06 | 5 | FEAT-04, FEAT-05, FEAT-01 | T-9-01, T-9-02 | (a) truncation, (b) poison (garbage + NaN), (c) train-only stats incl. folds, (d) registry, (e) mutation: lead shift / centred / full-mean / past-end climatology all caught, (f) split + fold integrity, (g) target alignment | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_leakage.py -q` | ❌ W0 | ⬜ pending |
+| 9-06-02 | 09-06 | 5 | FEAT-04 | T-9-01, T-9-02, T-9-07 | @frozen (a)/(b) on a 200-ward subset x ~10 origins (incl. 2014-W52, 2020-W53, 2026-W38); real climatology train-only; real split cutoffs and label alignment | @frozen | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_leakage_frozen.py -q -m frozen` | ❌ W0 | ⬜ pending |
+| 9-07-01 | 09-07 | 5 | FEAT-06, FEAT-02 | T-9-09 | prevalence by year (partial flagged), region (geozone + far north / central / middle belt), era, split; effective-days table; row counts per lead x split; caption twice; operational-delay note (about 9 days, 2026-10-06); no 'accuracy' | unit | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_report.py -q -m "not frozen"` | ❌ W0 | ⬜ pending |
+| 9-07-02 | 09-07 | 5 | FEAT-06 | T-9-04, T-9-05 | script writes run folder (manifest completed, 6 CSVs, markdown) and docs/forecast/DATA_REPORT.md; refuses frozen/outputs/keys/non-.md paths; no ee import; @frozen overall prevalence 10-13%, eras within 1 pp of 6.6/11.2/11.6/21.5 | subprocess + @frozen | `.venv/Scripts/python.exe -m pytest tests/forecast/test_forecast_report.py -q` | ❌ W0 | ⬜ pending |
+| 9-08-01 | 09-08 | 6 | FEAT-01..06 | T-9-01, T-9-02, T-9-04 | full suite + frozen suite green; isolation test; no outputs/keys/cache/run paths tracked; verify_frozen --outputs-only 0 mismatches | regression | `.venv/Scripts/python.exe -m pytest tests/test_config.py tests/test_requirements.py tests/test_local_pipeline.py tests/forecast -q` | ✅ | ⬜ pending |
+| 9-08-02 | 09-08 | 6 | FEAT-01..06 | T-9-05, T-9-10 | CI green on the branch after user-approved push | manual checkpoint | `gh run list --branch gsd/phase-09-features --limit 1` | N/A | ⬜ pending |
 
 *Status: ⬜ pending · ✅ green · ❌ red · ⚠️ flaky*
 
 **Threat refs:**
 - T-9-01: target or future information leaking into features (silent optimism).
 - T-9-02: held-out (validation or test) data influencing training statistics or split membership.
+- T-9-03: tampered ward metadata (wards.geojson / wards_lga_average.csv) parsed without a MANIFEST hash check.
+- T-9-04: writes into the frozen folder, outputs/ or keys/, or cache/run folders inside the repo.
+- T-9-05: credential disclosure (no Earth Engine use in this phase; explicit staging; push only on approval).
+- T-9-07: memory exhaustion on the real panel (float32, family-by-family, session-scoped load).
+- T-9-08: stale or crafted feature cache served as features.
+- T-9-09: report misread (label definition, reanalysis caveat, regime shift).
+- T-9-10: compromised GitHub credentials (use `gh auth login --web`).
 
 ---
 
