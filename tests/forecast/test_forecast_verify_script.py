@@ -119,6 +119,32 @@ def test_escaping_key_is_bad_key(ds, tmp_path):
     assert "BAD-KEY" in out
 
 
+def _edit_manifest(ds, fn):
+    m = json.loads(ds.manifest_path.read_text(encoding="utf-8"))
+    fn(m)
+    ds.manifest_path.write_text(json.dumps(m), encoding="utf-8")
+
+
+@pytest.mark.parametrize("kind", ["traversal", "absolute"])
+def test_escaping_output_key_is_bad_key(ds, tmp_path, kind):
+    """CR-03: outputs_sha256 keys get the same containment as inputs_sha256 keys."""
+    outside = tmp_path / "outside.bin"
+    outside.write_bytes(b"x")
+    key = "../../outside.bin" if kind == "traversal" else str(outside)
+    digest = hashlib.sha256(b"x").hexdigest()
+    _edit_manifest(ds, lambda m: m["outputs_sha256"].__setitem__(key, digest))
+    code, out = run(ds, "--outputs-only")
+    assert code == 1, out
+    assert "BAD-KEY" in out
+    assert f"OK {key}" not in out
+
+
+def test_non_string_output_hash_is_bad_key(ds):
+    _edit_manifest(ds, lambda m: m["outputs_sha256"].__setitem__("extra.bin", 123))
+    code, out = run(ds, "--outputs-only")
+    assert code == 1 and "BAD-KEY" in out and "Traceback" not in out
+
+
 def _digest_tree(root: Path):
     return {
         p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()

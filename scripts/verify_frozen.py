@@ -53,6 +53,19 @@ class _Tally:
             self.unlisted += 1
 
 
+def _contained(base: Path, key) -> Path | None:
+    """Resolve ``key`` under ``base``; None if it is malformed or escapes ``base``."""
+    if not isinstance(key, str) or not key:
+        return None
+    try:
+        target = (base / key).resolve()
+    except (ValueError, OSError, TypeError):
+        return None
+    if target != base and base not in target.parents:
+        return None
+    return target
+
+
 def _check_hash(tally: _Tally, path: Path, want: str, label: str) -> None:
     tally.checked += 1
     if not path.is_file():
@@ -100,8 +113,11 @@ def main(argv: list[str] | None = None) -> int:
     tally = _Tally()
 
     # (a) outputs, (b) forecast.yaml anchor
-    for name, want in sorted(outputs.items()):
-        path = dataset_dir / name
+    for name, want in sorted(outputs.items(), key=lambda kv: str(kv[0])):
+        path = _contained(dataset_dir, name)
+        if path is None or not isinstance(want, str):
+            tally.report("BAD-KEY", str(name))
+            continue
         _check_hash(tally, path, want, name)
         _note_writable(path)
     if PARQUET_NAME in outputs and outputs[PARQUET_NAME] != data_cfg.expected_parquet_sha256:
@@ -115,10 +131,10 @@ def main(argv: list[str] | None = None) -> int:
     if not args.outputs_only:
         root_resolved = data_root
         # (c) every inputs_sha256 key
-        for i, (key, want) in enumerate(sorted(inputs.items()), 1):
-            target = (data_root / key).resolve()
-            if target != root_resolved and root_resolved not in target.parents:
-                tally.report("BAD-KEY", key)
+        for i, (key, want) in enumerate(sorted(inputs.items(), key=lambda kv: str(kv[0])), 1):
+            target = _contained(root_resolved, key)
+            if target is None or not isinstance(want, str):
+                tally.report("BAD-KEY", str(key))
                 continue
             _check_hash(tally, target, want, key)
             if i % 50 == 0:
