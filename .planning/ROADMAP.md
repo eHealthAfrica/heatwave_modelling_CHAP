@@ -116,7 +116,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 09-05-PLAN.md — Issue/lead row tables, warm-up, per-fold climatology refit, out-of-repo cache
+- [x] 09-05-PLAN.md — Issue/lead row tables, warm-up, per-fold climatology refit, out-of-repo cache
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
