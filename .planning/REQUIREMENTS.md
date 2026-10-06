@@ -20,9 +20,9 @@
 
 ### Features, targets and splits (FEAT)
 
-- [ ] **FEAT-01**: Analyst can build the `heatwave_week` target for each lead 1-6, aligned to the exact target week.
-- [ ] **FEAT-02**: Every training and forecast row carries `last_obs_week`, `issue_date` (end of the last observed week + the configured `latency_days`, which is 0 under the "last observed day is now" framing), `target_week`, `lead_weeks` and `effective_days_ahead`.
-- [ ] **FEAT-03**: Analyst can build as-of features from data up to the last observed week only. They cover:
+- [x] **FEAT-01**: Analyst can build the `heatwave_week` target for each lead 1-6, aligned to the exact target week.
+- [x] **FEAT-02**: Every training and forecast row carries `last_obs_week`, `issue_date` (end of the last observed week + the configured `latency_days`, which is 0 under the "last observed day is now" framing), `target_week`, `lead_weeks` and `effective_days_ahead`.
+- [x] **FEAT-03**: Analyst can build as-of features from data up to the last observed week only. They cover:
   - lags and rolling means of the Heat Index anomaly, hot days, hot nights, humidity, rainfall and soil moisture;
   - season;
   - trend and base-rate level features, such as trailing hot-day fraction and trailing 10-year base rate (no raw year index);
@@ -30,7 +30,7 @@
 
   Every fitted statistic (climatology, standardisation) uses training years only and records its fit range.
 - [x] **FEAT-04**: An automated leakage suite proves features at week *t* don't change when the panel is truncated at *t* or future weeks are overwritten. It also proves fitted statistics don't change when validation/test data changes, and that every registered feature declares `max_lookahead = 0`. The suite fails when a leak is deliberately injected.
-- [ ] **FEAT-05**: Analyst can split by target week with an embargo (train 1991-2014, validate 2015-2020, test 2021-2026) and generate expanding-window CV folds, with cutoffs defined by `week_start` dates.
+- [x] **FEAT-05**: Analyst can split by target week with an embargo (train 1991-2014, validate 2015-2020, test 2021-2026) and generate expanding-window CV folds, with cutoffs defined by `week_start` dates.
 - [x] **FEAT-06**: Analyst can see `heatwave_week` prevalence by year, region and era, and the measured real-world ERA5-Land delay (as an operational note), before any model is trained.
 
 ### Baselines and evaluation harness (EVAL)
@@ -129,11 +129,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | DATA-03 | Phase 8 | Complete |
 | DATA-04 | Phase 8 | Complete |
 | DATA-05 | Phase 8 | Complete |
-| FEAT-01 | Phase 9 | Pending |
-| FEAT-02 | Phase 9 | Pending |
-| FEAT-03 | Phase 9 | Pending |
+| FEAT-01 | Phase 9 | Complete |
+| FEAT-02 | Phase 9 | Complete |
+| FEAT-03 | Phase 9 | Complete |
 | FEAT-04 | Phase 9 | Complete |
-| FEAT-05 | Phase 9 | Pending |
+| FEAT-05 | Phase 9 | Complete |
 | FEAT-06 | Phase 9 | Complete |
 | EVAL-01 | Phase 10 | Pending |
 | EVAL-02 | Phase 10 | Pending |
