@@ -30,6 +30,9 @@ findings:
   info: 6
   total: 20
 status: issues_found
+fix_status: all_critical_and_warning_fixed (see 08-REVIEW-FIX.md)
+fixed: 14
+not_fixed: 6 (Info, out of scope; IN-02 fixed incidentally)
 ---
 
 # Phase 8: Code Review Report
@@ -207,6 +210,27 @@ Also require `isinstance(name, str)` and `isinstance(want, str)`.
 **File:** `tests/conftest.py:30-35`
 **Issue:** There is no signal in CI or locally that the real-data tests (`test_forecast_frozen.py`) never ran. If the data dir moves, the integration suite reports green with all tests skipped. `"frozen" in item.keywords` also matches any test or node literally named "frozen".
 **Fix:** Print a loud summary (`pytest_report_header`) of skipped frozen tests. Optionally add an env var (for example `REQUIRE_FROZEN=1`) that turns the skip into a failure.
+
+## Fix status
+
+| Finding | Status | Commit |
+|---|---|---|
+| CR-01 | fixed | 607bbb0 |
+| CR-02 | fixed | 62f7020 |
+| CR-03 | fixed | 2131cee |
+| WR-01 | fixed | 1931aff |
+| WR-02 | fixed | 66a1274 |
+| WR-03 | fixed | e159dd8 |
+| WR-04 | fixed | 07fc686 |
+| WR-05 | fixed | bdeb800 |
+| WR-06 | fixed | d5f4605 |
+| WR-07 | fixed | 8a676c2 |
+| WR-08 | fixed | c7bd656 |
+| WR-09 | fixed | 0580c58 |
+| WR-10 | fixed | 2465f74 |
+| WR-11 | fixed | 272def3 |
+| IN-01, IN-03..IN-06 | not fixed (Info, out of scope) | - |
+| IN-02 | fixed incidentally with WR-03 | e159dd8 |
 
 ---
 
