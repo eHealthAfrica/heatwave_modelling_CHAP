@@ -120,7 +120,7 @@ Plans:
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
-- [ ] 09-06-PLAN.md — Leakage suite (a)-(g) with mutation checks, synthetic + @frozen
+- [x] 09-06-PLAN.md — Leakage suite (a)-(g) with mutation checks, synthetic + @frozen
 - [ ] 09-07-PLAN.md — Pre-model data report (prevalence, effective days, delay note) + docs/forecast/DATA_REPORT.md
 
 **Wave 6** *(blocked on Wave 5 completion)*
