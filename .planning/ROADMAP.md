@@ -108,7 +108,7 @@ Plans:
 **Wave 2** *(blocked on Wave 1 completion)*
 
 - [x] 09-02-PLAN.md — Hash-verified static ward table; train-only climatology (W53 pooling, std floor, fit range)
-- [ ] 09-03-PLAN.md — Lead 1-6 heatwave_week labels with timing fields; target-week splits, embargo, 16 CV folds
+- [x] 09-03-PLAN.md — Lead 1-6 heatwave_week labels with timing fields; target-week splits, embargo, 16 CV folds
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
