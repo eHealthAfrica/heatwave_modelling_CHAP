@@ -176,6 +176,24 @@ def test_unreadable_file_is_reported_not_fatal(ds, monkeypatch, capsys):
     assert "UNREADABLE" in out
 
 
+@pytest.mark.parametrize("mode", ["missing", "empty", "not-a-dict"])
+def test_full_requires_inputs_section(ds, mode):
+    """WR-02: a full verify that checked zero inputs must not pass."""
+
+    def edit(m):
+        if mode == "missing":
+            del m["inputs_sha256"]
+        else:
+            m["inputs_sha256"] = {} if mode == "empty" else ["x"]
+
+    _edit_manifest(ds, edit)
+    code, out = run(ds)
+    assert code == 2, out
+    if mode != "not-a-dict":
+        code, out = run(ds, "--outputs-only")  # outputs-only never needs inputs
+        assert code == 0, out
+
+
 def _digest_tree(root: Path):
     return {
         p.relative_to(root).as_posix(): hashlib.sha256(p.read_bytes()).hexdigest()

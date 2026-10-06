@@ -114,6 +114,11 @@ def main(argv: list[str] | None = None) -> int:
         inputs = manifest.get("inputs_sha256", {})
         if not isinstance(outputs, dict) or not isinstance(inputs, dict):
             raise FrozenDataError("MANIFEST sha256 sections must be objects")
+        if not args.outputs_only and not inputs:
+            raise FrozenDataError(
+                "MANIFEST inputs_sha256 is missing or empty: a full verification would check "
+                "0 inputs (use --outputs-only to skip inputs deliberately)"
+            )
     except (ValueError, FrozenDataError, KeyError, OSError) as exc:
         print(f"verify_frozen: error: {exc}", file=sys.stderr)
         return 2
