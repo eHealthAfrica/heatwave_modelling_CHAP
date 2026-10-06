@@ -213,10 +213,17 @@ def load_panel(data_cfg: DataConfig, data_root=None) -> Panel:
     week_pos = idx - lo
     values = np.full((n, w, v), np.nan, dtype=np.float32)
     for k, name in enumerate(VARIABLES):
-        values[ward_pos, week_pos, k] = df[name].to_numpy(dtype=np.float32)
+        source = df[name].to_numpy()
+        if not np.isfinite(source).all():
+            raise FrozenDataError(f"non-finite value (inf/NaN) in frozen column {name!r}")
+        with np.errstate(over="ignore"):
+            cast = source.astype(np.float32)
+        if not np.isfinite(cast).all():
+            raise FrozenDataError(f"float32 overflow casting frozen column {name!r}")
+        values[ward_pos, week_pos, k] = cast
     seen = np.zeros((n, w), dtype=bool)
     seen[ward_pos, week_pos] = True
-    if not seen.all() or np.isnan(values).sum() != 0:
+    if not seen.all() or not np.isfinite(values).all():
         raise FrozenDataError("duplicate or missing cell in (ward, week) grid")
     del df
     week_start = np.array(

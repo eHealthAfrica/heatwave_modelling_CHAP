@@ -293,6 +293,20 @@ def test_duplicate_cell_refused(ds):
         load_panel(_dcfg(sha), data_root=ds.data_root)
 
 
+@pytest.mark.parametrize(
+    "bad, match",
+    [(float("inf"), "non-finite"), (float("-inf"), "non-finite"), (1e39, "overflow")],
+    ids=["inf", "-inf", "float32-overflow"],
+)
+def test_non_finite_values_refused(ds, bad, match):
+    """CR-02: inf and values that overflow float32 never reach the Panel."""
+    frame = ds.frame.copy()
+    frame.loc[3, "total_precipitation_mm"] = bad
+    sha = _rewrite(ds, frame, arrow_schema())
+    with pytest.raises(FrozenDataError, match=match):
+        load_panel(_dcfg(sha), data_root=ds.data_root)
+
+
 def test_live_and_foreign_paths_refused(ds):
     cfg = _dcfg(ds.sha256)
     for bad in (
