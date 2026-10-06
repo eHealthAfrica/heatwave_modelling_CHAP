@@ -287,7 +287,9 @@ No external method changes; numpy 2.x `sliding_window_view` is stable (added num
 | A5 | Geographic-degree centroids acceptable | Static | negligible |
 | A6 | latency_days = 9 from a single measurement | Latency | issue_date/effective days shift by 1 |
 
-## Open Questions
+## Open Questions (RESOLVED)
+
+All questions below are resolved in `09-CONTEXT.md` ("Target and timing" Framing, and "Resolved after phase research", 2026-10-06). In particular, the effective-days-ahead discrepancy is resolved by the user's latency-0 framing and gate leads [1, 2].
 
 1. **Effective-days-ahead numbers conflict with the formula.**
    - Known: CONTEXT states "latency 8: lead 1 -2, lead 2 +5". Stated formula (`target_week_start - issue_date`, issue = Sunday of week t + latency) gives lead1 = -7, lead2 = 0, lead3 = +7 (latency 9: -8, -1, +6). 
