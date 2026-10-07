@@ -15,6 +15,8 @@ from heatwave.forecast.fixtures import build_synthetic_frozen
 REPO = Path(__file__).resolve().parents[2]
 SCRIPT = REPO / "scripts" / "verify_frozen.py"
 
+pytestmark = pytest.mark.slow  # every test spawns scripts/verify_frozen.py
+
 
 def run(ds, *extra, expected=None, root=None):
     cmd = [

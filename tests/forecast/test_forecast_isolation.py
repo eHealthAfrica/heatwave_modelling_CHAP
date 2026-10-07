@@ -4,6 +4,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import pytest
+
 REPO = Path(__file__).resolve().parents[2]
 FORBIDDEN_ROOTS = {"ee", "geemap"}
 
@@ -57,6 +59,7 @@ def scan_file(path: Path, in_forecast_pkg: bool = False):
     return bad
 
 
+@pytest.mark.slow  # fresh interpreter subprocess
 def test_forecast_package_never_imports_earth_engine():
     code = """
 import importlib, pkgutil, sys

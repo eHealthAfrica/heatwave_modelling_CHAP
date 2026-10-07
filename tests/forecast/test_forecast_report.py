@@ -128,6 +128,7 @@ def synth(tmp_path):
     return add_synthetic_static(build_synthetic_frozen(tmp_path / "data", last_week="2021-W20"))
 
 
+@pytest.mark.slow
 def test_script_synthetic(synth, tmp_path):
     docs = tmp_path / "out" / "DATA_REPORT.md"
     code, out = _run(
@@ -153,6 +154,7 @@ def test_script_synthetic(synth, tmp_path):
     assert '"status": "completed"' in manifest and '"pin_override"' in manifest
 
 
+@pytest.mark.slow
 @pytest.mark.parametrize("where", ["frozen", "outputs", "keys", "notmd"])
 def test_script_refuses_bad_docs_out(synth, tmp_path, where):
     target = {
@@ -169,6 +171,7 @@ def test_script_refuses_bad_docs_out(synth, tmp_path, where):
     assert not target.exists()
 
 
+@pytest.mark.slow
 def test_script_docs_out_restricted_to_docs_dir(synth, tmp_path):
     base = ("--data-root", synth.data_root, "--runs-root", tmp_path / "runs",
             "--expected-parquet-sha256", synth.sha256)
@@ -196,6 +199,7 @@ def test_script_docs_out_restricted_to_docs_dir(synth, tmp_path):
         d.rmdir()
 
 
+@pytest.mark.slow
 def test_script_refuses_in_repo_runs_root(synth, tmp_path):
     code, out = _run(
         "--data-root", synth.data_root, "--runs-root", REPO / "tmp_runs_should_not_exist",
@@ -211,6 +215,7 @@ def test_script_has_no_ee_import():
         assert bad not in src
 
 
+@pytest.mark.slow
 @pytest.mark.frozen
 def test_script_frozen(tmp_path):
     docs = tmp_path / "DATA_REPORT.md"

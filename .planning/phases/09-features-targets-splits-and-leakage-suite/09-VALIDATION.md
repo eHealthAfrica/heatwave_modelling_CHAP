@@ -18,7 +18,7 @@ created: 2026-10-06
 | Property | Value |
 |----------|-------|
 | **Framework** | pytest 8.4.1 (`pyproject.toml`, marker `frozen`; `tests/conftest.py` auto-skips `frozen` tests when the data is absent) |
-| **Quick run command** | `.venv/Scripts/python.exe -m pytest tests/forecast -q -m "not frozen"` |
+| **Quick run command** | `.venv/Scripts/python.exe -m pytest tests/forecast -q -m "not frozen and not slow"` (CI and the full local gate run without the `slow` filter: `pytest -v` / `-m "not frozen"`) |
 | **Full suite command** | `.venv/Scripts/python.exe -m pytest tests/test_config.py tests/test_requirements.py tests/test_local_pipeline.py tests/forecast -q` |
 | **Frozen-data command (local only)** | `.venv/Scripts/python.exe -m pytest tests/forecast -q -m frozen` (the session-scoped `load_panel` takes about 20 s) |
 | **Estimated runtime** | quick < 60 s; frozen ~1-2 min |
@@ -30,7 +30,7 @@ created: 2026-10-06
 - **After every task commit:** run the quick run command.
 - **After every plan wave:** run the full suite command.
 - **Before `/gsd:verify-work`:** the full suite and the frozen command are green, and CI is green.
-- **Max feedback latency:** 60 seconds, for the quick `-m "not frozen"` suite only. Frozen (`-m frozen`) runs are local only: once per plan, for the tasks that have a @frozen test, and in full at the 09-08 gate. They are not bound by the 60 s limit (the session panel load alone takes about 20 s).
+- **Max feedback latency:** 60 seconds, for the quick `-m "not frozen and not slow"` suite only (about 50 s; the `slow` marker covers the subprocess-heavy Phase 8 script/git/ML-import tests, which are not skipped by default or in CI). Frozen (`-m frozen`) runs are local only: once per plan, for the tasks that have a @frozen test, and in full at the 09-08 gate. They are not bound by the 60 s limit (the session panel load alone takes about 20 s).
 
 ---
 
