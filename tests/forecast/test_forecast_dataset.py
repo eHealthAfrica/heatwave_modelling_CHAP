@@ -233,3 +233,30 @@ def test_wr01_store_bound_to_panel(panel, static, cfg, store):
     shaped = replace(store, arrays=arrays)
     with pytest.raises(ValueError, match="shape"):
         lead_rows(panel, shaped, static, cfg, 1, "train")
+
+
+def test_wr04_panel_past_test_years(cfg, static):
+    from heatwave.forecast import report
+
+    ext = synthetic_panel(last_week="2027-W10")
+    c = Climatology.fit(ext, cfg.splits.train_end)
+    st = build_feature_store(ext, c, static)
+    T = ext.values.shape[1]
+    # strict assign_split still rejects; the lenient form labels the overflow
+    with pytest.raises(ValueError):
+        splits.assign_split(ext.week_index, cfg.splits)
+    df = build_issue_table(ext, st, static, cfg, origin_positions=[200, T - 30, T - 1])
+    last = df[df["last_obs_week_index"] == ext.week_index[T - 1]]
+    assert (last["split_l1"] == "beyond_test").all() and not last["has_label_l1"].any()
+    assert set(df["split_l1"]) <= {"train", "validate", "test", "beyond_test", "embargoed", "warmup"}
+    # the report builders work and report the overflow rather than raising
+    tabs = report.prevalence_tables(ext, static, cfg)
+    assert "beyond_test" in set(tabs["by_split"]["split"])
+    rc = report.row_count_table(ext, cfg)
+    assert (rc["rows"] > 0).any()
+    # modelling rows never include beyond_test targets
+    hi = splits._bounds(cfg.splits)[1]
+    for s in ("train", "validate", "test"):
+        w, o = lead_row_index(ext, cfg, 6, s)
+        assert (ext.week_index[o] + 6 < hi).all()
+    assert (lead_rows(ext, st, static, cfg, 6, "test")["split"] == "test").all()

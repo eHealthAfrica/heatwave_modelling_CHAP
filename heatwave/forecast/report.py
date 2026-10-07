@@ -78,9 +78,10 @@ def prevalence_tables(panel, static, cfg) -> dict[str, pd.DataFrame]:
         rows.append(dict(era=f"{lo}-{hi}", weeks=wk, ward_weeks=vw, prevalence=prev))
     by_era = pd.DataFrame(rows)
 
-    sp = splits.assign_split(np.asarray(panel.week_index, dtype=np.int64), cfg.splits)
+    # weeks past the configured test years (after a data refresh) are reported separately
+    sp = splits.assign_split(np.asarray(panel.week_index, dtype=np.int64), cfg.splits, strict=False)
     rows = []
-    for name in splits.SPLIT_NAMES:
+    for name in splits.SPLIT_NAMES + ((splits.BEYOND_TEST,) if (sp == splits.BEYOND_TEST).any() else ()):
         wk, vw, prev = _row(sp == name, label, n)
         rows.append(dict(split=name, weeks=wk, ward_weeks=vw, prevalence=prev))
     rows.append(dict(split="overall", weeks=int(label.shape[1]), ward_weeks=int(label.size), prevalence=float(label.mean())))

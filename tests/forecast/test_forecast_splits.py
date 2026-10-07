@@ -98,3 +98,17 @@ def test_independent_of_values():
     a = split_masks(ALL, S)
     b = split_masks(ALL.copy(), S)
     assert all(np.array_equal(a[k], b[k]) for k in a)
+
+
+def test_wr04_lenient_assign_and_issue_labels():
+    from heatwave.forecast.splits import issue_split_labels
+
+    got = assign_split(np.array([HI - 1, HI, HI + 5]), S, strict=False)
+    assert list(got) == ["test", "beyond_test", "beyond_test"]
+    with pytest.raises(ValueError):
+        assign_split(np.array([LO - 1]), S, strict=False)
+    m = split_masks(np.array([HI + 3]), S)
+    assert not any(v.any() for v in m.values())
+    lab = issue_split_labels(ALL, S)
+    mk = split_masks(ALL, S)
+    assert ((lab == "train") == mk["train"]).all() and ((lab == "embargoed") == mk["embargoed"]).all()

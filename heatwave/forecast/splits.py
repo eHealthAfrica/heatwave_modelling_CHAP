@@ -18,6 +18,8 @@ import numpy as np
 from heatwave.forecast import weeks
 
 SPLIT_NAMES = ("train", "validate", "test")
+BEYOND_TEST = "beyond_test"  # target weeks after the configured test years; never used for modelling
+EMBARGOED = "embargoed"
 FEATURE_SHORT_WINDOW_WEEKS = 8
 
 
@@ -34,13 +36,20 @@ def _bounds(splits_cfg) -> tuple[int, int]:
     return lo, hi
 
 
-def assign_split(target_week_index, splits_cfg) -> np.ndarray:
+def assign_split(target_week_index, splits_cfg, *, strict: bool = True) -> np.ndarray:
+    """Split name per target week index.
+
+    strict (default) raises outside the configured years. strict=False labels target weeks
+    at or after the end of the test years ``beyond_test`` (they are excluded from modelling);
+    indices before the first training year still raise.
+    """
     t = np.asarray(target_week_index, dtype=np.int64)
     lo, hi = _bounds(splits_cfg)
-    if t.size and (t.min() < lo or t.max() >= hi):
+    if t.size and (t.min() < lo or (strict and t.max() >= hi)):
         raise ValueError(f"target week index outside configured years [{lo}, {hi})")
     i_train, i_val = cutoff_indices(splits_cfg)
-    out = np.full(t.shape, "test", dtype="<U8")
+    out = np.full(t.shape, "test", dtype="<U11")
+    out[t >= hi] = BEYOND_TEST
     out[t < i_val] = "validate"
     out[t < i_train] = "train"
     return out
@@ -52,7 +61,7 @@ def embargo_keep(target_week_index, cutoff_index, embargo_weeks) -> np.ndarray:
 
 def split_masks(target_week_index, splits_cfg) -> dict:
     t = np.asarray(target_week_index, dtype=np.int64)
-    names = assign_split(t, splits_cfg)
+    names = assign_split(t, splits_cfg, strict=False)  # beyond_test matches no mask
     i_train, _ = cutoff_indices(splits_cfg)
     is_train = names == "train"
     keep = embargo_keep(t, i_train, splits_cfg.embargo_weeks)
@@ -62,6 +71,15 @@ def split_masks(target_week_index, splits_cfg) -> dict:
         "validate": names == "validate",
         "test": names == "test",
     }
+
+
+def issue_split_labels(target_week_index, splits_cfg) -> np.ndarray:
+    """Split name per target week with the embargo applied: train, embargoed, validate, test, beyond_test."""
+    t = np.asarray(target_week_index, dtype=np.int64)
+    names = assign_split(t, splits_cfg, strict=False)
+    i_train, _ = cutoff_indices(splits_cfg)
+    names[(names == "train") & ~embargo_keep(t, i_train, splits_cfg.embargo_weeks)] = EMBARGOED
+    return names
 
 
 def refit_train_mask(target_week_index, splits_cfg) -> np.ndarray:

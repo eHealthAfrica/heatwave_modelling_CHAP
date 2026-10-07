@@ -211,7 +211,7 @@ def build_issue_table(panel, store, static, cfg, *, origin_positions, ward_posit
         cols[f"effective_days_ahead_l{k}"] = tf.effective_days_ahead[origin_pos]
         cols[f"{LABEL_COLUMN}_l{k}"] = targets.lead_label(panel, k)[ward_pos, origin_pos]
         cols[f"has_label_l{k}"] = targets.has_label(panel, k)[origin_pos]
-        cols[f"{SPLIT_COLUMN}_l{k}"] = splits.assign_split(tf.target_week_index[origin_pos], cfg.splits)
+        cols[f"{SPLIT_COLUMN}_l{k}"] = splits.assign_split(tf.target_week_index[origin_pos], cfg.splits, strict=False)
     # calendar season features are per lead and live in lead_rows
     panel_names = tuple(nm for nm in names if REGISTRY.get(nm).kind in ("panel", "static"))
     cols.update(_issue_features(store, static, panel, panel_names, ward_pos, origin_pos))
