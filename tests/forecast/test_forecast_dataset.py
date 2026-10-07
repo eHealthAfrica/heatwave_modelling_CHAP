@@ -260,3 +260,31 @@ def test_wr04_panel_past_test_years(cfg, static):
         w, o = lead_row_index(ext, cfg, 6, s)
         assert (ext.week_index[o] + 6 < hi).all()
     assert (lead_rows(ext, st, static, cfg, 6, "test")["split"] == "test").all()
+
+
+def test_wr02_issue_split_reflects_embargo_and_warmup(panel, store, static, cfg):
+    i_train, _ = splits.cutoff_indices(cfg.splits)
+    first = int(panel.week_index[0])
+    emb_origin = i_train - 1 - 3 - first  # lead-3 target is the last training week -> embargoed
+    ok_origin = i_train - cfg.splits.embargo_weeks - 3 - 1 - first  # last kept training target
+    origins = [100, 158, 159, ok_origin, emb_origin]
+    df = build_issue_table(panel, store, static, cfg, origin_positions=origins)
+
+    def split_at(o, k=3):
+        return set(df.loc[df["last_obs_week_index"] == panel.week_index[o], f"split_l{k}"])
+
+    assert split_at(100) == {"warmup"} and split_at(158) == {"warmup"}
+    assert split_at(159) == {"train"}
+    assert split_at(ok_origin) == {"train"}
+    assert split_at(emb_origin) == {"embargoed"}
+    # consistent with the row selector for every lead
+    for k in cfg.leads:
+        w, o = lead_row_index(panel, cfg, k, "train")
+        sel = set(zip(w.tolist(), o.tolist()))
+        all_o = list(range(150, panel.values.shape[1] - 7))
+        d = build_issue_table(panel, store, static, cfg, origin_positions=all_o, ward_positions=[0, 2])
+        wpos = np.tile([0, 2], len(all_o))
+        opos = np.repeat(all_o, 2)
+        tr = (d[f"split_l{k}"] == "train").to_numpy() & d[f"has_label_l{k}"].to_numpy()
+        got = set(zip(wpos[tr].tolist(), opos[tr].tolist()))
+        assert got == {p for p in sel if p[0] in (0, 2) and p[1] in set(all_o)}

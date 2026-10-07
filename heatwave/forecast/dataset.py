@@ -43,6 +43,7 @@ TIMING_COLUMNS = (
 )
 LABEL_COLUMN = "heatwave_week"
 SPLIT_COLUMN = "split"
+WARMUP = "warmup"  # issue-table origins before every window/base rate is defined
 CACHE_SUBDIR = "forecast_cache"
 _SEASON = ("target_season_sin", "target_season_cos")
 _HEX = re.compile(r"^[0-9a-f]+$")
@@ -188,7 +189,12 @@ def lead_rows(panel, store, static, cfg, lead, split, *, fold=None, drop_warmup=
 
 # --------------------------------------------------------------------------- issue rows
 def build_issue_table(panel, store, static, cfg, *, origin_positions, ward_positions=None, feature_names=None):
-    """One row per (ward, origin) with all lead labels as columns (leads do not multiply rows)."""
+    """One row per (ward, origin) with all lead labels as columns (leads do not multiply rows).
+
+    ``split_l{k}`` is one of train, embargoed, validate, test, beyond_test (target-week split with
+    the 14-week training embargo applied) or warmup (origin before the feature warm-up ends).
+    Only rows labelled train/validate/test with ``has_label_l{k}`` are usable for modelling.
+    """
     names = _feature_names(feature_names)
     _check_store(panel, store, cfg, None)
     T = panel.values.shape[1]
@@ -199,6 +205,7 @@ def build_issue_table(panel, store, static, cfg, *, origin_positions, ward_posit
     ward_pos = np.tile(wp, origins.size)
     origin_pos = np.repeat(origins, wp.size)
     base = targets.timing_fields(panel, cfg.leads[0], cfg.latency_days)
+    warm = warmup_first_position(panel)
     cols = {"ward": np.asarray(panel.wards, dtype=object)[ward_pos]}
     cols["last_obs_week_index"] = base.last_obs_week_index[origin_pos]
     cols["last_obs_week"] = np.asarray(base.last_obs_week, dtype=object)[origin_pos]
@@ -211,7 +218,11 @@ def build_issue_table(panel, store, static, cfg, *, origin_positions, ward_posit
         cols[f"effective_days_ahead_l{k}"] = tf.effective_days_ahead[origin_pos]
         cols[f"{LABEL_COLUMN}_l{k}"] = targets.lead_label(panel, k)[ward_pos, origin_pos]
         cols[f"has_label_l{k}"] = targets.has_label(panel, k)[origin_pos]
-        cols[f"{SPLIT_COLUMN}_l{k}"] = splits.assign_split(tf.target_week_index[origin_pos], cfg.splits, strict=False)
+        # same membership as lead_rows/lead_row_index: embargoed training targets and warm-up
+        # origins are labelled as such, so filtering split_l{k} == "train" is leakage-safe
+        per_origin = splits.issue_split_labels(tf.target_week_index, cfg.splits)
+        per_origin[: min(warm, per_origin.size)] = WARMUP
+        cols[f"{SPLIT_COLUMN}_l{k}"] = per_origin[origin_pos]
     # calendar season features are per lead and live in lead_rows
     panel_names = tuple(nm for nm in names if REGISTRY.get(nm).kind in ("panel", "static"))
     cols.update(_issue_features(store, static, panel, panel_names, ward_pos, origin_pos))
