@@ -184,26 +184,26 @@ def test_cache_dir_and_roundtrip(panel, clim, store, cfg, tmp_path):
 
     sub = save_feature_store(store, clim, d, registry_names=REGISTRY.names())
     assert str(sub).startswith(str(d))
-    loaded = load_feature_store(d, panel, clim, names=store.names)
+    loaded = load_feature_store(d, panel, clim, names=store.names, registry_names=REGISTRY.names())
     assert loaded is not None
     for nm in store.names:
         assert np.array_equal(loaded[nm], store[nm], equal_nan=True)
         assert not loaded[nm].flags.writeable
     # mismatches -> miss
-    assert load_feature_store(d, panel, clim, names=store.names[:-1]) is None
+    assert load_feature_store(d, panel, clim, names=store.names[:-1], registry_names=REGISTRY.names()) is None
     other_clim = Climatology.fit(panel, date(1999, 1, 4))
-    assert load_feature_store(d, panel, other_clim, names=store.names) is None
+    assert load_feature_store(d, panel, other_clim, names=store.names, registry_names=REGISTRY.names()) is None
     p2 = poison_future(panel, 100)
-    assert load_feature_store(d, p2, clim, names=store.names) is None
+    assert load_feature_store(d, p2, clim, names=store.names, registry_names=REGISTRY.names()) is None
     from heatwave.forecast.fixtures import subset_panel
 
-    assert load_feature_store(d, subset_panel(panel, [0, 1]), clim, names=store.names) is None
+    assert load_feature_store(d, subset_panel(panel, [0, 1]), clim, names=store.names, registry_names=REGISTRY.names()) is None
     # tampered meta -> miss
     meta = sub / "store_meta.json"
     m = json.loads(meta.read_text())
     m["data_sha256"] = "0" * 64
     meta.write_text(json.dumps(m))
-    assert load_feature_store(d, panel, clim, names=store.names) is None
+    assert load_feature_store(d, panel, clim, names=store.names, registry_names=REGISTRY.names()) is None
 
 
 def load_repo_root():
@@ -339,3 +339,74 @@ def test_wr06_custom_registry(panel, clim, static, cfg):
     assert "hd_double_lag0" in iss.columns
     with pytest.raises(KeyError):
         build_issue_table(panel, cstore, static, cfg, origin_positions=[200], feature_names=["hd_double_lag0"])
+
+
+def _saved(store, clim, panel, cfg, tmp_path):
+    d = feature_cache_dir(cfg, panel, data_root=tmp_path)
+    sub = save_feature_store(store, clim, d, registry_names=REGISTRY.names())
+    return d, sub
+
+
+def _load(d, panel, clim, store, **kw):
+    kw.setdefault("registry_names", REGISTRY.names())
+    return load_feature_store(d, panel, clim, names=store.names, **kw)
+
+
+def test_wr05_cache_robustness(panel, clim, store, cfg, tmp_path, monkeypatch):
+    from heatwave.forecast import dataset
+
+    d, sub = _saved(store, clim, panel, cfg, tmp_path)
+    assert _load(d, panel, clim, store) is not None
+    assert not list(sub.glob("*.tmp"))
+    meta = json.loads((sub / "store_meta.json").read_text())
+    assert len(meta["feature_code_version"]) == 64 and set(meta["array_sha256"]) == set(store.names)
+
+    # registry_names is required, and a different registry is a miss
+    with pytest.raises(TypeError):
+        load_feature_store(d, panel, clim, names=store.names)
+    assert _load(d, panel, clim, store, registry_names=REGISTRY.names()[:-1]) is None
+
+    # feature code changed (or meta from older code without a version) -> miss
+    monkeypatch.setattr(dataset, "feature_code_version", lambda: "0" * 64)
+    assert _load(d, panel, clim, store) is None
+    monkeypatch.undo()
+    assert _load(d, panel, clim, store) is not None
+    for mutate in (lambda m: m.pop("feature_code_version"), lambda m: m.pop("array_sha256"),
+                   lambda m: m["array_sha256"].pop(store.names[0])):
+        m = json.loads((sub / "store_meta.json").read_text())
+        mutate(m)
+        (sub / "store_meta.json").write_text(json.dumps(m))
+        assert _load(d, panel, clim, store) is None
+        (sub / "store_meta.json").write_text(json.dumps(meta))
+
+    # content corruption that still parses as a valid float32 array -> miss
+    nm = store.names[3]
+    arr = np.load(sub / f"{nm}.npy")
+    bad = arr.copy()
+    bad.flat[1000] = np.float32(12345.0)
+    np.save(sub / f"{nm}.npy", bad)
+    assert _load(d, panel, clim, store) is None
+    np.save(sub / f"{nm}.npy", arr)
+    assert _load(d, panel, clim, store) is not None
+
+
+def test_wr05_interrupted_save_is_a_miss_not_a_mix(panel, clim, store, cfg, tmp_path, monkeypatch):
+    d, sub = _saved(store, clim, panel, cfg, tmp_path)
+    old = {nm: np.load(sub / f"{nm}.npy") for nm in store.names}
+    n_saved = {"n": 0}
+    real_save = np.save
+
+    def flaky(fh, arr, **kw):
+        n_saved["n"] += 1
+        if n_saved["n"] == 3:
+            raise OSError("disk full")
+        return real_save(fh, arr, **kw)
+
+    monkeypatch.setattr(np, "save", flaky)
+    with pytest.raises(OSError):
+        save_feature_store(store, clim, d, registry_names=REGISTRY.names())
+    monkeypatch.undo()
+    assert not (sub / "store_meta.json").exists()  # old meta invalidated before arrays were touched
+    assert _load(d, panel, clim, store) is None
+    for nm in store.names:  # no array was left half-written
+        assert np.array_equal(np.load(sub / f"{nm}.npy"), old[nm], equal_nan=True)

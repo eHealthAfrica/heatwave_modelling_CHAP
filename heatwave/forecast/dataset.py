@@ -308,8 +308,31 @@ def _wards_sha(wards) -> str:
     return hashlib.sha256("\n".join(wards).encode("utf-8")).hexdigest()
 
 
+_CODE_MODULES = ("features.py", "climatology.py", "registry.py", "weeks.py")
+
+
+def feature_code_version() -> str:
+    """Hash of the source that defines feature values (features, climatology, registry, weeks).
+
+    Includes every module-level constant (windows, base-rate settings, ...). Line endings are
+    normalised so the value does not depend on the checkout's newline convention.
+    """
+    h = hashlib.sha256()
+    here = Path(__file__).resolve().parent
+    for name in _CODE_MODULES:
+        h.update(name.encode("utf-8") + b"\0")
+        h.update((here / name).read_bytes().replace(b"\r\n", b"\n"))
+    return h.hexdigest()
+
+
+def _array_sha256(arr) -> str:
+    return hashlib.sha256(np.ascontiguousarray(arr, dtype=np.float32).tobytes()).hexdigest()
+
+
 def _meta(store, clim, registry_names) -> dict:
     return {
+        "feature_code_version": feature_code_version(),
+        "array_sha256": {nm: _array_sha256(store[nm]) for nm in store.names},
         "data_sha256": store.data_sha256,
         "wards_sha256": _wards_sha(store.wards),
         "names": list(store.names),
@@ -328,14 +351,21 @@ def save_feature_store(store, clim, directory, *, registry_names) -> Path:
     for nm in store.names:
         if not _NAME.match(nm):
             raise ValueError(f"unsafe feature name {nm!r}")
-        np.save(sub / f"{nm}.npy", np.asarray(store[nm], dtype=np.float32), allow_pickle=False)
+    meta = _meta(store, clim, registry_names)
+    # invalidate any previous store first: a crash below leaves no meta (cache miss), never a mix
+    (sub / "store_meta.json").unlink(missing_ok=True)
+    for nm in store.names:
+        tmp = sub / f"{nm}.npy.tmp"
+        with open(tmp, "wb") as fh:
+            np.save(fh, np.asarray(store[nm], dtype=np.float32), allow_pickle=False)
+        os.replace(tmp, sub / f"{nm}.npy")
     tmp = sub / "store_meta.json.tmp"
-    tmp.write_text(json.dumps(_meta(store, clim, registry_names), sort_keys=True), encoding="utf-8")
+    tmp.write_text(json.dumps(meta, sort_keys=True), encoding="utf-8")
     os.replace(tmp, sub / "store_meta.json")
     return sub
 
 
-def load_feature_store(directory, panel, clim, *, names, registry_names=None):
+def load_feature_store(directory, panel, clim, *, names, registry_names):
     """Return the cached FeatureStore or None on any mismatch (cache miss)."""
     sub = _clim_dir(directory, clim)
     meta_path = sub / "store_meta.json"
@@ -351,8 +381,12 @@ def load_feature_store(directory, panel, clim, *, names, registry_names=None):
         or meta.get("wards_sha256") != _wards_sha(panel.wards)
         or tuple(meta.get("names", ())) != names
         or meta.get("clim_fit_range") != json.loads(json.dumps(clim.fit_range()))
-        or (registry_names is not None and tuple(meta.get("registry_names", ())) != tuple(registry_names))
+        or tuple(meta.get("registry_names", ())) != tuple(registry_names)
+        or meta.get("feature_code_version") != feature_code_version()
     ):
+        return None
+    hashes = meta.get("array_sha256")
+    if not isinstance(hashes, dict):
         return None
     shape = panel.values.shape[:2]
     arrays = {}
@@ -364,6 +398,8 @@ def load_feature_store(directory, panel, clim, *, names, registry_names=None):
         except (OSError, ValueError):
             return None
         if arr.dtype != np.float32 or arr.shape != shape:
+            return None
+        if hashes.get(nm) != _array_sha256(arr):
             return None
         arr.flags.writeable = False
         arrays[nm] = arr
