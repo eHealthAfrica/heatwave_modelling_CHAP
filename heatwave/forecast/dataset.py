@@ -80,6 +80,16 @@ def _check_lead(cfg, lead):
 def _check_store(panel, store, cfg, fold):
     if tuple(store.wards) != tuple(panel.wards):
         raise ValueError("store wards differ from panel wards")
+    if store.data_sha256 != panel.sha256:
+        raise ValueError("store was built from a different panel (data_sha256 mismatch)")
+    # clim_fit_range["data_sha256"] is deliberately not compared: the row-level truncation
+    # check reuses one climatology fitted at train_end across truncated panels.
+    if not np.array_equal(np.asarray(store.week_index), np.asarray(panel.week_index)):
+        raise ValueError("store week axis differs from the panel week axis")
+    shape = tuple(panel.values.shape[:2])
+    for nm in store.names:
+        if tuple(store[nm].shape) != shape:
+            raise ValueError(f"store array {nm!r} has shape {tuple(store[nm].shape)}, panel needs {shape}")
     expected = _as_date(fold.climatology_end if fold is not None else cfg.splits.train_end)
     got = _as_date(store.clim_fit_range["fit_end"])
     if got != expected:

@@ -210,3 +210,26 @@ def load_repo_root():
     from heatwave.forecast.artifacts import REPO_ROOT
 
     return REPO_ROOT
+
+
+# --------------------------------------------------------------------------- review fixes
+def test_wr01_store_bound_to_panel(panel, static, cfg, store):
+    # same wards, same climatology fit_end, but built from a different (poisoned) panel
+    bad_panel = poison_future(panel, 100)
+    bad_store = build_feature_store(bad_panel, Climatology.fit(bad_panel, cfg.splits.train_end), static)
+    assert tuple(bad_store.wards) == tuple(panel.wards)
+    assert bad_store.clim_fit_range["fit_end"] == store.clim_fit_range["fit_end"]
+    with pytest.raises(ValueError, match="different panel"):
+        lead_rows(panel, bad_store, static, cfg, 1, "train")
+    with pytest.raises(ValueError, match="different panel"):
+        build_issue_table(panel, bad_store, static, cfg, origin_positions=[200])
+    # a store whose week axis / shape does not match the panel is rejected too
+    from dataclasses import replace
+
+    short = replace(store, week_index=store.week_index[:-1])
+    with pytest.raises(ValueError, match="week axis"):
+        lead_rows(panel, short, static, cfg, 1, "train")
+    arrays = {k: v[:, :-1] for k, v in store.arrays.items()}
+    shaped = replace(store, arrays=arrays)
+    with pytest.raises(ValueError, match="shape"):
+        lead_rows(panel, shaped, static, cfg, 1, "train")
