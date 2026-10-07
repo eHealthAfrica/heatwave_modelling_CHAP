@@ -33,7 +33,8 @@ findings:
   warning: 8
   info: 9
   total: 17
-status: issues_found
+status: warnings_fixed
+fixes: 09-REVIEW-FIX.md
 ---
 
 # Phase 9: Code Review Report
@@ -61,6 +62,8 @@ The defects below are about guard completeness, a latent operational failure, th
 
 ### WR-01: `_check_store` does not bind the store to the panel
 
+**Status:** FIXED d51b2b0 (data_sha256, week axis and array shapes checked; the clim-sha comparison from the suggested fix was left out because the row-level truncation test legitimately reuses one train_end climatology across truncated panels)
+
 **File:** `heatwave/forecast/dataset.py:384-393` (also used by `build_issue_table`, line 487)
 **Issue:** The guard checks only the ward tuple and the climatology `fit_end`. It never checks `store.data_sha256 == panel.sha256`, `store.week_index` against `panel.week_index`, or array shapes. `lead_rows` and `build_issue_table` then index `store[nm][ward_pos, origin_pos]` by panel positions. A store built from a different panel with the same wards and the same `fit_end` is silently accepted. Examples are a truncated, poisoned or older-version panel, or a store loaded from the wrong cache. If T matches, rows are misaligned with no error. If T is smaller, the result is an IndexError. This is exactly the stale-cache scenario the guard exists for.
 **Fix:**
@@ -75,11 +78,15 @@ if store.clim_fit_range.get("data_sha256") != panel.sha256:
 
 ### WR-02: Issue table `split_l{k}` ignores the embargo and warm-up
 
+**Status:** FIXED d57f67a (split_l{k} now train/embargoed/validate/test/beyond_test/warmup)
+
 **File:** `heatwave/forecast/dataset.py:508`
 **Issue:** `split_l{k}` comes from `assign_split` alone. Rows whose target falls in the 14-week embargo before 2014-12-29 are labelled "train", and so are warm-up origins whose features are NaN. `lead_rows` and `lead_row_index` apply `split_masks`, `has_label` and the warm-up drop. A Phase 10-12 consumer who filters `split_l3 == "train"` on the issue table gets embargoed rows, which is a C4 violation. The issue table also exposes no "embargoed" state.
 **Fix:** Derive the column from `split_masks` and emit "embargoed" for `is_train & ~keep`. Alternatively, add `train_ok_l{k}` (embargo, has_label and warm-up combined) and document that `split_l{k}` is the raw target-week split.
 
 ### WR-03: Memory blow-up in `build_issue_table` and `lead_rows` on the real 4841x1863 panel
+
+**Status:** FIXED d7f9e07 (categorical ward/week/split columns, DataFrame(copy=False), max_rows guard 3M on issue tables)
 
 **File:** `heatwave/forecast/dataset.py:484-512`, `480` (`pd.DataFrame(cols)`)
 **Issue:** With all origins, `build_issue_table` creates about 9.0M rows. The columns are:
@@ -98,11 +105,15 @@ if store.clim_fit_range.get("data_sha256") != panel.sha256:
 
 ### WR-04: `assign_split` raises when the data extends past the configured test years (latent operational failure)
 
+**Status:** FIXED 2471edf (assign_split(strict=False) labels beyond_test; split_masks and report tolerate it)
+
 **File:** `heatwave/forecast/dataset.py:508`; `heatwave/forecast/splits.py:294-298`; `heatwave/forecast/report.py:81`
 **Issue:** `build_issue_table` calls `assign_split` on the target index of every origin, including origins whose target lies beyond the data (the operational rows). `assign_split` raises when `t.max() >= hi`, where `hi` is the start of ISO year `test_years[1] + 1`. The panel currently ends at 2026-W38, so lead 6 reaches 2026-W44 and nothing breaks. After the next data refresh past about 2026-W46, or for any `test_years` that ends earlier, the operational issue table and the data report fail with an unhelpful ValueError. `lead_row_index` avoids this only by pre-filtering on `has_label`.
 **Fix:** For unlabelled targets, assign "future" or "unassigned" instead of raising. For example, add `assign_split(..., strict=False)` that maps `t >= hi` to "test" or "future", and use it in `build_issue_table`. Also make `report.prevalence_tables` tolerate weeks past `hi`.
 
 ### WR-05: Feature cache can be stale, partial or unverified
+
+**Status:** FIXED 0a44f7f (feature_code_version, required registry_names, atomic array writes, per-array sha256)
 
 **File:** `heatwave/forecast/dataset.py:567-624`
 **Issue:**
@@ -119,11 +130,15 @@ if store.clim_fit_range.get("data_sha256") != panel.sha256:
 
 ### WR-06: `dataset` is hard-wired to the global `REGISTRY`, though `build_feature_store` accepts a registry
 
+**Status:** FIXED 5874cae (registry argument on lead_rows/build_issue_table, threaded through)
+
 **File:** `heatwave/forecast/dataset.py:396-401, 429-450, 510-527`
 **Issue:** `_feature_names`, `_gather_features` and `_issue_features` all call `REGISTRY.get(nm)` and `REGISTRY.names()`. A store built with a custom registry fails at row assembly with KeyError, or silently omits features. Phase 16 (climate-driver features) will hit this. The row-level leakage check (`check_row_truncation_invariance`) also cannot be mutation-tested for an injected leaky feature, because the injected feature never reaches the rows. Only the store-level (a)/(b) mutation tests cover that case.
 **Fix:** Add a `registry=REGISTRY` parameter to `lead_rows`, `build_issue_table` and `_feature_names`, and thread it through to `_gather_features` and `_issue_features`.
 
 ### WR-07: Report script path safety is incomplete
+
+**Status:** FIXED 7c96227 (--docs-out limited to docs/ unless --force, generated-by marker, pin override recorded in report and manifest)
 
 **File:** `scripts/forecast_data_report.py:293-301, 282-289`
 **Issue:**
@@ -135,6 +150,8 @@ if store.clim_fit_range.get("data_sha256") != panel.sha256:
 - Print a warning and add a "pin overridden" line to the report provenance when the override is used.
 
 ### WR-08: Wall-clock assertion makes a test flaky
+
+**Status:** FIXED 2a9f227 (0.5 s assertion replaced by a 30 s complexity bound plus shape checks)
 
 **File:** `tests/forecast/test_forecast_features.py:176-183` (`test_base_rate_speed`)
 **Issue:** The test asserts `time.perf_counter() - t0 < 0.5` for a small panel. On a loaded CI runner or a Windows machine it will fail intermittently. It also tests performance, which is not a correctness property of this phase.
@@ -167,6 +184,8 @@ if store.clim_fit_range.get("data_sha256") != panel.sha256:
 **Fix:** Compute the spatial features on the full panel and subset afterwards, or log or assert when the panel does not cover each LGA fully.
 
 ### IN-05: `warmup_first_position` recomputes a full-size base rate on every call
+
+**Status:** FIXED 246b227 (incidental one-line change)
 
 **File:** `heatwave/forecast/dataset.py:357-365`
 **Issue:** It allocates a zero `(n, T)` panel and runs the full base-rate loop only to read the counts, which depend on T alone. It runs on every `lead_row_index` call, which is 18 times in `report.row_count_table`, plus once more. This is a performance issue and out of scope for v1, but the fix is one line.
