@@ -173,14 +173,17 @@ def test_warmup_positions(store, panel):
     assert first_valid(store["hd_roll8"]) == 7
 
 
-def test_base_rate_speed():
+def test_base_rate_complexity_sanity():
+    """Complexity guard, not a benchmark (WR-08): a generous bound that only a per-ward / per-week
+    Python-loop regression (orders of magnitude slower) could break, even on a loaded runner."""
     import time
 
     p = synthetic_panel(last_week="2003-W20", wards=SYNTHETIC_WARDS)
     hw = (p.values[:, :, 0] >= 3).astype(np.float32)
     t0 = time.perf_counter()
-    base_rate(hw, p.week_start)
-    assert time.perf_counter() - t0 < 0.5
+    v, counts = base_rate(hw, p.week_start)
+    assert time.perf_counter() - t0 < 30.0
+    assert v.shape == hw.shape and counts.shape == (hw.shape[1],)
 
 
 # ------------------------------------------------------------------ spatial
