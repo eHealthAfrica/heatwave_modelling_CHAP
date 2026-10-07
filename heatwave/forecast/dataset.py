@@ -58,7 +58,7 @@ def warmup_first_position(panel) -> int:
 
     Warm-up values stay NaN; nothing is forward-filled.
     """
-    _, counts = base_rate(np.zeros(panel.values.shape[:2], dtype=np.float32), panel.week_start)
+    _, counts = base_rate(np.zeros((1, panel.values.shape[1]), dtype=np.float32), panel.week_start)
     ok = np.nonzero(counts >= BASE_RATE_MIN_OBS)[0]
     first_rate = int(ok[0]) if ok.size else panel.values.shape[1]
     return max(LONGEST_FIXED_WINDOW_WEEKS - 1, first_rate)
