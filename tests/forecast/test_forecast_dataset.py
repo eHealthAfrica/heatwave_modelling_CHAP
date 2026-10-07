@@ -311,3 +311,31 @@ def test_wr03_compact_dtypes_and_row_guard(panel, store, static, cfg):
         build_issue_table(panel, store, static, cfg, origin_positions=range(panel.values.shape[1]), max_rows=1000)
     ok = build_issue_table(panel, store, static, cfg, origin_positions=[200], max_rows=len(panel.wards))
     assert len(ok) == len(panel.wards)
+
+
+def test_wr06_custom_registry(panel, clim, static, cfg):
+    import numpy as np
+    from heatwave.forecast.registry import FeatureSpec
+
+    reg = REGISTRY.copy()
+    reg.register(
+        FeatureSpec(
+            name="hd_double_lag0", family="recent_heat", kind="panel", max_lookahead=0, window_weeks=1,
+            description="test feature", fn=lambda ctx: 2.0 * ctx.var("heatwave_days"),
+        )
+    )
+    cstore = build_feature_store(panel, clim, static, registry=reg)
+    assert "hd_double_lag0" in cstore
+    # the global registry does not know the feature: it must be rejected, not silently dropped
+    with pytest.raises(KeyError):
+        lead_rows(panel, cstore, static, cfg, 2, "train", feature_names=["hd_double_lag0"])
+    df = lead_rows(panel, cstore, static, cfg, 2, "train", registry=reg)
+    assert "hd_double_lag0" in df.columns and set(REGISTRY.names()) <= set(df.columns)
+    hd = panel.values[:, :, list(panel.variables).index("heatwave_days")]
+    wp = np.array([panel.ward_pos(w) for w in df["ward"]])
+    op = np.array([panel.week_pos(w) for w in df["last_obs_week"]])
+    assert np.array_equal(df["hd_double_lag0"].to_numpy(), 2.0 * hd[wp, op])
+    iss = build_issue_table(panel, cstore, static, cfg, origin_positions=[200], registry=reg)
+    assert "hd_double_lag0" in iss.columns
+    with pytest.raises(KeyError):
+        build_issue_table(panel, cstore, static, cfg, origin_positions=[200], feature_names=["hd_double_lag0"])

@@ -113,10 +113,10 @@ def _check_store(panel, store, cfg, fold):
         )
 
 
-def _feature_names(feature_names):
-    names = tuple(REGISTRY.names() if feature_names is None else feature_names)
+def _feature_names(feature_names, registry=REGISTRY):
+    names = tuple(registry.names() if feature_names is None else feature_names)
     for nm in names:
-        if nm not in REGISTRY:
+        if nm not in registry:
             raise KeyError(nm)
     return names
 
@@ -146,16 +146,16 @@ def lead_row_index(panel, cfg, lead, split, *, fold=None, drop_warmup=True):
 
 
 # --------------------------------------------------------------------------- per-lead rows
-def _gather_features(store, static, panel, names, ward_pos, origin_pos, target_start, lead):
+def _gather_features(store, static, panel, names, ward_pos, origin_pos, target_start, lead, registry=REGISTRY):
     out = {}
-    static_names = [nm for nm in names if REGISTRY.get(nm).kind == "static"]
+    static_names = [nm for nm in names if registry.get(nm).kind == "static"]
     if static_names:
         mat = static_feature_matrix(static.align(panel.wards), static_names)
         for j, nm in enumerate(static_names):
             out[nm] = mat[ward_pos, j]
     sin, cos = season_features(target_start)
     for nm in names:
-        kind = REGISTRY.get(nm).kind
+        kind = registry.get(nm).kind
         if kind == "panel":
             if nm not in store:
                 raise KeyError(f"feature {nm!r} not in the store")
@@ -170,10 +170,12 @@ def _gather_features(store, static, panel, names, ward_pos, origin_pos, target_s
     return out
 
 
-def lead_rows(panel, store, static, cfg, lead, split, *, fold=None, drop_warmup=True, feature_names=None):
+def lead_rows(
+    panel, store, static, cfg, lead, split, *, fold=None, drop_warmup=True, feature_names=None, registry=REGISTRY
+):
     """Per-lead row table (labelled rows only) with timing fields, label, split and features."""
     lead = _check_lead(cfg, lead)
-    names = _feature_names(feature_names)
+    names = _feature_names(feature_names, registry)
     _check_store(panel, store, cfg, fold)
     ward_pos, origin_pos = lead_row_index(panel, cfg, lead, split, fold=fold, drop_warmup=drop_warmup)
     tf = targets.timing_fields(panel, lead, cfg.latency_days)
@@ -198,7 +200,7 @@ def lead_rows(panel, store, static, cfg, lead, split, *, fold=None, drop_warmup=
         code = ROW_SPLIT_CATEGORIES.index(split)
         cols[SPLIT_COLUMN] = _categorical(np.full(len(ward_pos), code, dtype=np.int8), ROW_SPLIT_CATEGORIES)
     cols.update(
-        _gather_features(store, static, panel, names, ward_pos, origin_pos, cols["target_week_start"], lead)
+        _gather_features(store, static, panel, names, ward_pos, origin_pos, cols["target_week_start"], lead, registry)
     )
     return pd.DataFrame(cols, copy=False)  # copy=False: no block-consolidation doubling
 
@@ -214,7 +216,7 @@ def build_issue_table(
     the 14-week training embargo applied) or warmup (origin before the feature warm-up ends).
     Only rows labelled train/validate/test with ``has_label_l{k}`` are usable for modelling.
     """
-    names = _feature_names(feature_names)
+    names = _feature_names(feature_names, registry)
     _check_store(panel, store, cfg, None)
     T = panel.values.shape[1]
     origins = np.asarray(list(origin_positions), dtype=np.int64)
@@ -249,20 +251,20 @@ def build_issue_table(
         per_origin[: min(warm, per_origin.size)] = WARMUP
         cols[f"{SPLIT_COLUMN}_l{k}"] = _split_categorical(per_origin, origin_pos)
     # calendar season features are per lead and live in lead_rows
-    panel_names = tuple(nm for nm in names if REGISTRY.get(nm).kind in ("panel", "static"))
-    cols.update(_issue_features(store, static, panel, panel_names, ward_pos, origin_pos))
+    panel_names = tuple(nm for nm in names if registry.get(nm).kind in ("panel", "static"))
+    cols.update(_issue_features(store, static, panel, panel_names, ward_pos, origin_pos, registry))
     return pd.DataFrame(cols, copy=False)
 
 
-def _issue_features(store, static, panel, names, ward_pos, origin_pos):
+def _issue_features(store, static, panel, names, ward_pos, origin_pos, registry=REGISTRY):
     out = {}
-    static_names = [nm for nm in names if REGISTRY.get(nm).kind == "static"]
+    static_names = [nm for nm in names if registry.get(nm).kind == "static"]
     if static_names:
         mat = static_feature_matrix(static.align(panel.wards), static_names)
         for j, nm in enumerate(static_names):
             out[nm] = mat[ward_pos, j]
     for nm in names:
-        if REGISTRY.get(nm).kind == "panel":
+        if registry.get(nm).kind == "panel":
             if nm not in store:
                 raise KeyError(f"feature {nm!r} not in the store")
             out[nm] = np.asarray(store[nm][ward_pos, origin_pos], dtype=np.float32)
