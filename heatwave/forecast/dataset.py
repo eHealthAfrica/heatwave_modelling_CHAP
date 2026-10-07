@@ -45,6 +45,8 @@ LABEL_COLUMN = "heatwave_week"
 SPLIT_COLUMN = "split"
 WARMUP = "warmup"  # issue-table origins before every window/base rate is defined
 CACHE_SUBDIR = "forecast_cache"
+MAX_ISSUE_ROWS = 3_000_000  # guard: a full 4841 x 1863 issue table is ~9M rows and several GB
+ROW_SPLIT_CATEGORIES = splits.SPLIT_NAMES + (splits.EMBARGOED, splits.BEYOND_TEST, WARMUP)
 _SEASON = ("target_season_sin", "target_season_cos")
 _HEX = re.compile(r"^[0-9a-f]+$")
 _NAME = re.compile(r"^[A-Za-z0-9_]+$")
@@ -60,6 +62,17 @@ def warmup_first_position(panel) -> int:
     ok = np.nonzero(counts >= BASE_RATE_MIN_OBS)[0]
     first_rate = int(ok[0]) if ok.size else panel.values.shape[1]
     return max(LONGEST_FIXED_WINDOW_WEEKS - 1, first_rate)
+
+
+def _categorical(codes, categories) -> pd.Categorical:
+    """Compact categorical column from integer codes (no per-row Python strings)."""
+    return pd.Categorical.from_codes(np.asarray(codes), categories=list(categories))
+
+
+def _split_categorical(per_origin_names, origin_pos) -> pd.Categorical:
+    lookup = {nm: i for i, nm in enumerate(ROW_SPLIT_CATEGORIES)}
+    codes = np.fromiter((lookup[nm] for nm in per_origin_names), dtype=np.int8, count=len(per_origin_names))
+    return _categorical(codes[origin_pos], ROW_SPLIT_CATEGORIES)
 
 
 def _as_date(x) -> date:
@@ -164,12 +177,12 @@ def lead_rows(panel, store, static, cfg, lead, split, *, fold=None, drop_warmup=
     _check_store(panel, store, cfg, fold)
     ward_pos, origin_pos = lead_row_index(panel, cfg, lead, split, fold=fold, drop_warmup=drop_warmup)
     tf = targets.timing_fields(panel, lead, cfg.latency_days)
-    cols = {"ward": np.asarray(panel.wards, dtype=object)[ward_pos]}
+    cols = {"ward": _categorical(ward_pos, panel.wards)}
     cols["last_obs_week_index"] = tf.last_obs_week_index[origin_pos]
-    cols["last_obs_week"] = np.asarray(tf.last_obs_week, dtype=object)[origin_pos]
+    cols["last_obs_week"] = _categorical(origin_pos, tf.last_obs_week)
     cols["issue_date"] = tf.issue_date[origin_pos]
     cols["target_week_index"] = tf.target_week_index[origin_pos]
-    cols["target_week"] = np.asarray(tf.target_week, dtype=object)[origin_pos]
+    cols["target_week"] = _categorical(origin_pos, tf.target_week)
     cols["target_week_start"] = tf.target_week_start[origin_pos]
     cols["lead_weeks"] = np.full(len(ward_pos), lead, dtype=np.int64)
     cols["effective_days_ahead"] = tf.effective_days_ahead[origin_pos]
@@ -178,17 +191,23 @@ def lead_rows(panel, store, static, cfg, lead, split, *, fold=None, drop_warmup=
         raise ValueError("unlabelled row selected")
     cols[LABEL_COLUMN] = label.astype(np.int8)
     if fold is None:
-        cols[SPLIT_COLUMN] = splits.assign_split(cols["target_week_index"], cfg.splits)
+        cols[SPLIT_COLUMN] = _split_categorical(
+            splits.assign_split(tf.target_week_index, cfg.splits, strict=False), origin_pos
+        )
     else:
-        cols[SPLIT_COLUMN] = np.full(len(ward_pos), split, dtype="<U8")
+        code = ROW_SPLIT_CATEGORIES.index(split)
+        cols[SPLIT_COLUMN] = _categorical(np.full(len(ward_pos), code, dtype=np.int8), ROW_SPLIT_CATEGORIES)
     cols.update(
         _gather_features(store, static, panel, names, ward_pos, origin_pos, cols["target_week_start"], lead)
     )
-    return pd.DataFrame(cols)
+    return pd.DataFrame(cols, copy=False)  # copy=False: no block-consolidation doubling
 
 
 # --------------------------------------------------------------------------- issue rows
-def build_issue_table(panel, store, static, cfg, *, origin_positions, ward_positions=None, feature_names=None):
+def build_issue_table(
+    panel, store, static, cfg, *, origin_positions, ward_positions=None, feature_names=None,
+    registry=REGISTRY, max_rows=MAX_ISSUE_ROWS,
+):
     """One row per (ward, origin) with all lead labels as columns (leads do not multiply rows).
 
     ``split_l{k}`` is one of train, embargoed, validate, test, beyond_test (target-week split with
@@ -202,18 +221,24 @@ def build_issue_table(panel, store, static, cfg, *, origin_positions, ward_posit
     if origins.size and (origins.min() < 0 or origins.max() >= T):
         raise ValueError("origin positions must lie within the panel")
     wp = np.arange(len(panel.wards)) if ward_positions is None else np.asarray(list(ward_positions), dtype=np.int64)
+    n_rows = int(origins.size) * int(wp.size)
+    if max_rows is not None and n_rows > max_rows:
+        raise ValueError(
+            f"issue table would have {n_rows:,} rows (> max_rows={max_rows:,}); pass a smaller "
+            "origin_positions / ward_positions subset, or raise max_rows explicitly"
+        )
     ward_pos = np.tile(wp, origins.size)
     origin_pos = np.repeat(origins, wp.size)
     base = targets.timing_fields(panel, cfg.leads[0], cfg.latency_days)
     warm = warmup_first_position(panel)
-    cols = {"ward": np.asarray(panel.wards, dtype=object)[ward_pos]}
+    cols = {"ward": _categorical(ward_pos, panel.wards)}
     cols["last_obs_week_index"] = base.last_obs_week_index[origin_pos]
-    cols["last_obs_week"] = np.asarray(base.last_obs_week, dtype=object)[origin_pos]
+    cols["last_obs_week"] = _categorical(origin_pos, base.last_obs_week)
     cols["issue_date"] = base.issue_date[origin_pos]
     for k in cfg.leads:
         tf = targets.timing_fields(panel, k, cfg.latency_days)
         cols[f"target_week_index_l{k}"] = tf.target_week_index[origin_pos]
-        cols[f"target_week_l{k}"] = np.asarray(tf.target_week, dtype=object)[origin_pos]
+        cols[f"target_week_l{k}"] = _categorical(origin_pos, tf.target_week)
         cols[f"target_week_start_l{k}"] = tf.target_week_start[origin_pos]
         cols[f"effective_days_ahead_l{k}"] = tf.effective_days_ahead[origin_pos]
         cols[f"{LABEL_COLUMN}_l{k}"] = targets.lead_label(panel, k)[ward_pos, origin_pos]
@@ -222,11 +247,11 @@ def build_issue_table(panel, store, static, cfg, *, origin_positions, ward_posit
         # origins are labelled as such, so filtering split_l{k} == "train" is leakage-safe
         per_origin = splits.issue_split_labels(tf.target_week_index, cfg.splits)
         per_origin[: min(warm, per_origin.size)] = WARMUP
-        cols[f"{SPLIT_COLUMN}_l{k}"] = per_origin[origin_pos]
+        cols[f"{SPLIT_COLUMN}_l{k}"] = _split_categorical(per_origin, origin_pos)
     # calendar season features are per lead and live in lead_rows
     panel_names = tuple(nm for nm in names if REGISTRY.get(nm).kind in ("panel", "static"))
     cols.update(_issue_features(store, static, panel, panel_names, ward_pos, origin_pos))
-    return pd.DataFrame(cols)
+    return pd.DataFrame(cols, copy=False)
 
 
 def _issue_features(store, static, panel, names, ward_pos, origin_pos):

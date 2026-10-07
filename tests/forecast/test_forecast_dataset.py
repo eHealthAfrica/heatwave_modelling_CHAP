@@ -288,3 +288,26 @@ def test_wr02_issue_split_reflects_embargo_and_warmup(panel, store, static, cfg)
         tr = (d[f"split_l{k}"] == "train").to_numpy() & d[f"has_label_l{k}"].to_numpy()
         got = set(zip(wpos[tr].tolist(), opos[tr].tolist()))
         assert got == {p for p in sel if p[0] in (0, 2) and p[1] in set(all_o)}
+
+
+def test_wr03_compact_dtypes_and_row_guard(panel, store, static, cfg):
+    import pandas as pd
+
+    df = lead_rows(panel, store, static, cfg, 2, "train")
+    assert not any(pd.api.types.is_object_dtype(t) for t in df.dtypes)
+    for c in ("ward", "last_obs_week", "target_week", "split"):
+        assert isinstance(df[c].dtype, pd.CategoricalDtype), c
+    assert df["split"].dtype.categories.tolist()[:3] == ["train", "validate", "test"]
+    assert set(df["split"]) == {"train"}
+    iss = build_issue_table(panel, store, static, cfg, origin_positions=[200, 300])
+    assert not any(pd.api.types.is_object_dtype(t) for t in iss.dtypes)
+    for k in cfg.leads:
+        assert isinstance(iss[f"split_l{k}"].dtype, pd.CategoricalDtype)
+        assert isinstance(iss[f"target_week_l{k}"].dtype, pd.CategoricalDtype)
+    # compact: far below one UCS4 string (32 bytes) per split cell
+    assert iss[[f"split_l{k}" for k in cfg.leads]].memory_usage(deep=True).sum() < len(iss) * 6 * 2 + 4096
+    # full-panel tables are guarded
+    with pytest.raises(ValueError, match="max_rows"):
+        build_issue_table(panel, store, static, cfg, origin_positions=range(panel.values.shape[1]), max_rows=1000)
+    ok = build_issue_table(panel, store, static, cfg, origin_positions=[200], max_rows=len(panel.wards))
+    assert len(ok) == len(panel.wards)
