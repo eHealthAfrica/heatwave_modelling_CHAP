@@ -170,6 +170,12 @@ def render_markdown(tables: dict[str, pd.DataFrame], meta: dict) -> str:
     a(f"- Generated (UTC): {meta.get('generated_utc')}")
     a(f"- Wards: {meta.get('n_wards')}; weeks {meta.get('first_week')} to {meta.get('last_week')}")
     a(f"- latency_days (forecast.yaml): {meta.get('latency_days')}")
+    if meta.get("pin_override"):
+        po = meta["pin_override"]
+        a(
+            f"- WARNING pin overridden: forecast.yaml pins {po.get('pinned_in_forecast_yaml')}; "
+            f"this report was generated against {po.get('override_used')} (not the pinned data)"
+        )
     a("")
     a("## Prevalence by split")
     a("")
