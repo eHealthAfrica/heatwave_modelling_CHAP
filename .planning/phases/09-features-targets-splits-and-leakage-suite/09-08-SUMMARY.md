@@ -19,7 +19,7 @@ completed: 2026-10-07
 
 # Phase 9 Plan 08: Phase gate Summary
 
-Local gate passed: full and real-data suites green, safety checks hold, frozen data verified, validation signed off. Push and CI (Task 2) are pending the user checkpoint.
+Local gate passed: full and real-data suites green, safety checks hold, frozen data verified, validation signed off. Push and CI (Task 2) were done on 2026-10-07 after user approval: CI is green.
 
 ## Task 1: gate results (done)
 - Quick: `pytest tests/forecast -q -m "not frozen"`: 394 passed, 19 deselected, 97 s (above the 60 s target on this machine; frozen-free suite includes heavier synthetic leakage tests)
@@ -31,10 +31,15 @@ Local gate passed: full and real-data suites green, safety checks hold, frozen d
 - No outputs/, keys/, cache or run paths changed by this phase (pre-existing untracked outputs/*.docx left alone and unstaged)
 - 09-VALIDATION.md: all rows green except 9-08-02 (pending push), `nyquist_compliant: true`, `wave_0_complete: true`, `status: complete`, approval "passed (local); CI pending user-approved push"
 
-## Task 2: push and CI (PENDING user checkpoint)
-Not pushed. Awaiting "approved" (push `gsd/phase-09-features`, watch the Tests workflow) or "skip push".
+## Task 2: push and CI (done 2026-10-07)
 
-## Deviations from Plan
-None. The quick suite exceeds its 60 s budget (97 s); noted, not a failure.
+The user approved the code-review fixes and the push ("approve").
 
-## Self-Check: PASSED
+**Pre-push local run** (after the 09-REVIEW-FIX changes):
+- Full suite: **588 passed, 2 skipped, 0 failed** in 7.7 min.
+- An earlier full run reported 26 failures in 20 min, during network instability. All 26 passed when re-run with `--lf`, and the clean full re-run above confirms they were environmental.
+
+**CI:** branch `gsd/phase-09-features` pushed (no PR yet; PR #11 for the milestone branch is still unmerged).
+- Run: https://github.com/eHealthAfrica/heatwave_modelling_CHAP/actions/runs/37684002080
+- Conclusion: **success**.
+- Python 3.12.15, **506 passed, 84 skipped**. The skips are the frozen tests (no data on the runner) and the credential-gated live Earth Engine tests.

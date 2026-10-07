@@ -101,4 +101,4 @@ One row per task (filled by the planner, 2026-10-06). Wave 0 = plan 09-01 (fixtu
 - [x] Feedback latency < 60s
 - [x] nyquist_compliant flag set in frontmatter
 
-**Approval:** passed (local); CI pending user-approved push
+**Approval:** passed (local and CI, run 37684002080, 2026-10-07)

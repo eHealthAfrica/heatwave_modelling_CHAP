@@ -20,7 +20,7 @@ Rule-based detection pipeline, local covariate table build, Streamlit viewer, me
 ## Phases
 
 - [x] **Phase 8: Forecast Foundation** - Frozen-data access with checksum, week index, `forecast.yaml`, run folders, dependencies and CI on Python 3.12 (completed 2026-10-06)
-- [ ] **Phase 9: Features, Targets, Splits and Leakage Suite** - Leakage-safe as-of features, lead targets with timing fields, embargoed splits, prevalence/latency report
+- [x] **Phase 9: Features, Targets, Splits and Leakage Suite** - Leakage-safe as-of features, lead targets with timing fields, embargoed splits, prevalence/latency report (completed 2026-10-07)
 - [ ] **Phase 10: Baselines, Evaluation Harness and Test Lock** - Five baselines, one scoring path, bootstrap CIs, slices, locked 2021-2026 test years
 - [ ] **Phase 11: Logistic Regression per Lead** - First trained model, validation BSS with CIs, negative controls
 - [ ] **Phase 12: LightGBM, Calibration and Selection** - Tuned deterministic LightGBM, out-of-fold calibration, extrapolation check
@@ -125,7 +125,7 @@ Plans:
 
 **Wave 6** *(blocked on Wave 5 completion)*
 
-- [ ] 09-08-PLAN.md — Phase gate: full + frozen suites, validation sign-off, user-approved push and CI
+- [x] 09-08-PLAN.md — Phase gate: full + frozen suites, validation sign-off, user-approved push and CI
 
 ### Phase 10: Baselines, Evaluation Harness and Test Lock
 
