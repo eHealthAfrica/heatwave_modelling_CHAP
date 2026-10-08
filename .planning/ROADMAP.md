@@ -152,7 +152,7 @@ Plans:
 
 - [x] 10-03-PLAN.md — Test-lock guards in lead_rows / build_issue_table; Phase 9 test updates
 - [x] 10-04-PLAN.md — Paired week-block and year-block bootstrap; slices and ward flags (season, region, year, LGA-average, small wards)
-- [ ] 10-05-PLAN.md — Stored-prediction Parquet format with provenance, safe paths, lock-aware loader, alignment
+- [x] 10-05-PLAN.md — Stored-prediction Parquet format with provenance, safe paths, lock-aware loader, alignment
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
