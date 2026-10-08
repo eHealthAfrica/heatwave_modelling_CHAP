@@ -278,6 +278,8 @@ def render_markdown(results_by_lead: Mapping[int, object], meta: dict) -> str:
     ):
         if key in meta:
             add(f"- {label}: {meta[key]}")
+    if meta.get("pin_override"):
+        add(f"- Data pin overridden: {meta['pin_override']}")
     if n_wards is not None:
         add(f"- Wards: {n_wards} ({n_large} large, {n_small} small by geometry area)")
     add("- Scoring: every predictor, baselines included, is scored from its stored prediction file by the same harness.")
