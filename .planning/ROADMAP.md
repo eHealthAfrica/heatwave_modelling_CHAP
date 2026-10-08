@@ -161,7 +161,7 @@ Plans:
 
 **Wave 4** *(blocked on Wave 3 completion)*
 
-- [ ] 10-08-PLAN.md — BASELINES_VALIDATION renderer and scripts/forecast_baselines.py
+- [x] 10-08-PLAN.md — BASELINES_VALIDATION renderer and scripts/forecast_baselines.py
 
 **Wave 5** *(blocked on Wave 4 completion)*
 
