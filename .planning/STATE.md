@@ -4,8 +4,8 @@ milestone: v2.0
 milestone_name: Heat Forecasting
 status: executing
 stopped_at: Completed 09-07-PLAN.md
-last_updated: "2026-10-08T20:30:56.238Z"
-last_activity: 2026-10-08 -- Phase 10 planning complete
+last_updated: "2026-10-08T20:30:58.490Z"
+last_activity: 2026-10-08 -- Phase 10 execution started
 progress:
   total_phases: 9
   completed_phases: 2
@@ -21,15 +21,15 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Phase 10 — baselines, evaluation harness and test lock
+**Current focus:** Phase 10 — Baselines, Evaluation Harness and Test Lock
 
 ## Current Position
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
-Phase: 10
-Plan: Not started
-Status: Ready to execute
-Last activity: 2026-10-08 -- Phase 10 planning complete
+Phase: 10 (Baselines, Evaluation Harness and Test Lock) — EXECUTING
+Plan: 1 of 9
+Status: Executing Phase 10
+Last activity: 2026-10-08 -- Phase 10 execution started
 
 Progress: [█████████░] 93%
 
