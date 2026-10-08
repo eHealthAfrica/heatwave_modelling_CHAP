@@ -1,7 +1,7 @@
 """Stored predictions: one Parquet format for every predictor, with provenance and lock-aware I/O.
 
 Files live only in <forecast_runs>/<run_id>/predictions/. Metadata is JSON under the schema key
-``heatwave_forecast`` (never pickle). Loading test-split rows goes through the test lock.
+``heatwave_forecast`` (JSON only). Loading test-split rows goes through the test lock.
 """
 from __future__ import annotations
 
