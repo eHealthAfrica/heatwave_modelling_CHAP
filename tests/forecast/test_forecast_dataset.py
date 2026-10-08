@@ -21,6 +21,7 @@ from heatwave.forecast.dataset import (
     warmup_first_position,
 )
 from heatwave.forecast.features import REGISTRY, build_feature_store
+from heatwave.forecast import testlock
 from heatwave.forecast.fixtures import poison_future, synthetic_panel, synthetic_static_sources
 from heatwave.forecast.static import build_static_table
 
@@ -94,14 +95,28 @@ def test_lead_rows_columns_and_values(panel, store, static, cfg):
         assert row.target_week_index == row.last_obs_week_index + 3
 
 
-def test_validate_and_test_rows(panel, store, static, cfg):
+def test_validate_and_test_rows(panel, store, static, cfg, testlock_root):
     v = lead_rows(panel, store, static, cfg, 2, "validate")
     ts = v["target_week_start"].to_numpy().astype("datetime64[D]")
     assert (ts >= np.datetime64("2014-12-29")).all() and (ts < np.datetime64("2021-01-04")).all()
     assert "2020-W53" in set(v["target_week"])
     assert set(v["split"]) == {"validate"}
+    assert not testlock.read_log()  # train/validate never touch the lock
+
+
+def test_test_rows_with_lock_open(panel, store, static, cfg, allow_test_rows):
     t = lead_rows(panel, store, static, cfg, 2, "test")
     assert len(t) > 0 and set(t["split"]) == {"test"}
+
+
+def test_test_rows_refused_when_locked(panel, store, static, cfg, testlock_root):
+    with pytest.raises(testlock.TestLockError):
+        lead_rows(panel, store, static, cfg, 6, "test")
+    rec = testlock.read_log()[-1]
+    assert rec["event"] == "test_access_refused" and rec["split"] == "test"
+    assert rec["purpose"] == "lead_rows" and rec["lead"] == 6
+    w, o = lead_row_index(panel, cfg, 6, "test")  # index stays unguarded
+    assert w.size > 0
 
 
 def test_issue_table(panel, store, static, cfg):
@@ -235,7 +250,41 @@ def test_wr01_store_bound_to_panel(panel, static, cfg, store):
         lead_rows(panel, shaped, static, cfg, 1, "train")
 
 
-def test_wr04_panel_past_test_years(cfg, static):
+@pytest.fixture(scope="module")
+def ext_tables(cfg, static):
+    ext = synthetic_panel(last_week="2027-W10")
+    c = Climatology.fit(ext, cfg.splits.train_end)
+    st = build_feature_store(ext, c, static)
+    T = ext.values.shape[1]
+    return ext, st, T
+
+
+def test_issue_table_blanks_test_labels_when_locked(ext_tables, static, cfg, testlock_root):
+    ext, st, T = ext_tables
+    df = build_issue_table(ext, st, static, cfg, origin_positions=[200, T - 60, T - 30])
+    tst = df["split_l1"] == "test"
+    assert tst.any() and (~tst).any()
+    assert df.loc[tst, "heatwave_week_l1"].isna().all() and not df.loc[tst, "has_label_l1"].any()
+    assert df.loc[~tst & df["has_label_l1"], "heatwave_week_l1"].notna().all()
+    recs = testlock.read_log()
+    assert len(recs) == 1 and recs[0]["outcome"] == "blanked"
+    assert df["last_obs_week_index"].notna().all()
+
+
+def test_issue_table_keeps_test_labels_when_open(ext_tables, static, cfg, allow_test_rows):
+    ext, st, T = ext_tables
+    df = build_issue_table(ext, st, static, cfg, origin_positions=[T - 60, T - 30])
+    tst = df["split_l1"] == "test"
+    assert tst.any() and df.loc[tst, "has_label_l1"].all()
+    assert df.loc[tst, "heatwave_week_l1"].notna().all()
+
+
+def test_issue_table_without_test_targets_logs_nothing(panel, store, static, cfg, testlock_root):
+    build_issue_table(panel, store, static, cfg, origin_positions=[200, 300])
+    assert testlock.read_log() == []
+
+
+def test_wr04_panel_past_test_years(cfg, static, allow_test_rows):
     from heatwave.forecast import report
 
     ext = synthetic_panel(last_week="2027-W10")
