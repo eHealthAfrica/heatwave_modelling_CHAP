@@ -252,3 +252,116 @@ def test_session_root_is_isolated_from_real_data_root():
     from heatwave.config import settings
 
     assert testlock._default_data_root() != settings.local_data_dir
+
+
+# ----------------------------------------------------------------------------- template / repo
+def test_phase10_has_no_real_preregistration():
+    """Phase 14 replaces this test when it commits the real pre-registration file."""
+    assert not (artifacts.REPO_ROOT / testlock.PREREG_RELPATH).exists()
+
+
+def test_template_has_placeholders():
+    t = artifacts.REPO_ROOT / testlock.TEMPLATE_RELPATH
+    assert t.exists()
+    text = t.read_text(encoding="utf-8")
+    assert text.count(testlock.PLACEHOLDER) >= 2
+    for heading in ("## Primary metric", "## Primary leads", "## Reference forecasts",
+                    "## Confidence interval method", "## Go / no-go rule",
+                    "## Confirmatory slices", "## Frozen identifiers", "## Retrain policy",
+                    "## Test years"):
+        assert heading in text
+    assert "config sha256" in text and "model bundle sha256" in text
+
+
+@pytest.mark.frozen
+def test_real_log_has_no_test_runs():
+    from pathlib import Path
+
+    from heatwave.config import settings
+
+    assert testlock.count_test_runs(data_root=Path(settings.local_data_dir)) == 0
+
+
+# ----------------------------------------------------------------------------- real git (slow)
+def _git(repo, *args):
+    import subprocess
+
+    subprocess.run(["git", *args], cwd=repo, check=True, capture_output=True)
+
+
+@pytest.fixture
+def real_repo(tmp_path, make_git_repo):
+    r = make_git_repo(tmp_path / "repo")
+    (r / "docs" / "forecast").mkdir(parents=True)
+    return r
+
+
+def _commit_prereg(repo, data: bytes):
+    (repo / testlock.PREREG_RELPATH).write_bytes(data)
+    _git(repo, "add", testlock.PREREG_RELPATH)
+    _git(repo, "commit", "-q", "-m", "prereg")
+
+
+def _open(cfg, repo, root):
+    bundle = make_bundle(root)
+    return testlock.open_lock(cfg, model_bundle_path=bundle, opened_by="slow", repo_root=repo)
+
+
+@pytest.mark.slow
+def test_real_git_open_and_grant(forecast_cfg, testlock_root, real_repo):
+    _commit_prereg(real_repo, f"hash {config_hash(forecast_cfg)}\n".encode())
+    _open(forecast_cfg, real_repo, testlock_root)
+    assert testlock.require_open(forecast_cfg, "slow", repo_root=real_repo)["opened_by"] == "slow"
+
+
+@pytest.mark.slow
+def test_real_git_modified_after_commit_refused(forecast_cfg, testlock_root, real_repo):
+    _commit_prereg(real_repo, f"hash {config_hash(forecast_cfg)}\n".encode())
+    _open(forecast_cfg, real_repo, testlock_root)
+    (real_repo / testlock.PREREG_RELPATH).write_bytes(
+        f"hash {config_hash(forecast_cfg)}\nedited\n".encode()
+    )
+    with pytest.raises(TestLockError):
+        testlock.require_open(forecast_cfg, "slow", repo_root=real_repo)
+
+
+@pytest.mark.slow
+def test_real_git_untracked_and_staged_only_refused(forecast_cfg, testlock_root, real_repo):
+    (real_repo / "README").write_text("x", encoding="utf-8")
+    _git(real_repo, "add", "README")
+    _git(real_repo, "commit", "-q", "-m", "init")
+    path = real_repo / testlock.PREREG_RELPATH
+    path.write_bytes(f"hash {config_hash(forecast_cfg)}\n".encode())
+    bundle = make_bundle(testlock_root)
+    with pytest.raises(TestLockError):  # untracked
+        testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="s", repo_root=real_repo)
+    _git(real_repo, "add", testlock.PREREG_RELPATH)
+    with pytest.raises(TestLockError):  # staged only, HEAD lacks the path
+        testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="s", repo_root=real_repo)
+
+
+@pytest.mark.slow
+def test_real_git_crlf_working_copy_is_clean(forecast_cfg, testlock_root, tmp_path, make_git_repo):
+    repo = make_git_repo(tmp_path / "crlf", autocrlf=True)
+    (repo / "docs" / "forecast").mkdir(parents=True)
+    _commit_prereg(repo, f"hash {config_hash(forecast_cfg)}\r\nline\r\n".encode())
+    _open(forecast_cfg, repo, testlock_root)
+    assert testlock.lock_status(forecast_cfg, repo_root=repo) == (True, "open")
+
+
+@pytest.mark.slow
+def test_real_git_template_copy_refused(forecast_cfg, testlock_root, real_repo):
+    template = (artifacts.REPO_ROOT / testlock.TEMPLATE_RELPATH).read_bytes()
+    _commit_prereg(real_repo, template + f"\n{config_hash(forecast_cfg)}\n".encode())
+    bundle = make_bundle(testlock_root)
+    with pytest.raises(TestLockError, match="placeholder"):
+        testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="s", repo_root=real_repo)
+
+
+@pytest.mark.slow
+def test_real_git_config_change_after_open_refused(forecast_cfg, testlock_root, real_repo):
+    _commit_prereg(real_repo, f"hash {config_hash(forecast_cfg)}\n".encode())
+    _open(forecast_cfg, real_repo, testlock_root)
+    cfg2 = dataclasses.replace(forecast_cfg, seed=forecast_cfg.seed + 1)
+    with pytest.raises(TestLockError):
+        testlock.require_open(cfg2, "slow", repo_root=real_repo)
