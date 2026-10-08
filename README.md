@@ -45,7 +45,7 @@ Data flows one direction: `data/` ingests raw ERA5-Land → `science/` computes 
 
 ## Setup
 
-**Requirements:** Python >=3.11, a GCP project registered for Earth Engine, and a service account with Earth Engine access.
+**Requirements:** Python >=3.12, a GCP project registered for Earth Engine, and a service account with Earth Engine access.
 
 ```
 python -m venv .venv
@@ -75,7 +75,9 @@ prints `Earth Engine ready: True` on success.
 pytest
 ```
 
-The suite runs live against the real Earth Engine project (no mocking) but is fast — small, bounded samples, not production-scale data. A handful of tests are automatically skipped if no credentials are configured (`keys/service_account.json` or `EE_SA_JSON` absent); `tests/test_config.py` and `tests/test_requirements.py` never need credentials at all. As of the last full run: **166 passed, 2 skipped** (the 2 skips are opt-in tests that submit real Earth Engine batch export tasks and take minutes rather than seconds — not part of the default fast loop).
+The suite runs live against the real Earth Engine project (no mocking) but is fast — small, bounded samples, not production-scale data. A handful of tests are automatically skipped if no credentials are configured (`keys/service_account.json` or `EE_SA_JSON` absent); `tests/test_config.py` and `tests/test_requirements.py` never need credentials at all. As of the last full run: **166 passed, 2 skipped** (the 2 skips are opt-in tests that submit real Earth Engine batch export tasks and take minutes rather than seconds — not part of the default fast loop). Forecast tests (`tests/forecast`) are counted separately.
+
+The v2.0 forecasting work adds scikit-learn 1.9.1, lightgbm 4.7.0 and shap 0.52.0 (all pinned in `requirements.txt`). The `heatwave.forecast` package never imports Earth Engine (enforced by `tests/forecast/test_forecast_isolation.py`). The frozen dataset can be integrity-checked with `python scripts/verify_frozen.py --outputs-only`, and `pytest -m frozen` runs the real-data tests (skipped automatically when the data is absent).
 
 A GitHub Actions workflow (`.github/workflows/tests.yml`) runs this same suite on every push/PR. It reads an optional `EE_SA_JSON` repository secret — configure it to get full live coverage in CI, or leave it unset and the credential-gated tests skip cleanly while the credential-free tests still catch regressions.
 
