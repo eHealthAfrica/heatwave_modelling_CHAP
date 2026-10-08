@@ -284,6 +284,7 @@ def test_issue_table_without_test_targets_logs_nothing(panel, store, static, cfg
     assert testlock.read_log() == []
 
 
+@pytest.mark.slow  # moved out of the quick loop (2026-10-08 budget); runs in the full suite and CI
 def test_wr04_panel_past_test_years(cfg, static, allow_test_rows):
     from heatwave.forecast import report
 
@@ -311,6 +312,7 @@ def test_wr04_panel_past_test_years(cfg, static, allow_test_rows):
     assert (lead_rows(ext, st, static, cfg, 6, "test")["split"] == "test").all()
 
 
+@pytest.mark.slow  # moved out of the quick loop (2026-10-08 budget); runs in the full suite and CI
 def test_wr02_issue_split_reflects_embargo_and_warmup(panel, store, static, cfg):
     i_train, _ = splits.cutoff_indices(cfg.splits)
     first = int(panel.week_index[0])
