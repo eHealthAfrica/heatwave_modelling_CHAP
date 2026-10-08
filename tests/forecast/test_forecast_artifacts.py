@@ -34,6 +34,7 @@ def test_make_run_id_converts_to_utc(cfg):
     assert artifacts.make_run_id(cfg, now=local) == artifacts.make_run_id(cfg, now=NOW)
 
 
+@pytest.mark.slow  # spawns git
 def test_git_info_real_repo():
     info = artifacts.git_info()
     assert len(info["commit"]) == 40
@@ -58,6 +59,7 @@ def tmp_repo(tmp_path):
     return repo
 
 
+@pytest.mark.slow  # spawns git
 def test_git_info_clean_then_untracked_python_file_is_dirty(tmp_repo):
     """WR-07: a new uncommitted module means the recorded commit cannot reproduce the run."""
     assert artifacts.git_info(tmp_repo)["dirty"] is False
@@ -66,12 +68,14 @@ def test_git_info_clean_then_untracked_python_file_is_dirty(tmp_repo):
     assert info["dirty"] is True and len(info["commit"]) == 40
 
 
+@pytest.mark.slow  # spawns git
 def test_git_info_ignores_untracked_artifact_dirs(tmp_repo):
     (tmp_repo / "outputs").mkdir()
     (tmp_repo / "outputs" / "report.docx").write_bytes(b"x")
     assert artifacts.git_info(tmp_repo)["dirty"] is False
 
 
+@pytest.mark.slow  # spawns git
 def test_git_info_refuses_parent_repo_head(tmp_repo):
     """WR-07: repo_root that merely sits inside another repo must not report the parent's HEAD."""
     inner = tmp_repo / "pkg"

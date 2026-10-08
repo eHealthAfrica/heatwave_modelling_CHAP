@@ -108,6 +108,7 @@ class SplitsConfig:
     train_end: date
     validate_end: date
     embargo_weeks: int
+    cv_first_year: int
 
     def __post_init__(self):
         _check_years("splits.train_years", self.train_years)
@@ -135,6 +136,12 @@ class SplitsConfig:
                     f"splits.{name} must be {expected} (Monday of ISO week 1 of {year}), got {value}"
                 )
         _check_int("splits.embargo_weeks", self.embargo_weeks, 0)
+        _check_int("splits.cv_first_year", self.cv_first_year)
+        if not (self.train_years[0] < self.cv_first_year <= self.validate_years[1]):
+            raise ValueError(
+                f"splits.cv_first_year must satisfy {self.train_years[0]} < cv_first_year <= "
+                f"{self.validate_years[1]}, got {self.cv_first_year}"
+            )
 
     def split_for_week_start(self, d) -> str:
         """Return 'train', 'validate' or 'test' for a Monday week_start."""

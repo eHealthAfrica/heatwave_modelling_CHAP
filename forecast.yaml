@@ -14,13 +14,19 @@ splits:
   test_years: [2021, 2026]
   train_end: 2014-12-29
   validate_end: 2021-01-04
-  embargo_weeks: 6
+  # embargo = max(leads) 6 + longest short feature window 8 weeks (PITFALLS C4)
+  embargo_weeks: 14
+  # first expanding-window CV fold year (folds 2005..2020, each validates one ISO year)
+  cv_first_year: 2005
 
 # Forecast leads in weeks ahead.
 leads: [1, 2, 3, 4, 5, 6]
 
-# Data latency in days; Phase 9 replaces this default with the measured ERA5-Land delay.
-latency_days: 8
+# Forecast framing (user decision 2026-10-06): the last complete observed week is treated as "now".
+# A forecast is issued at the end of that week with no data-delay offset, so lead k = k weeks after
+# the last observed week (lead 1 starts the next day). The real-world ERA5-Land delay (about 9 days,
+# measured 2026-10-06) is documented in the data report as an operational note only.
+latency_days: 0
 
 # Baselines the models must beat (Phase 10).
 baselines:
@@ -29,7 +35,7 @@ baselines:
 
 # Success gate: BSS > threshold vs the best baseline on primary leads, with the CI excluding the threshold.
 gate:
-  primary_leads: [2, 3]
+  primary_leads: [1, 2]
   metric: brier_skill_score
   reference: best_baseline
   threshold: 0.0

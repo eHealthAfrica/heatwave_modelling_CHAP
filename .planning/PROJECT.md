@@ -139,7 +139,7 @@ Both hit the *same* ~12-hour wall despite a 10x difference in ward count — str
 The adopted adjustments are:
 - Add damped-persistence and trend+season baselines. The go/no-go compares against the best baseline.
 - Use trend and base-rate level features, with no raw year index.
-- **The go/no-go judges leads 2-3** (the first real forecasts; lead 1 is a nowcast).
+- ~~The go/no-go judges leads 2-3~~. Superseded 2026-10-06: the user chose to treat the last observed day as "now" (no latency offset), so every lead is a real forecast and **the go/no-go judges leads 1-2** (1 and 2 weeks after the last observed week). The real ~9-day ERA5-Land delay is documented as an operational note.
 - Keep the label name `heatwave_week` (`heatwave_days >= 3`), with a definition footnote.
 - Calibrate on out-of-fold CV predictions, choosing Platt or isotonic by CV Brier.
 - **Refit on 1991-2020 with frozen hyperparameters before the single test.** The operational model is retrained on all years and marked "not independently tested".

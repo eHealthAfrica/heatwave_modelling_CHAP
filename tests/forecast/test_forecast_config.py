@@ -36,9 +36,10 @@ def test_data_section(cfg):
 
 def test_scalar_values(cfg):
     assert cfg.leads == (1, 2, 3, 4, 5, 6)
-    assert cfg.latency_days == 8
-    assert cfg.gate.primary_leads == (2, 3)
-    assert cfg.splits.embargo_weeks == 6
+    assert cfg.latency_days == 0
+    assert cfg.gate.primary_leads == (1, 2)
+    assert cfg.splits.embargo_weeks == 14
+    assert cfg.splits.cv_first_year == 2005
     assert cfg.splits.train_end == date(2014, 12, 29)
     assert cfg.splits.validate_end == date(2021, 1, 4)
     assert cfg.seed == 20261002
@@ -145,6 +146,8 @@ _BAD = [
     ("splits.validate_end", date(2020, 12, 28)),
     ("splits.train_end", date(2021, 1, 4)),
     ("splits.embargo_weeks", -1), ("splits.embargo_weeks", 5), ("splits.embargo_weeks", True),
+    ("splits.cv_first_year", 1991), ("splits.cv_first_year", 2021), ("splits.cv_first_year", True),
+    ("splits.cv_first_year", 2005.5),
     ("data.version", "covariates-v2"), ("data.version", "../outputs"),
     ("data.version", "covariates-v1.0/../x"),
     ("data.frozen_subdir", ".."), ("data.frozen_subdir", "a/b"),
@@ -186,6 +189,24 @@ def test_rejects_missing_top_level_key(tmp_path):
     p.write_text(yaml.safe_dump(d), encoding="utf-8")
     with pytest.raises(ValueError):
         load_forecast_config(p)
+
+
+def test_rejects_missing_cv_first_year(tmp_path):
+    d = _base()
+    _del(d, "splits.cv_first_year")
+    p = tmp_path / "f.yaml"
+    p.write_text(yaml.safe_dump(d), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_forecast_config(p)
+
+
+@pytest.mark.parametrize("year", [1992, 2020])
+def test_accepts_cv_first_year_edges(tmp_path, year):
+    d = _base()
+    _set(d, "splits.cv_first_year", year)
+    p = tmp_path / "f.yaml"
+    p.write_text(yaml.safe_dump(d), encoding="utf-8")
+    assert load_forecast_config(p).splits.cv_first_year == year
 
 
 def test_rejects_list_top_level(tmp_path):

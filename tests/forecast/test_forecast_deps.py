@@ -42,6 +42,7 @@ def test_installed_versions_match_requirements(name):
     assert version(name) == _pins()[name]
 
 
+@pytest.mark.slow  # ~20 s: imports the whole ML stack
 def test_ml_imports():
     import lightgbm
     import shap  # noqa: F401
@@ -65,6 +66,7 @@ def _model():
     return m, X
 
 
+@pytest.mark.slow  # lightgbm import + fit
 def test_lightgbm_pred_contrib():
     m, X = _model()
     contrib = m.booster_.predict(X, pred_contrib=True)
@@ -73,6 +75,7 @@ def test_lightgbm_pred_contrib():
     assert np.allclose(contrib.sum(axis=1), raw, atol=1e-6)
 
 
+@pytest.mark.slow  # shap import + explainer
 def test_shap_tree_explainer():
     import shap
 

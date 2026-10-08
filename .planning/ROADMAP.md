@@ -15,12 +15,12 @@ Rule-based detection pipeline, local covariate table build, Streamlit viewer, me
 
 **Granularity:** fine (9 phases, 8-16). Numbering continues from v1.0, which ended at Phase 7.
 
-**Conventions.** `heatwave_week` = 1 when `heatwave_days >= 3` (not necessarily consecutive; not the rule-based event). Lead *k* = target week is *k* weeks after the last observed week; lead 1 is a nowcast under the ~8-day ERA5-Land latency. The go/no-go judges leads 2-3.
+**Conventions.** `heatwave_week` = 1 when `heatwave_days >= 3` (not necessarily consecutive; not the rule-based event). Lead *k* = target week is *k* weeks after the last observed week, which is treated as "now" (user decision 2026-10-06; no latency offset, so lead 1 starts the day after the last observed week). The go/no-go judges leads 1-2. The real ~9-day ERA5-Land delay is an operational note only.
 
 ## Phases
 
 - [x] **Phase 8: Forecast Foundation** - Frozen-data access with checksum, week index, `forecast.yaml`, run folders, dependencies and CI on Python 3.12 (completed 2026-10-06)
-- [ ] **Phase 9: Features, Targets, Splits and Leakage Suite** - Leakage-safe as-of features, lead targets with timing fields, embargoed splits, prevalence/latency report
+- [x] **Phase 9: Features, Targets, Splits and Leakage Suite** - Leakage-safe as-of features, lead targets with timing fields, embargoed splits, prevalence/latency report (completed 2026-10-07)
 - [ ] **Phase 10: Baselines, Evaluation Harness and Test Lock** - Five baselines, one scoring path, bootstrap CIs, slices, locked 2021-2026 test years
 - [ ] **Phase 11: Logistic Regression per Lead** - First trained model, validation BSS with CIs, negative controls
 - [ ] **Phase 12: LightGBM, Calibration and Selection** - Tuned deterministic LightGBM, out-of-fold calibration, extrapolation check
@@ -41,7 +41,7 @@ Every phase runs through the same GSD cycle: discuss, then plan (checked), then 
 | 11 | Logistic regression | 1. Train one regularised model per lead on 1991–2014 and score it on 2015–2020 against the best baseline, with CIs<br>2. Negative controls (year-shuffled features should show no skill; skill should fall as the lead grows)<br>3. Ablation steps (season → location → trend → persistence → heat → land) | First trained model per lead, validation skill vs the best baseline, negative controls | MODEL-01, EVAL-06 | 10 |
 | 12 | LightGBM and calibration | 1. Tune LightGBM per lead with expanding-window CV (strongly regularised, deterministic)<br>2. Calibrate on out-of-fold predictions, choosing Platt or isotonic per lead<br>3. Reliability plots; compare LightGBM with logistic regression<br>4. Extrapolation check: count recent rows outside the training range<br>5. **Decision point:** if there's no skill, skip Phase 13 | Tuned LightGBM, out-of-fold calibration, extrapolation check | MODEL-02–04 | 11 |
 | 13 | Secondary targets | 1. Heat Index anomaly as p10/p50/p90 (fix crossed quantiles; check the 80% range holds about 80%)<br>2. Hot-night probability, reusing the Phase 12 setup | HI anomaly quantiles, hot-night probability (deferred if Phase 12 shows no skill) | SEC-01–02 | 12 |
-| 14 | Explainability, one-shot test, report and go/no-go | 1. SHAP explanations and the full ablation ladder<br>2. Write and commit the pre-registration (score, leads 2–3, baselines, CI method, pass threshold) before touching the test data<br>3. Refit the chosen model on 1991–2020 with its settings frozen<br>4. Open the lock and score 2021–2026 **once**<br>5. Record go/no-go in `GATE.json`; write `FORECAST_REPORT.md` with the reanalysis caption, and detection kept separate from forecasting<br>6. **User review** of the decision and report | SHAP and ablations, single locked test, `GATE.json`, `FORECAST_REPORT.md` | DEC-01–04 | 12 |
+| 14 | Explainability, one-shot test, report and go/no-go | 1. SHAP explanations and the full ablation ladder<br>2. Write and commit the pre-registration (score, leads 1–2, baselines, CI method, pass threshold) before touching the test data<br>3. Refit the chosen model on 1991–2020 with its settings frozen<br>4. Open the lock and score 2021–2026 **once**<br>5. Record go/no-go in `GATE.json`; write `FORECAST_REPORT.md` with the reanalysis caption, and detection kept separate from forecasting<br>6. **User review** of the decision and report | SHAP and ablations, single locked test, `GATE.json`, `FORECAST_REPORT.md` | DEC-01–04 | 12 |
 | 15 | Operational forecast for CHAP | 0. **Before starting:** confirm column names with the CHAP team<br>1. Retrain the release model on all years, with a model card marked "not independently tested"<br>2. Weekly forecast script: latest pipeline output, same feature code as training, check of live data against the frozen version<br>3. CHAP table (no missing values, unbroken weeks, `heatwave_prob` + `heatwave_week`), then `chap validate`<br>4. Archive and manifest; update METHODOLOGY and README | Release model, CHAP-valid weekly table, archive, manifest, docs (only for leads that pass) | OPS-01–04 | 14 (go) |
 | 16 | Climate drivers | 1. Download and freeze the ENSO, Atlantic SST and MJO indices, lagged by their publication delay<br>2. Pre-register a fresh test (the 2021–2026 test is already used)<br>3. Measure the skill they add; release a new model version only if the gain is clearly above zero, otherwise document no gain | Frozen climate-driver inputs, judged by the skill they add | DRV-01–02 | 14 (go) |
 
@@ -98,7 +98,34 @@ Plans:
   4. Splits by target week with an embargo (train 1991-2014, validate 2015-2020, test 2021-2026) and expanding-window CV folds use `week_start` cutoffs.
   5. A pre-model report shows `heatwave_week` prevalence by year, region and era, and the measured ERA5-Land latency.
 
-**Plans**: TBD
+**Plans**: 8 plans
+
+Plans:
+**Wave 1**
+
+- [x] 09-01-PLAN.md — Wave 0: cv_first_year + embargo 14 config, synthetic panel/static fixtures, session real-panel fixture
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 09-02-PLAN.md — Hash-verified static ward table; train-only climatology (W53 pooling, std floor, fit range)
+- [x] 09-03-PLAN.md — Lead 1-6 heatwave_week labels with timing fields; target-week splits, embargo, 16 CV folds
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 09-04-PLAN.md — Feature registry (max_lookahead guard) and all as-of feature families
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 09-05-PLAN.md — Issue/lead row tables, warm-up, per-fold climatology refit, out-of-repo cache
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [x] 09-06-PLAN.md — Leakage suite (a)-(g) with mutation checks, synthetic + @frozen
+- [x] 09-07-PLAN.md — Pre-model data report (prevalence, effective days, delay note) + docs/forecast/DATA_REPORT.md
+
+**Wave 6** *(blocked on Wave 5 completion)*
+
+- [x] 09-08-PLAN.md — Phase gate: full + frozen suites, validation sign-off, user-approved push and CI
 
 ### Phase 10: Baselines, Evaluation Harness and Test Lock
 
@@ -164,7 +191,7 @@ Plans:
 **Success Criteria** (what must be TRUE):
 
   1. Grouped SHAP, grouped permutation importance and the ablation ladder (season, location, trend, persistence, lagged heat, soil/humidity/rain) are produced.
-  2. With the pre-registration committed, the model is refit on 1991-2020 with frozen hyperparameters and scored once on 2021-2026; the evaluation log shows exactly one test run and `GATE.json` records the go/no-go (leads 2-3, BSS > 0 vs the best baseline with CI excluding 0).
+  2. With the pre-registration committed, the model is refit on 1991-2020 with frozen hyperparameters and scored once on 2021-2026; the evaluation log shows exactly one test run and `GATE.json` records the go/no-go (leads 1-2, BSS > 0 vs the best baseline with CI excluding 0).
   3. `docs/FORECAST_REPORT.md` gives skill by lead, season and region with CIs, an effective-lead table, a skill mask, the mandatory reanalysis-label caption, and separates the rule-based detection layer from the trained forecast layer.
   4. On a no-go, the report names the leads without skill and recommends the ECMWF S2S benchmark; Phases 15-16 then proceed only for leads that passed (or not at all).
 

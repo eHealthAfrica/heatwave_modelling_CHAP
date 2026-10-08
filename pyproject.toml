@@ -14,4 +14,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
-markers = ["frozen: needs the real covariates-v1.0 data under <local_data_dir>/frozen (skipped automatically when absent)"]
+markers = [
+    "frozen: needs the real covariates-v1.0 data under <local_data_dir>/frozen (skipped automatically when absent)",
+    "slow: subprocess-heavy or heavy-import tests; run by default (CI uses plain pytest), excluded from the quick loop with -m \"not slow\"",
+]
