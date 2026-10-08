@@ -35,13 +35,13 @@
 
 ### Baselines and evaluation harness (EVAL)
 
-- [ ] **EVAL-01**: Analyst can score five baselines per lead through the same harness as the models:
+- [x] **EVAL-01**: Analyst can score five baselines per lead through the same harness as the models:
   - climatology;
   - recent 10-year climatology pooled across ±1-2 weeks;
   - probabilistic persistence;
   - damped persistence;
   - trend + season.
-- [ ] **EVAL-02**: The harness scores stored predictions identically for every predictor. It reports:
+- [x] **EVAL-02**: The harness scores stored predictions identically for every predictor. It reports:
   - Brier score and Brier skill score against a named reference, with Brier decomposition;
   - ROC AUC, stratified by season and region;
   - a reliability diagram with quantile bins;
@@ -49,9 +49,9 @@
   - calibration-in-the-large by year.
 
   There is no accuracy metric.
-- [ ] **EVAL-03**: Analyst gets confidence intervals from a paired week-block bootstrap (blocks of at least 4 weeks) and a year-block bootstrap, never resampling individual rows or wards.
-- [ ] **EVAL-04**: Analyst can break results down by lead, season (with March-May highlighted), region (far north vs middle belt) and year, with the 6 LGA-average wards and the small wards flagged.
-- [ ] **EVAL-05**: The 2021-2026 test years are locked. Loaders refuse test rows until a pre-registration file is committed and the lock is opened, and the evaluation log shows exactly one test run.
+- [x] **EVAL-03**: Analyst gets confidence intervals from a paired week-block bootstrap (blocks of at least 4 weeks) and a year-block bootstrap, never resampling individual rows or wards.
+- [x] **EVAL-04**: Analyst can break results down by lead, season (with March-May highlighted), region (far north vs middle belt) and year, with the 6 LGA-average wards and the small wards flagged.
+- [x] **EVAL-05**: The 2021-2026 test years are locked. Loaders refuse test rows until a pre-registration file is committed and the lock is opened, and the evaluation log shows exactly one test run.
 - [ ] **EVAL-06**: Analyst can run negative controls (year-shuffled features, skill-vs-lead decay) that show whether apparent skill is real.
 
 ### Models and calibration (MODEL)
@@ -135,11 +135,11 @@ Which phases cover which requirements. Updated during roadmap creation.
 | FEAT-04 | Phase 9 | Complete |
 | FEAT-05 | Phase 9 | Complete |
 | FEAT-06 | Phase 9 | Complete |
-| EVAL-01 | Phase 10 | Pending |
-| EVAL-02 | Phase 10 | Pending |
-| EVAL-03 | Phase 10 | Pending |
-| EVAL-04 | Phase 10 | Pending |
-| EVAL-05 | Phase 10 | Pending |
+| EVAL-01 | Phase 10 | Complete |
+| EVAL-02 | Phase 10 | Complete |
+| EVAL-03 | Phase 10 | Complete |
+| EVAL-04 | Phase 10 | Complete |
+| EVAL-05 | Phase 10 | Complete |
 | EVAL-06 | Phase 11 | Pending |
 | MODEL-01 | Phase 11 | Pending |
 | MODEL-02 | Phase 12 | Pending |

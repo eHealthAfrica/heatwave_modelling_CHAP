@@ -1,9 +1,9 @@
 ---
 phase: 10
 slug: baselines-evaluation-harness-and-test-lock
-status: draft
+status: signed-off-pending-push
 nyquist_compliant: true
-wave_0_complete: false
+wave_0_complete: true
 created: 2026-10-08
 ---
 
@@ -125,12 +125,12 @@ created: 2026-10-08
 
 - [x] All tasks have `<automated>` verify or Wave 0 dependencies (10-09-T3 is the approval checkpoint)
 - [x] Sampling continuity: no 3 consecutive tasks without automated verify
-- [ ] Wave 0 covers all MISSING references
+- [x] Wave 0 covers all MISSING references
 - [x] No watch-mode flags
-- [ ] Quick-loop latency < 60s
+- [x] Quick-loop latency < 60s (59.1 s pytest time at the 10-09 gate, 62.7 s wall incl. startup; about 1 s headroom, watch it)
 - [x] `nyquist_compliant: true` set in frontmatter
 
-**Approval:** pending
+**Approval:** phase gate green 2026-10-08 (full forecast suite 577 passed; real log 0 test runs). Push/CI awaits user approval (10-09 Task 3).
 
 ## Orchestrator notes from plan check (iteration 2, 2026-10-08)
 - **N1:** the quick-loop timing and slow-marking step written into 10-07 T2 is **moved to the start of 10-08**, which runs in wave 4 after 10-06 and 10-07. Plans run one at a time on the main tree, so there's no race. Moving the step keeps file ownership clean: 10-07 must not edit 10-06's test files.
