@@ -50,6 +50,14 @@ def test_baselines(cfg):
         "climatology", "recent_climatology", "persistence", "damped_persistence", "trend_season",
     )
     assert cfg.baselines.recent_climatology_years == 10
+    assert cfg.baselines.shrinkage_pseudo_count == 50
+
+
+def test_evaluation_section(cfg):
+    assert cfg.evaluation.bootstrap_b == 1000
+    assert cfg.evaluation.block_weeks == 4
+    assert cfg.evaluation.reliability_bins == 10
+    assert cfg.evaluation.auc_hist_bins == 1000
 
 
 def test_model_params(cfg):
@@ -167,6 +175,11 @@ _BAD = [
     ("models.lightgbm.subsample", True), ("models.logistic_regression.C", "big"),
     ("models.logistic_regression.penalty", 2), ("models.logistic_regression.random_state", 1),
     ("models.logistic_regression.n_jobs", 2),
+    ("baselines.shrinkage_pseudo_count", -1), ("baselines.shrinkage_pseudo_count", True),
+    ("baselines.shrinkage_pseudo_count", 2.5),
+    ("evaluation.block_weeks", 3), ("evaluation.block_weeks", True),
+    ("evaluation.bootstrap_b", 0), ("evaluation.reliability_bins", 1),
+    ("evaluation.auc_hist_bins", 5), ("evaluation.extra", 1),
     ("seed", -1), ("seed", True), ("seed", "42"),
     ("extra", 1), ("splits.foo", 1),
 ]
@@ -185,6 +198,15 @@ def test_rejects_bad_value(tmp_path, path, value):
 def test_rejects_missing_top_level_key(tmp_path):
     d = _base()
     _del(d, "gate")
+    p = tmp_path / "f.yaml"
+    p.write_text(yaml.safe_dump(d), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_forecast_config(p)
+
+
+def test_rejects_missing_evaluation_section(tmp_path):
+    d = _base()
+    _del(d, "evaluation")
     p = tmp_path / "f.yaml"
     p.write_text(yaml.safe_dump(d), encoding="utf-8")
     with pytest.raises(ValueError):
