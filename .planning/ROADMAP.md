@@ -156,7 +156,7 @@ Plans:
 
 **Wave 3** *(blocked on Wave 2 completion)*
 
-- [ ] 10-06-PLAN.md — Five baselines on dense arrays (train-only / as-of)
+- [x] 10-06-PLAN.md — Five baselines on dense arrays (train-only / as-of)
 - [ ] 10-07-PLAN.md — Scoring harness: CIs, slices, best baseline, decay check, logging
 
 **Wave 4** *(blocked on Wave 3 completion)*
