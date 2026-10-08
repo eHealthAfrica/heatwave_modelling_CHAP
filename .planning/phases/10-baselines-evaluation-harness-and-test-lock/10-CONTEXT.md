@@ -138,3 +138,41 @@ All five are fitted on **training rows only** (targets before 2014-12-29, minus 
 
 ---
 *Phase: 10-baselines-evaluation-harness-and-test-lock*
+
+## Resolved after phase research (2026-10-08)
+- **Baseline results measured by research.** On validation (Brier), the best baseline is `damped_persistence` at leads 1-2 and `trend_season` at leads 3-6. Static `climatology` predicts a mean of 0.089 against 0.154 observed, which is worse than a constant base rate. These are expectations only; the harness produces the official numbers.
+- **`recent_climatology`:**
+  - It reads the 10-year base rate at the **target** column (origin + lead), not the origin-week feature.
+  - It shrinks toward the state rate with a fixed pseudo-count **m = 50**, which goes into `forecast.yaml` `baselines.shrinkage_pseudo_count`.
+  - Early-year NaN rows are dropped from stored train predictions.
+- **`damped_persistence` inputs:** `xhi_anom_lag0` (lag-0 max Heat Index anomaly), lag-0 `heatwave_week`, and season sin/cos.
+- **`trend_season`:** an exact binomial logistic fit on (week × geozone) counts with sample weights.
+- **Persistence sanity:** skill at lead 1 must beat lead 6. Strict monotonicity is not required: research found lead 4 slightly worse than lead 5.
+- **BSS reporting:** report both the BSS against the named reference and the Brier difference (reference − candidate). Both come from the same paired bootstrap replicates, with week-block and year-block CIs. The year-block CI rests on only 6 clusters and is labelled a coarse check.
+- **Bootstrap:**
+  - Precompute per-target-week sufficient statistics, so one replicate is a weighted sum over weeks.
+  - Use a circular week-block multiplicity matrix per lead, seeded with `SeedSequence([seed, lead])`.
+  - Defaults are B = 1000, block 4 weeks, 95% CI from `gate.ci_level`.
+  - Compute the AUC CI from a histogram (1000 bins).
+- **Murphy decomposition:** keep duplicate quantile edges, using `searchsorted(edges[1:-1], p)` as sklearn does, and never `np.unique` the edges.
+- **Small wards:** a ward is small when its geometry area is under 0.01 deg² (one 0.1° cell). That's 3,086 of 4,835 non-empty wards (64%). Headline numbers use **all wards**, and every slice table adds a "large wards only" row. The 6 LGA-average wards are flagged separately.
+- **Test lock:**
+  - The template is `docs/forecast/PREREGISTRATION.template.md`. The real file `PREREGISTRATION.md` is created only in Phase 14.
+  - "Committed and unmodified" means `git ls-files --error-unmatch` plus `git hash-object` equal to `git rev-parse HEAD:<path>`, which is CRLF-safe.
+  - `TEST_LOCK.json` records the `HEAD:` blob sha, the config hash and the bundle hash. These are recomputed on every access, so tampering re-closes the lock.
+  - The pre-registration must contain the current config hash and no placeholder token.
+  - There is no `allow_test` bypass parameter.
+- **Guard placement:**
+  - `lead_rows(split="test", fold=None)` and the stored-prediction loader for test rows raise while the lock is closed.
+  - `build_issue_table` **blanks** its test-split label columns (NaN, `has_label` False) while the lock is closed, so operational and report paths keep working.
+  - Descriptive prevalence in `report.py` (`heatwave_week_matrix`) is unaffected: it was already published in DATA_REPORT and is not model scoring.
+  - Existing Phase 9 tests that request test rows use an explicit test fixture that opens a tmp lock.
+- **Evaluation log hygiene:** an autouse fixture in `tests/forecast/conftest.py` points every test's data root at tmp, so no test writes to the real `evaluation_log.jsonl`. After this phase, the real log must show no test-split entries.
+- **Config:**
+  - Add `baselines.shrinkage_pseudo_count: 50`.
+  - Add a new `evaluation:` section: `bootstrap_b` 1000, `block_weeks` 4 (validated ≥ 4), `reliability_bins` 10, `auc_hist_bins` 1000.
+  - Update config tests and rejection cases.
+  - Reuse `gate.ci_level` and `seed`.
+  - Baselines do not use `models.logistic_regression`.
+- **Stored train predictions:** diagnostics for leads 1 and 6 only by default. Train rows for all leads total 156M rows.
+- **Test fixtures:** use `synthetic_panel(last_week="2027-W10")` so all splits exist. Tests that spawn git are marked `@slow`; the quick loop uses a stubbed git callable.
