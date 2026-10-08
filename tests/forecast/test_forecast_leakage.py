@@ -190,7 +190,7 @@ def long_setup(long_panel, cfg):
     return st, build_feature_store(long_panel, clim, st)
 
 
-def test_f_split_integrity(long_panel, long_setup, cfg):
+def test_f_split_integrity(long_panel, long_setup, cfg, allow_test_rows):
     st, store = long_setup
     i_train, _ = splits.cutoff_indices(cfg.splits)
     for lead in cfg.leads:
