@@ -145,7 +145,7 @@ Plans:
 Plans:
 **Wave 1**
 
-- [ ] 10-01-PLAN.md — Config keys (shrinkage m, evaluation section), test lock + evaluation log, test isolation fixtures, pre-registration template
+- [x] 10-01-PLAN.md — Config keys (shrinkage m, evaluation section), test lock + evaluation log, test isolation fixtures, pre-registration template
 - [ ] 10-02-PLAN.md — Metrics: Brier/BSS, Murphy decomposition, reliability, stratified AUC, P/R/F1 at threshold, calibration by year, per-week sufficient statistics
 
 **Wave 2** *(blocked on Wave 1 completion)*
