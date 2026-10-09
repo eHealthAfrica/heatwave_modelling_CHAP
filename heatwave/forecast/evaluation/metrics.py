@@ -191,11 +191,24 @@ def stratified_auc(p, y, strata) -> pd.DataFrame:
 
 
 # ----------------------------------------------------------------- P / R / F1
-def _prf(tp, fp, fn):
+def _prf(tp, fp, fn, n=None):
+    """Precision, recall, F1 from counts (scalars or replicate arrays).
+
+    Conventions (review WR-03), so bootstrap replicates are not silently dropped:
+    precision is defined as 0 when nothing is predicted positive (tp + fp = 0);
+    F1 = 2 tp / (2 tp + fp + fn), which is 0 when tp = 0 but errors exist and NaN only when
+    tp = fp = fn = 0; recall is NaN only when there are no positives (tp + fn = 0).
+    When ``n`` (rows per replicate) is given, replicates with n = 0 are NaN throughout.
+    """
+    tp, fp, fn = (np.asarray(v, dtype=np.float64) for v in (tp, fp, fn))
     with np.errstate(divide="ignore", invalid="ignore"):
-        prec = tp / (tp + fp)
+        pp = tp + fp
+        prec = np.where(pp > 0, tp / np.where(pp > 0, pp, 1.0), 0.0)
         rec = tp / (tp + fn)
-        f1 = 2.0 * prec * rec / (prec + rec)
+        f1 = 2.0 * tp / (2.0 * tp + fp + fn)
+    if n is not None:
+        empty = np.asarray(n) == 0
+        prec, rec, f1 = (np.where(empty, np.nan, v) for v in (prec, rec, f1))
     return prec, rec, f1
 
 
@@ -206,7 +219,7 @@ def prf_at_threshold(p, y, threshold: float) -> dict:
     tp = float(np.sum(pos & (y == 1.0)))
     fp = float(np.sum(pos & (y == 0.0)))
     fn = float(np.sum(~pos & (y == 1.0)))
-    prec, rec, f1 = (float(v) for v in _prf(np.float64(tp), np.float64(fp), np.float64(fn)))
+    prec, rec, f1 = (float(v) for v in _prf(tp, fp, fn, n=p.size))
     n = int(p.size)
     return {
         "threshold": float(threshold), "n": n,
@@ -354,5 +367,5 @@ def stats_auc(st: WeekStats, c):
 def stats_prf(st: WeekStats, c) -> dict:
     c, s = _c2(c)
     tp, fp, fn = c @ st.tp, c @ st.fp, c @ st.fn
-    prec, rec, f1 = _prf(tp, fp, fn)
+    prec, rec, f1 = _prf(tp, fp, fn, n=c @ st.n)
     return {"precision": _out(prec, s), "recall": _out(rec, s), "f1": _out(f1, s)}

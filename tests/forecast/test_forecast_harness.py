@@ -234,3 +234,14 @@ def test_isolation_static():
     src = (pkg / "harness.py").read_text(encoding="utf-8")
     assert not re.search(r"\.(fit|predict)\(", src)
     assert "accuracy" not in src.lower()
+
+
+def test_prf_surfaces_n_valid(scored):
+    """Review WR-03: the number of defined bootstrap replicates is kept for P/R/F1."""
+    res, ctx = scored[0], scored[1]
+    for m in ("precision", "recall", "f1"):
+        col = f"{m}_n_valid"
+        assert col in res.prf.columns
+        assert ((res.prf[col] > 0) & (res.prf[col] <= ctx.B)).all()
+    # F1 has no undefined replicate once at least one true positive is possible in a block
+    assert (res.prf["f1_n_valid"] == ctx.B).all()

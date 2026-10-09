@@ -179,3 +179,44 @@ def test_zero_weight_week_excluded():
     assert M.stats_brier(st, c) == pytest.approx(M.stats_brier(st2, ones), rel=1e-12)
     assert M.stats_auc(st, c) == pytest.approx(M.stats_auc(st2, ones), rel=1e-12)
     assert M.stats_murphy(st, c)["rel"] == pytest.approx(M.stats_murphy(st2, ones)["rel"], abs=1e-12)
+
+
+# ------------------------------------------------------------- review WR-03: F1 is 0, not NaN
+def test_f1_is_zero_when_tp_zero_but_errors_exist():
+    # two false positives, two missed positives, no true positive
+    p = np.array([0.9, 0.9, 0.1, 0.1])
+    y = np.array([0.0, 0.0, 1.0, 1.0])
+    d = M.prf_at_threshold(p, y, 0.5)
+    assert d["tp"] == 0 and d["fp"] == 2 and d["fn"] == 2
+    assert d["precision"] == 0.0 and d["recall"] == 0.0 and d["f1"] == 0.0
+
+
+def test_precision_zero_when_no_predicted_positives_documented():
+    p = np.array([0.1, 0.2, 0.1])
+    y = np.array([1.0, 0.0, 1.0])
+    d = M.prf_at_threshold(p, y, 0.5)
+    assert d["precision"] == 0.0 and d["recall"] == 0.0 and d["f1"] == 0.0
+    assert "precision is defined as 0" in (M._prf.__doc__ or "")
+
+
+def test_recall_and_f1_nan_only_when_undefined():
+    p = np.array([0.1, 0.2])
+    y = np.array([0.0, 0.0])  # no positives, no predicted positives: nothing to score
+    d = M.prf_at_threshold(p, y, 0.5)
+    assert np.isnan(d["recall"]) and np.isnan(d["f1"])
+
+
+def test_bootstrap_replicates_with_no_true_positive_keep_f1_zero():
+    w = 6
+    p = np.array([0.9, 0.1] * 6)
+    y = np.array([0.0, 1.0] * 6)
+    wk = np.repeat(np.arange(w), 2)
+    edges = M.quantile_edges(p, 2)
+    st = M.week_stats(p, y, wk, w, edges=edges, auc_edges=np.linspace(0, 1, 11), threshold=0.5)
+    c = np.ones((3, w))
+    out = M.stats_prf(st, c)
+    assert np.isfinite(out["f1"]).all() and (out["f1"] == 0.0).all()
+    from heatwave.forecast.evaluation import bootstrap as BS
+
+    lo, hi, nv = BS.metric_ci(st, c, 0.95, "f1")
+    assert (lo, hi, nv) == (0.0, 0.0, 3)

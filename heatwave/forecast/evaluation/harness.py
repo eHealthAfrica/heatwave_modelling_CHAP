@@ -213,8 +213,9 @@ def score_lead(paths: Mapping[str, Path], ctx: ScoringContext, *, references: Se
         prf = metrics.prf_at_threshold(p, yy, ctx.threshold)
         prf["predictor"] = name
         for m in ("precision", "recall", "f1"):
-            lo, hi, _ = bootstrap.metric_ci(st, mult_week, ctx.level, m)
+            lo, hi, nv = bootstrap.metric_ci(st, mult_week, ctx.level, m)
             prf[f"{m}_week_lo"], prf[f"{m}_week_hi"] = lo, hi
+            prf[f"{m}_n_valid"] = nv  # replicates with a defined value (of B), surfaced in the report
         prf_rows.append(prf)
 
         ct = metrics.calibration_in_the_large(p, yy, year_row)

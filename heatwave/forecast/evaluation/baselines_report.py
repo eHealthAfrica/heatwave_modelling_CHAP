@@ -231,6 +231,14 @@ def _reliability_table(results, meta, leads) -> str:
     return _table(pd.DataFrame(rows))
 
 
+def _valid_reps(r) -> str:
+    """Smallest count of defined bootstrap replicates over precision, recall and F1."""
+    cols = [f"{m}_n_valid" for m in ("precision", "recall", "f1")]
+    if not all(c in r.index for c in cols):
+        return "n/a"
+    return str(int(min(r[c] for c in cols)))
+
+
 def _prf_table(results, names) -> str:
     rows = []
     for k in _order(results):
@@ -243,6 +251,7 @@ def _prf_table(results, names) -> str:
                 "precision": f"{_f(r['precision'])} {_ci(r['precision_week_lo'], r['precision_week_hi'], 3)}",
                 "recall": f"{_f(r['recall'])} {_ci(r['recall_week_lo'], r['recall_week_hi'], 3)}",
                 "F1": f"{_f(r['f1'])} {_ci(r['f1_week_lo'], r['f1_week_hi'], 3)}",
+                "valid replicates": _valid_reps(r),
             })
     return _table(pd.DataFrame(rows))
 
@@ -425,6 +434,11 @@ def render_markdown(results_by_lead: Mapping[int, object], meta: dict) -> str:
     add("- Slice intervals (season, region, ward filters) are exploratory and not adjusted for multiplicity.")
     add("- REL and RES week-block intervals are conditional on the full-sample quantile bin edges.")
     add("- Calibration-in-the-large by year is shown as point values without intervals.")
+    add(
+        "- Precision is defined as 0 when nothing is predicted positive and F1 = 2TP/(2TP+FP+FN), so a bootstrap "
+        "replicate without a true positive scores 0 rather than being dropped; recall is undefined only without "
+        "positives. 'valid replicates' is the smallest count of defined replicates over precision, recall and F1."
+    )
     if n_wards is not None and n_small is not None and n_wards:
         add(
             f"- Small wards (geometry area below one 0.1 x 0.1 degree cell) are {n_small} of {n_wards} "
