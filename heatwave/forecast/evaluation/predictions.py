@@ -165,7 +165,18 @@ def _check_matches_meta(df: pd.DataFrame, meta: PredictionMeta) -> None:
         raise ValueError("split values differ from metadata")
 
 
-def write_predictions(df: pd.DataFrame, meta: PredictionMeta, run_dir) -> Path:
+def _derived_splits(target_week_index, cfg) -> np.ndarray:
+    return splits.assign_split(np.asarray(target_week_index, dtype=np.int64), cfg.splits, strict=False)
+
+
+def _check_split_labels(labels, target_week_index, cfg) -> None:
+    """The split label of every row must equal the split derived from its target week (WR-02)."""
+    derived = _derived_splits(target_week_index, cfg)
+    if (derived != np.asarray(labels).astype(str)).any():
+        raise ValueError("split column disagrees with target_week_index (derived from the pinned dates)")
+
+
+def write_predictions(df: pd.DataFrame, meta: PredictionMeta, run_dir, *, cfg=None) -> Path:
     if tuple(df.columns) != COLUMNS:
         raise ValueError(f"columns must be {COLUMNS}, got {tuple(df.columns)}")
     for col, dt in DTYPES.items():
@@ -173,6 +184,8 @@ def write_predictions(df: pd.DataFrame, meta: PredictionMeta, run_dir) -> Path:
         if not ok:
             raise ValueError(f"column {col!r} has dtype {df[col].dtype}, expected {dt}")
     _check_matches_meta(df, meta)
+    if cfg is not None:
+        _check_split_labels(df["split"].astype(str).to_numpy(), df["target_week_index"].to_numpy(), cfg)
     path = prediction_path(run_dir, meta.predictor, meta.lead, meta.split)
     path.parent.mkdir(parents=True, exist_ok=True)
     table = pa.Table.from_pandas(df, preserve_index=False)
@@ -211,19 +224,27 @@ def read_metadata(path) -> PredictionMeta:
 # --------------------------------------------------------------------------- loader and alignment
 def load_predictions(path, cfg, *, data_root=None) -> tuple[pd.DataFrame, PredictionMeta]:
     meta = read_metadata(path)
-    checked = False
-    if meta.split == "test":
+    # Only the two key columns are read before the lock decision, so no label or probability is in
+    # memory while the lock is closed. Protection is decided from the target weeks (pinned dates),
+    # never from the file's own split label (WR-02).
+    head = pq.read_table(path, columns=["target_week_index", "split"]).to_pandas()
+    t = head["target_week_index"].to_numpy(dtype=np.int64)
+    labels = head["split"].astype(str).to_numpy()
+    derived = _derived_splits(t, cfg)
+    protected = (
+        meta.split == "test"
+        or bool((labels == "test").any())
+        or bool(splits.protected_mask(t).any())
+        or bool(np.isin(derived, ("test", splits.BEYOND_TEST)).any())
+    )
+    if protected:
         testlock.require_open(
             cfg, "load_predictions", predictor=meta.predictor, lead=meta.lead,
-            run_id=meta.run_id, data_root=data_root,
+            n_rows=int(t.size), run_id=meta.run_id, data_root=data_root,
         )
-        checked = True
+    if (derived != labels).any():
+        raise ValueError("split column disagrees with target_week_index (derived from the pinned dates)")
     df = pq.read_table(path).to_pandas()
-    if "split" in df.columns and (df["split"].astype(str) == "test").any() and not checked:
-        testlock.require_open(
-            cfg, "load_predictions", predictor=meta.predictor, lead=meta.lead,
-            run_id=meta.run_id, data_root=data_root,
-        )
     df = _coerce(df)
     p = df["p"].to_numpy()
     if not np.isfinite(p).all() or (len(p) and (p.min() < 0 or p.max() > 1)):

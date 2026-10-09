@@ -94,7 +94,7 @@ def _store(panel, cfg, fitted, lead, split, wp, op, run_dir, run_id, data_sha, t
     for nm, p in probs.items():
         df = predictions.build_frame(panel, cfg, nm, lead, split, wp, op, p[keep])
         meta = predictions.PredictionMeta(run_id, chash, data_sha, nm, lead, split, threshold=float(threshold))
-        paths[nm] = predictions.write_predictions(df, meta, run_dir)
+        paths[nm] = predictions.write_predictions(df, meta, run_dir, cfg=cfg)
     return paths, op
 
 

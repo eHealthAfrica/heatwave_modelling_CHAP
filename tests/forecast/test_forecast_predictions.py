@@ -228,3 +228,43 @@ def test_relabelled_config_cannot_build_validate_frame(panel, cfg, testlock_root
     with pytest.raises(testlock.TestLockError):
         P.build_frame(panel, bad, "x", 2, "validate", w[:4], o[:4], np.zeros(4))
     assert testlock.read_log(testlock_root)[-1]["outcome"] == "refused"
+
+
+# ------------------------------------------------ review WR-02: split derived from target weeks
+def _mislabelled_file(panel, cfg, run_dir, monkeypatch):
+    """Rows are 2021+ target weeks, but split column and metadata both say validate."""
+    with monkeypatch.context() as mp:
+        mp.setattr(testlock, "require_open", lambda *a, **k: {})
+        tdf, _ = _frame(panel, cfg, split="test", n=4)
+    tdf = tdf.copy()
+    tdf["split"] = pd.Categorical(["validate"] * len(tdf), categories=["validate"])
+    return P.write_predictions(tdf, _meta("validate"), run_dir)
+
+
+def test_loader_refuses_mislabelled_protected_rows_when_closed(
+    panel, cfg, run_dir, testlock_root, monkeypatch
+):
+    path = _mislabelled_file(panel, cfg, run_dir, monkeypatch)
+    with pytest.raises(testlock.TestLockError):
+        P.load_predictions(path, cfg)
+    assert testlock.read_log(testlock_root)[-1]["outcome"] == "refused"
+
+
+def test_loader_rejects_label_disagreeing_with_target_weeks_even_when_open(
+    panel, cfg, run_dir, testlock_root, monkeypatch
+):
+    path = _mislabelled_file(panel, cfg, run_dir, monkeypatch)
+    with monkeypatch.context() as mp:
+        mp.setattr(testlock, "require_open", lambda *a, **k: {})
+        with pytest.raises(ValueError, match="disagrees with target_week_index"):
+            P.load_predictions(path, cfg)
+
+
+def test_writer_with_cfg_rejects_mislabelled_rows(panel, cfg, run_dir, monkeypatch):
+    with monkeypatch.context() as mp:
+        mp.setattr(testlock, "require_open", lambda *a, **k: {})
+        tdf, _ = _frame(panel, cfg, split="test", n=4)
+    tdf = tdf.copy()
+    tdf["split"] = pd.Categorical(["validate"] * len(tdf), categories=["validate"])
+    with pytest.raises(ValueError, match="disagrees with target_week_index"):
+        P.write_predictions(tdf, _meta("validate"), run_dir, cfg=cfg)
