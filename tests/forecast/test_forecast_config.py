@@ -309,3 +309,29 @@ def test_existing_config_untouched(rel, blob):
     """The v1 config files must stay byte-identical to the base they had before v2.0."""
     path = FORECAST_CONFIG_PATH.parent / rel
     assert _git_blob_id(path.read_bytes()) == blob, f"{rel} differs from base 7ed8d1c"
+
+
+# ------------------------------------------------------------- review WR-01: pinned test window
+def _splits(validate_years, test_years, validate_end):
+    from heatwave.forecast.config import SplitsConfig
+
+    return SplitsConfig(
+        train_years=(1991, 2014), validate_years=validate_years, test_years=test_years,
+        train_end=date(2014, 12, 29), validate_end=validate_end, embargo_weeks=14, cv_first_year=2005,
+    )
+
+
+def test_test_window_is_pinned_extended_validate_rejected():
+    """WR-01: validate_years extended into 2021+ (test relabelled) must fail validation."""
+    with pytest.raises(ValueError, match="pinned"):
+        _splits((2015, 2025), (2026, 2026), date(2025, 12, 29))
+
+
+def test_test_window_is_pinned_shortened_validate_rejected():
+    with pytest.raises(ValueError, match="pinned"):
+        _splits((2015, 2019), (2020, 2026), date(2019, 12, 30))
+
+
+def test_pinned_window_accepted():
+    s = _splits((2015, 2020), (2021, 2026), date(2021, 1, 4))
+    assert s.test_years[0] == 2021

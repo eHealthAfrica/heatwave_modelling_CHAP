@@ -115,7 +115,10 @@ def main(argv=None) -> int:
     )
     args = ap.parse_args(argv)
 
-    cfg = load_forecast_config(Path(args.config))
+    try:
+        cfg = load_forecast_config(Path(args.config))
+    except (ValueError, OSError) as exc:
+        return _bad(f"invalid --config: {exc}")
     try:
         leads = _int_list(args.leads, "--leads") if args.leads else list(cfg.leads)
         train_leads = _int_list(args.train_leads, "--train-leads", allow_none=True)

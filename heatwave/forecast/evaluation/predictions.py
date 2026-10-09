@@ -89,14 +89,15 @@ def build_frame(panel, cfg, predictor, lead, split, ward_pos, origin_pos, p, *, 
         raise ValueError("p contains NaN or inf")
     if n and (p.min() < 0 or p.max() > 1):
         raise ValueError("p must lie within [0, 1]")
-    if split == "test":
+    tf = targets.timing_fields(panel, lead, cfg.latency_days)
+    wi = np.asarray(panel.week_index, dtype=np.int64)
+    target_idx = tf.target_week_index[origin_pos]
+    # date-based guard (WR-01): rows in the pinned test window need the lock whatever the split label
+    if split == "test" or splits.protected_mask(target_idx).any():
         testlock.require_open(cfg, "build_predictions", predictor=predictor, lead=lead, n_rows=n)
     y = targets.lead_label(panel, lead)[ward_pos, origin_pos]
     if np.isnan(y).any():
         raise ValueError("labels are NaN at some requested rows")
-    tf = targets.timing_fields(panel, lead, cfg.latency_days)
-    wi = np.asarray(panel.week_index, dtype=np.int64)
-    target_idx = tf.target_week_index[origin_pos]
     got = splits.assign_split(target_idx, cfg.splits)
     if (got != split).any():
         raise ValueError(f"some rows do not belong to split {split!r}")

@@ -139,3 +139,22 @@ def test_script_refuses_bad_arguments(synth, tmp_path, flags):
     code, out = _run(*_base(synth, tmp_path), "--docs-out", tmp_path / "R.md", "--force", *flags)
     assert code == 2, out
     assert not (tmp_path / "runs").exists()
+
+
+@pytest.mark.slow
+def test_script_refuses_config_that_relabels_the_test_window(tmp_path):
+    """Review WR-01: --config with validate_years extended into 2021+ must be refused (exit 2)."""
+    from heatwave.forecast.config import FORECAST_CONFIG_PATH
+
+    text = FORECAST_CONFIG_PATH.read_text(encoding="utf-8")
+    for old, new in (
+        ("validate_years: [2015, 2020]", "validate_years: [2015, 2025]"),
+        ("test_years: [2021, 2026]", "test_years: [2026, 2026]"),
+        ("validate_end: 2021-01-04", "validate_end: 2025-12-29"),
+    ):
+        assert old in text
+        text = text.replace(old, new, 1)
+    p = tmp_path / "tampered.yaml"
+    p.write_text(text, encoding="utf-8")
+    code, out = _run("--config", p, "--docs-out", tmp_path / "x.md", "--force")
+    assert code == 2 and "pinned" in out and not (tmp_path / "x.md").exists()

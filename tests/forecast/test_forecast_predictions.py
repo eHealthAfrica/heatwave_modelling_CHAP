@@ -198,3 +198,33 @@ def test_align(panel, cfg):
     flipped["y"] = (1 - flipped["y"]).astype("int8")
     with pytest.raises(ValueError):
         P.align(ref, flipped)
+
+
+# ------------------------------------------------------- review WR-01: date-based protection
+def _tampered_cfg(cfg):
+    """A config whose splits relabel 2021-2026 as validation (bypasses SplitsConfig validation)."""
+    import copy
+    from datetime import date
+
+    s = copy.copy(cfg.splits)
+    object.__setattr__(s, "validate_years", (2015, 2026))
+    object.__setattr__(s, "test_years", (2027, 2027))
+    object.__setattr__(s, "validate_end", date(2027, 1, 4))
+    out = copy.copy(cfg)
+    object.__setattr__(out, "splits", s)
+    return out
+
+
+def test_relabelled_config_cannot_select_protected_rows(panel, cfg, testlock_root):
+    bad = _tampered_cfg(cfg)
+    with pytest.raises(testlock.TestLockError):
+        lead_row_index(panel, bad, 2, "validate")
+    assert testlock.read_log(testlock_root)[-1]["outcome"] == "refused"
+
+
+def test_relabelled_config_cannot_build_validate_frame(panel, cfg, testlock_root):
+    bad = _tampered_cfg(cfg)
+    w, o = lead_row_index(panel, cfg, 2, "test")  # index-only; the real config
+    with pytest.raises(testlock.TestLockError):
+        P.build_frame(panel, bad, "x", 2, "validate", w[:4], o[:4], np.zeros(4))
+    assert testlock.read_log(testlock_root)[-1]["outcome"] == "refused"

@@ -142,6 +142,9 @@ def lead_row_index(panel, cfg, lead, split, *, fold=None, drop_warmup=True):
     if drop_warmup:
         mask[: warmup_first_position(panel)] = False
     origins = np.nonzero(mask)[0]
+    if split != "test" and splits.protected_mask(target_idx[origins]).any():
+        # a config that relabels the pinned test window must not slip those rows through (WR-01)
+        testlock.require_open(cfg, "lead_row_index", lead=lead, n_rows=int(origins.size) * n)
     return np.tile(np.arange(n), origins.size), np.repeat(origins, n)
 
 

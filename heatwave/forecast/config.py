@@ -100,6 +100,13 @@ class DataConfig:
             raise ValueError("data.expected_parquet_sha256 must be 64 lowercase hex chars")
 
 
+# The test window is pinned in code (Phase 10 review WR-01): the lock protects exactly the target
+# weeks from this Monday on, whatever a config file calls them. Changing it needs a code change
+# and a new pre-registration, not a config edit.
+PINNED_TEST_START = date(2021, 1, 4)
+PINNED_TEST_START_YEAR = 2021
+
+
 @dataclass(frozen=True)
 class SplitsConfig:
     train_years: tuple
@@ -135,6 +142,12 @@ class SplitsConfig:
                 raise ValueError(
                     f"splits.{name} must be {expected} (Monday of ISO week 1 of {year}), got {value}"
                 )
+        if self.validate_end != PINNED_TEST_START or self.test_years[0] != PINNED_TEST_START_YEAR:
+            raise ValueError(
+                f"splits: the test window is pinned to start at {PINNED_TEST_START} "
+                f"(test_years[0] == {PINNED_TEST_START_YEAR}); got validate_end={self.validate_end}, "
+                f"test_years={tuple(self.test_years)}"
+            )
         _check_int("splits.embargo_weeks", self.embargo_weeks, 0)
         _check_int("splits.cv_first_year", self.cv_first_year)
         if not (self.train_years[0] < self.cv_first_year <= self.validate_years[1]):
