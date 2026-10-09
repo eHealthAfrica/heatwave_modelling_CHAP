@@ -57,6 +57,7 @@ def meta(cfg, results):
         run_id=RUN_ID, generated_utc="2026-10-08T00:00:00Z", data_version="synthetic", parquet_sha256="0" * 64,
         config_sha256=SHA, seed=cfg.seed, B=20, block_weeks=4, ci_level=0.95, reliability_bins=10,
         shrinkage_pseudo_count=50, n_wards=6, n_small_wards=1, n_large_wards=5, test_runs=0,
+        test_scored_in_run=0, log_chain_ok=True,
         best_baseline_by_lead=best, baseline_order=list(cfg.baselines.names), primary_leads=[1, 2],
         decay_check={"lead_first": 1, "lead_last": 6, "bss_first": 0.2, "bss_last": 0.05, "ok": True,
                      "strictly_monotone": True},
@@ -76,6 +77,19 @@ def test_caption_and_note(md):
     assert md.splitlines()[0] == "# Baseline validation scores (2015-2020)"
     assert "Test years 2021-2026 are locked and unscored" in md
     assert "evaluation log test runs: 0" in md
+    assert "test-split scores recorded for this run: 0" in md
+
+
+def test_locked_note_is_derived_from_log_facts(meta):
+    ok = BR.locked_note(meta)
+    assert "locked and unscored" in ok and "hash chain verified" in ok
+    for bad in ({"test_runs": 1}, {"test_scored_in_run": 3}):
+        note = BR.locked_note({**meta, **bad})
+        assert "NOT unscored" in note and "locked and unscored" not in note
+    for gone in ("test_runs", "test_scored_in_run"):
+        note = BR.locked_note({k: v for k, v in meta.items() if k != gone})
+        assert "locked and unscored" not in note and "not verified" in note
+    assert "locked and unscored" not in BR.locked_note({**meta, "log_chain_ok": False})
 
 
 def test_marker_last_and_no_accuracy(md):

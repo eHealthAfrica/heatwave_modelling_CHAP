@@ -126,7 +126,7 @@ def test_open_lock_writes_record_and_logs(forecast_cfg, testlock_root, repo, ope
     assert got["model_bundle_sha256"] == rec["model_bundle_sha256"]
     last = testlock.read_log()[-1]
     assert last["event"] == "test_access_granted" and last["outcome"] == "granted"
-    assert testlock.count_test_runs() == 1
+    assert testlock.count_test_runs() == 0  # a loader grant is not a test run (WR-07)
 
 
 def test_open_lock_idempotent_and_conflict(forecast_cfg, testlock_root, repo, opened):
@@ -254,13 +254,15 @@ def test_log_event_validates_vocabulary(testlock_root):
         testlock.log_event("score", outcome="bogus")
 
 
-def test_count_test_runs_counts_only_test_granted_or_scored(testlock_root):
+def test_count_test_runs_counts_only_opened_evaluations(testlock_root):
     testlock.log_event("score", outcome="scored", split="validate")
     testlock.log_event("score", outcome="scored", split="test")
     testlock.log_event("test_access_granted", outcome="granted", split="test")
     testlock.log_event("test_access_refused", outcome="refused", split="test")
     testlock.log_event("test_access_refused", outcome="blanked", split="test")
-    assert testlock.count_test_runs() == 2
+    assert testlock.count_test_runs() == 0
+    testlock.log_event("test_evaluation_opened", outcome="opened", split="test", run_id="r1")
+    assert testlock.count_test_runs() == 1
 
 
 def test_forecast_runs_dir_refuses_repo_and_frozen(tmp_path):
@@ -546,3 +548,52 @@ def test_bundle_cannot_be_lock_or_log_file(forecast_cfg, testlock_root, repo, fa
     write_prereg(repo, prereg_text(forecast_cfg, hashlib.sha256(b"x").hexdigest()))
     with pytest.raises(TestLockError, match="lock or the evaluation log"):
         _open_attempt(forecast_cfg, repo, testlock_root, bundle=f)
+
+
+# ----------------------------------------------------------------------------- review WR-07
+RUN_A = "20270101T000000Z_aaaaaaaa"
+RUN_B = "20270102T000000Z_bbbbbbbb"
+
+
+def test_open_test_evaluation_needs_open_lock(forecast_cfg, testlock_root, repo, fake):
+    with pytest.raises(TestLockError, match="locked"):
+        testlock.open_test_evaluation(forecast_cfg, RUN_A, repo_root=repo)
+    assert testlock.count_test_runs() == 0
+
+
+def test_one_event_per_evaluation_and_many_grants_do_not_count(forecast_cfg, testlock_root, repo, opened):
+    for lead in (1, 2, 3):
+        testlock.open_test_evaluation(forecast_cfg, RUN_A, lead=lead, repo_root=repo)
+        for _ in range(5):  # loader grants, one per predictor file
+            testlock.require_open(forecast_cfg, "load_predictions", repo_root=repo)
+        testlock.log_event("score", outcome="scored", split="test", lead=lead, run_id=RUN_A)
+    events = [r for r in testlock.read_log() if r["event"] == "test_evaluation_opened"]
+    assert len(events) == 1 and events[0]["run_id"] == RUN_A
+    assert testlock.count_test_runs() == 1
+
+
+def test_second_test_evaluation_is_refused(forecast_cfg, testlock_root, repo, opened):
+    testlock.open_test_evaluation(forecast_cfg, RUN_A, lead=1, repo_root=repo)
+    with pytest.raises(TestLockError, match="one-shot"):
+        testlock.open_test_evaluation(forecast_cfg, RUN_B, lead=1, repo_root=repo)
+    assert testlock.count_test_runs() == 1
+    last = testlock.read_log()[-1]
+    assert last["outcome"] == "refused" and last["run_id"] == RUN_B
+
+
+def test_rescoring_same_lead_is_refused(forecast_cfg, testlock_root, repo, opened):
+    testlock.open_test_evaluation(forecast_cfg, RUN_A, lead=1, repo_root=repo)
+    testlock.log_event("score", outcome="scored", split="test", lead=1, run_id=RUN_A)
+    with pytest.raises(TestLockError, match="already scored"):
+        testlock.open_test_evaluation(forecast_cfg, RUN_A, lead=1, repo_root=repo)
+    testlock.open_test_evaluation(forecast_cfg, RUN_A, lead=2, repo_root=repo)  # another lead is fine
+
+
+def test_count_scored_by_split_run_and_lead(testlock_root):
+    testlock.log_event("score", outcome="scored", split="validate", lead=1, run_id=RUN_A)
+    testlock.log_event("score", outcome="scored", split="test", lead=1, run_id=RUN_A)
+    testlock.log_event("score", outcome="scored", split="test", lead=2, run_id=RUN_B)
+    assert testlock.count_scored("test") == 2
+    assert testlock.count_scored("test", run_id=RUN_A) == 1
+    assert testlock.count_scored("test", run_id=RUN_A, lead=2) == 0
+    assert testlock.count_scored("validate") == 1

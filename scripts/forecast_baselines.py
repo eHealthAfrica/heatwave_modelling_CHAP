@@ -236,7 +236,9 @@ def main(argv=None) -> int:
             n_wards=len(panel.wards),
             n_small_wards=int(ward_attrs["small"].sum()),
             n_large_wards=int((~ward_attrs["small"]).sum()),
-            test_runs=testlock.count_test_runs(runs_root),
+            test_runs=testlock.count_test_runs(runs_root),  # raises on a broken log chain
+            test_scored_in_run=testlock.count_test_scores(run_id=rctx.run_id, data_root=runs_root),
+            log_chain_ok=testlock.verify_log_chain(runs_root),
             best_baseline_by_lead=best,
             baseline_order=order,
             primary_leads=list(cfg.gate.primary_leads),

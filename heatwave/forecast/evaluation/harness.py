@@ -165,6 +165,9 @@ def _load_aligned(paths: Mapping[str, Path], ctx: ScoringContext):
 
 def score_lead(paths: Mapping[str, Path], ctx: ScoringContext, *, references: Sequence[str]) -> LeadResult:
     names, cols, key, split = _load_aligned(paths, ctx)
+    if split == "test":
+        # one-shot rule (WR-07): the first test scoring opens THE evaluation, a second run is refused
+        testlock.open_test_evaluation(cfg=ctx.cfg, run_id=ctx.run_id, lead=ctx.lead, data_root=ctx.log_root)
     references = list(references)
     for r in references:
         if r not in names:

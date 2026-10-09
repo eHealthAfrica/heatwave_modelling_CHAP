@@ -40,7 +40,9 @@ LOCK_NAME = "TEST_LOCK.json"
 LOG_NAME = "evaluation_log.jsonl"
 PLACEHOLDER = "<<FILL>>"
 SCHEMA_VERSION = 1
-EVENTS = ("score", "lock_opened", "test_access_refused", "test_access_granted")
+EVENTS = (
+    "score", "lock_opened", "test_access_refused", "test_access_granted", "test_evaluation_opened",
+)
 OUTCOMES = ("scored", "granted", "refused", "blanked", "opened")
 GENESIS = "0" * 64
 
@@ -213,17 +215,32 @@ def _log_consistent_with_lock(rec: dict, data_root) -> tuple[bool, str]:
 
 
 def count_test_runs(data_root=None) -> int:
-    """Number of test runs recorded in the log.
+    """Number of opened test evaluations: ``test_evaluation_opened`` events, one per evaluation.
 
-    Raises TestLockError when the log hash chain is broken, so a count read from a tampered
-    log is never reported as a fact.
+    Loader grants and per-predictor ``scored`` records are not runs and are not counted
+    (WR-07). Raises TestLockError when the log hash chain is broken, so a count read from a
+    tampered log is never reported as a fact.
     """
     if not verify_log_chain(data_root):
         raise TestLockError("evaluation log hash chain is broken; refusing to report a test-run count")
     return sum(
         1
         for r in read_log(data_root)
-        if r.get("split") == "test" and r.get("outcome") in ("granted", "scored")
+        if r.get("event") == "test_evaluation_opened" and r.get("outcome") == "opened"
+        and r.get("split") == "test"
+    )
+
+
+def count_scored(split: str, *, run_id=None, lead=None, data_root=None) -> int:
+    """Number of ``scored`` records for a split (optionally one run and/or lead); chain-verified."""
+    if not verify_log_chain(data_root):
+        raise TestLockError("evaluation log hash chain is broken; refusing to report a score count")
+    return sum(
+        1
+        for r in read_log(data_root)
+        if r.get("event") == "score" and r.get("outcome") == "scored" and r.get("split") == split
+        and (run_id is None or r.get("run_id") == run_id)
+        and (lead is None or r.get("lead") == lead)
     )
 
 
@@ -468,3 +485,53 @@ def labels_unlocked(
         return True
     log_event("test_access_refused", outcome="blanked", **common)
     return False
+
+
+def count_test_scores(*, run_id=None, data_root=None) -> int:
+    """Test-split ``scored`` records (optionally for one run); chain-verified."""
+    return count_scored("test", run_id=run_id, data_root=data_root)
+
+
+def open_test_evaluation(
+    cfg: ForecastConfig,
+    run_id: str,
+    *,
+    lead=None,
+    data_root=None,
+    repo_root=artifacts.REPO_ROOT,
+) -> dict:
+    """Start (or continue) THE one test evaluation; the one-shot rule is enforced here (WR-07).
+
+    Requires the lock to be open. The first call logs one ``test_evaluation_opened`` event for
+    ``run_id``. Further calls with the same ``run_id`` (the other leads of the same evaluation)
+    continue it without a new event. Any other ``run_id`` is refused once an evaluation exists,
+    and so is scoring the same lead twice. Refusals are logged and raise TestLockError.
+    """
+    if not isinstance(run_id, str) or not run_id:
+        raise ValueError("a test evaluation needs a run_id")
+    require_open(
+        cfg, "open_test_evaluation", lead=lead, run_id=run_id, data_root=data_root, repo_root=repo_root
+    )
+    chash = config_hash(cfg)
+
+    def refuse(reason):
+        log_event(
+            "test_access_refused", outcome="refused", split="test", lead=lead, run_id=run_id,
+            config_sha256=chash, purpose="open_test_evaluation", reason=reason, data_root=data_root,
+        )
+        raise TestLockError(f"test evaluation refused: {reason}")
+
+    opened = [
+        r for r in read_log(data_root)
+        if r.get("event") == "test_evaluation_opened" and r.get("outcome") == "opened"
+    ]
+    if opened:
+        if any(r.get("run_id") != run_id for r in opened):
+            refuse("the test split was already evaluated by another run (one-shot rule)")
+        if lead is not None and count_scored("test", run_id=run_id, lead=lead, data_root=data_root):
+            refuse(f"lead {lead} was already scored on the test split in this evaluation")
+        return opened[0]
+    return log_event(
+        "test_evaluation_opened", outcome="opened", split="test", lead=lead, run_id=run_id,
+        config_sha256=chash, purpose="open_test_evaluation", data_root=data_root,
+    )

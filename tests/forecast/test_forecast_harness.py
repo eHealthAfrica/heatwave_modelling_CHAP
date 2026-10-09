@@ -293,3 +293,28 @@ def test_score_lead_rejects_data_hash_not_matching_context(panel, cfg, attrs, tm
         cfg, 1, 0.2, attrs, _week_attrs(df), B=B, h_bins=50, log_root=tmp_path, data_sha256=SHA
     )
     assert harness.score_lead({"a": a, "b": b}, ok, references=["a"]).n_rows == len(df)
+
+
+# ------------------------------------------------------ review WR-07: one-shot test evaluation
+def test_test_scoring_is_one_shot(panel, cfg, attrs, tmp_path, allow_test_rows):
+    run_dir = tmp_path / "forecast_runs" / RUN_ID
+    run_dir.mkdir(parents=True)
+    a, df = _write(panel, cfg, run_dir, "a", lambda y, n: np.full(n, 0.2), split="test")
+    b, _ = _write(panel, cfg, run_dir, "b", lambda y, n: np.full(n, 0.25), split="test")
+    ctx = harness.ScoringContext(
+        cfg, 1, 0.2, attrs, _week_attrs(df), B=B, h_bins=50, run_id=RUN_ID, log_root=tmp_path,
+        data_sha256=SHA,
+    )
+    res = harness.score_lead({"a": a, "b": b}, ctx, references=["a"])
+    assert res.split == "test"
+    assert testlock.count_test_runs(tmp_path) == 1
+    assert testlock.count_scored("test", run_id=RUN_ID, data_root=tmp_path) == 2
+    with pytest.raises(testlock.TestLockError, match="already scored"):
+        harness.score_lead({"a": a, "b": b}, ctx, references=["a"])  # same lead twice
+    other = harness.ScoringContext(
+        cfg, 1, 0.2, attrs, _week_attrs(df), B=B, h_bins=50, run_id="20270102T000000Z_bbbbbbbb",
+        log_root=tmp_path, data_sha256=SHA,
+    )
+    with pytest.raises(testlock.TestLockError, match="one-shot"):
+        harness.score_lead({"a": a, "b": b}, other, references=["a"])
+    assert testlock.count_test_runs(tmp_path) == 1
