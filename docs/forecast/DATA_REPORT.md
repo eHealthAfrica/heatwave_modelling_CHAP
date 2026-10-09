@@ -138,6 +138,7 @@ After the 14-week training embargo and the feature warm-up (first usable origin 
 - ISO week 53 occurs rarely and its prevalence is very noisy; do not read it on its own.
 - The first panel week is 1991-W02 (1991 starts at W02) and the last is 2026-W38, so the first and last years are partial.
 - Labels come from ERA5-Land, a reanalysis, not station observations; they describe modelled heat, not measured heat.
+- Descriptive label prevalence of the test years (2021-2026) is published here by design: this report describes the labels and is not model scoring. It does not use any prediction, and the Phase 10 test lock governs model scoring and the loaders that return test labels for modelling, not this report.
 
 heatwave_week = heatwave_days >= 3; labels from ERA5-Land (reanalysis), 4,841 wards in 19 northern states and the FCT
 

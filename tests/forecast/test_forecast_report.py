@@ -113,6 +113,7 @@ def test_markdown(tables):
         assert s in md
     assert "regime" in md.lower() and "Validation is not representative of test" in md
     assert "accuracy" not in md.lower()
+    assert report.PREVALENCE_DECISION in md  # review WR-08: documented decision, not a silent gap
     rows = [l for l in md.splitlines() if l.startswith("|") and l.split("|")[1].strip() in "123456"]
     assert rows
 

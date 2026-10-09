@@ -14,6 +14,10 @@ from heatwave.forecast import dataset, splits, targets
 
 CAPTION = "heatwave_week = heatwave_days >= 3; labels from ERA5-Land (reanalysis), 4,841 wards in 19 northern states and the FCT"
 
+PREVALENCE_DECISION = (
+    "Descriptive label prevalence of the test years (2021-2026) is published here by design: this report describes the labels and is not model scoring. It does not use any prediction, and the Phase 10 test lock governs model scoring and the loaders that return test labels for modelling, not this report."
+)
+
 # (measured_on, latest_image_date, gap_days) from one-off live measurements (informational only).
 MEASURED_DELAYS = (
     (date(2026, 10, 1), date(2026, 9, 23), 8),
@@ -245,6 +249,7 @@ def render_markdown(tables: dict[str, pd.DataFrame], meta: dict) -> str:
     a("- ISO week 53 occurs rarely and its prevalence is very noisy; do not read it on its own.")
     a(f"- The first panel week is {meta.get('first_week')} (1991 starts at W02) and the last is {meta.get('last_week')}, so the first and last years are partial.")
     a("- Labels come from ERA5-Land, a reanalysis, not station observations; they describe modelled heat, not measured heat.")
+    a("- " + PREVALENCE_DECISION)
     a("")
     a(CAPTION)
     a("")

@@ -84,6 +84,7 @@ All five are fitted on **training rows only** (targets before 2014-12-29, minus 
 - **The evaluation log** is append-only JSONL under `<local_data_dir>/forecast_runs/evaluation_log.jsonl`, outside the repo. Every scoring run records predictor, split, rows, run_id and timestamp, and every attempt to touch test rows is logged. After this phase the log must show **no test run**.
 - **Phase 10 creates the mechanism and a pre-registration *template*,** but does not open the lock. The real pre-registration is written and committed in Phase 14.
 - Tests use a tmp git repo and tmp data root to exercise lock-closed, lock-open and tampered-pre-registration cases.
+- **Decision (review WR-08, 2026-10-09): descriptive prevalence of the test years is published by design.** The Phase 9 data report (`docs/forecast/DATA_REPORT.md`, `report.prevalence_tables`) shows label prevalence per year and per era including 2021-2026. That is a description of the labels, not model scoring, and it uses no prediction. The test lock governs model scoring and the loaders that return test rows or labels for modelling (`lead_rows`, `build_issue_table`, `load_predictions`, `build_frame`); it does not blank the data report. The report states this in its Caveats (`report.PREVALENCE_DECISION`). Revisit in Phase 14 if the pre-registration wants the test-period prevalence withheld until the lock is opened.
 
 ### Validation results
 - A script `scripts/forecast_baselines.py`:
