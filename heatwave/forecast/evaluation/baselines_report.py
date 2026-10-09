@@ -140,6 +140,29 @@ def _skill(results, ref) -> str:
     return _table(pd.DataFrame(rows))
 
 
+def _sensitivity(results, meta) -> str:
+    """BSS vs recent climatology with the week-block CI at the default and the longer block lengths."""
+    base = int(meta.get("block_weeks", 4))
+    rows = []
+    for k in _order(results):
+        res = results[k]
+        sens = getattr(res, "block_sensitivity", None)
+        if sens is None or sens.empty:
+            continue
+        c = res.comparisons
+        c = c[(c["reference"] == REF_RECENT) & (c["candidate"] != REF_RECENT)]
+        s = sens[(sens["reference"] == REF_RECENT) & (sens["candidate"] != REF_RECENT)]
+        for _, r in c.iterrows():
+            row = {"lead": k, "candidate": r["candidate"], "BSS": _f(r["bss"]),
+                   f"CI, {base}-week blocks": _ci(r["bss_week_lo"], r["bss_week_hi"])}
+            for _, q in s[s["candidate"] == r["candidate"]].sort_values("block_weeks").iterrows():
+                row[f"CI, {int(q['block_weeks'])}-week blocks"] = _ci(q["bss_week_lo"], q["bss_week_hi"])
+            rows.append(row)
+    if not rows:
+        return "No block-length sensitivity was computed (too few weeks)."
+    return _table(pd.DataFrame(rows))
+
+
 def _decomposition(results, names) -> str:
     rows = []
     for k in _order(results):
@@ -352,6 +375,17 @@ def render_markdown(results_by_lead: Mapping[int, object], meta: dict) -> str:
     add("BSS = 1 - BS(candidate) / BS(recent_climatology), same sign convention.")
     add("")
     add(_skill(results, REF_RECENT))
+    add("")
+    add("## Block-length sensitivity")
+    add("")
+    add(
+        "Week-block bootstrap intervals for BSS against recent_climatology at longer block lengths. Blocks are "
+        "moving (non-circular): the last week is never joined to the first. Heatwave-week labels are strongly "
+        "autocorrelated at seasonal scale, so the interval widening with block length shows how much the "
+        "default length may understate the uncertainty."
+    )
+    add("")
+    add(_sensitivity(results, meta))
     add("")
 
     add("## Brier decomposition")

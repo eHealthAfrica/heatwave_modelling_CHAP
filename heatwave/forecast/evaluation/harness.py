@@ -85,6 +85,7 @@ class LeadResult:
     citl: pd.DataFrame
     slices: pd.DataFrame = field(default_factory=pd.DataFrame)
     p_valid: bool = True
+    block_sensitivity: pd.DataFrame = field(default_factory=pd.DataFrame)
 
 
 # ------------------------------------------------------------------ stats helper
@@ -261,6 +262,21 @@ def score_lead(paths: Mapping[str, Path], ctx: ScoringContext, *, references: Se
             )
             comp_rows.append({"reference": ref, "candidate": cand, **c})
 
+    sens_rows = []
+    for j, L in enumerate(bootstrap.SENSITIVITY_BLOCK_WEEKS):
+        if L == ctx.block or L > n_weeks:
+            continue
+        mult_L = bootstrap.week_block_multiplicity(
+            n_weeks, L, ctx.B, bootstrap.lead_rng(cfg.seed, ctx.lead, 2 + j)
+        )
+        for ref in references:
+            for cand in names:
+                bss, lo, hi, nv = bootstrap.week_block_bss_ci(stats[ref], stats[cand], mult_L, ctx.level)
+                sens_rows.append({
+                    "reference": ref, "candidate": cand, "block_weeks": int(L), "bss": bss,
+                    "bss_week_lo": lo, "bss_week_hi": hi, "n_valid": nv,
+                })
+
     slice_rows = _slice_table(names, cols, week_id, n_weeks, bins, masks, references, mult_week, mult_year, ctx)
 
     result = LeadResult(
@@ -269,6 +285,10 @@ def score_lead(paths: Mapping[str, Path], ctx: ScoringContext, *, references: Se
         auc=pd.DataFrame(auc_rows), reliability=pd.concat(rel_rows, ignore_index=True),
         prf=pd.DataFrame(prf_rows), citl=pd.concat(citl_rows, ignore_index=True),
         slices=slice_rows, p_valid=p_valid,
+        block_sensitivity=pd.DataFrame(
+            sens_rows,
+            columns=["reference", "candidate", "block_weeks", "bss", "bss_week_lo", "bss_week_hi", "n_valid"],
+        ),
     )
     chash = config_hash(cfg)
     for name in names:
@@ -369,6 +389,6 @@ def results_to_dict(result: LeadResult) -> dict:
         "threshold": float(result.threshold), "predictors": list(result.predictors),
         "sanity": sanity_flags(result),
     }
-    for name in ("summary", "comparisons", "auc", "reliability", "prf", "citl", "slices"):
+    for name in ("summary", "comparisons", "auc", "reliability", "prf", "citl", "slices", "block_sensitivity"):
         out[name] = _records(getattr(result, name))
     return out

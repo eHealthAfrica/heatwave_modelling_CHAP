@@ -174,3 +174,8 @@ def test_no_nan_text(md):
 def test_empty_results_rejected(meta):
     with pytest.raises(ValueError):
         BR.render_markdown({}, meta)
+
+
+def test_block_sensitivity_section(md):
+    sec = _section(md, "## Block-length sensitivity")
+    assert "8-week blocks" in sec and "13-week blocks" in sec and "non-circular" in sec

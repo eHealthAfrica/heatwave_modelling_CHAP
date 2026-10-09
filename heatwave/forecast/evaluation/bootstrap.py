@@ -1,6 +1,6 @@
 """Paired block bootstrap on per-target-week sufficient statistics (EVAL-03).
 
-The resampling unit is target weeks (circular blocks) or target years, never rows
+The resampling unit is target weeks (moving blocks that do not wrap around) or target years, never rows
 or wards: wards in the same week are spatially correlated, so resampling them would
 give overconfident intervals (PITFALLS C5). A replicate is a multiplicity vector
 ``c`` over weeks and every metric is a matrix product of ``c`` with the
@@ -17,6 +17,8 @@ import numpy as np
 from heatwave.forecast.evaluation import metrics
 
 MIN_BLOCK_WEEKS = 4
+# Longer week-block lengths reported next to the default for the skill-score intervals (WR-09).
+SENSITIVITY_BLOCK_WEEKS = (8, 13)
 
 _METRICS = ("brier", "rel", "res", "auc", "precision", "recall", "f1", "base_rate")
 
@@ -33,8 +35,14 @@ def _int(name, v) -> int:
     return int(v)
 
 
-def week_block_multiplicity(n_weeks: int, block: int, B: int, rng) -> np.ndarray:
-    """(B, n_weeks) circular block-bootstrap multiplicities; every row sums to n_weeks."""
+def week_block_indices(n_weeks: int, block: int, B: int, rng) -> np.ndarray:
+    """(B, n_weeks) week indices of a moving-block bootstrap; blocks never wrap around.
+
+    Each block is ``block`` consecutive weeks starting uniformly in [0, n_weeks - block], so the
+    last week is never joined to the first (they are years apart, in a different season). The
+    price is that the first and last weeks are drawn slightly less often than the middle ones.
+    The concatenated blocks are trimmed to ``n_weeks``.
+    """
     W, block, B = _int("n_weeks", n_weeks), _int("block", block), _int("B", B)
     if block < MIN_BLOCK_WEEKS:
         raise ValueError(f"EVAL-03: block length must be >= {MIN_BLOCK_WEEKS} weeks, got {block}")
@@ -43,9 +51,15 @@ def week_block_multiplicity(n_weeks: int, block: int, B: int, rng) -> np.ndarray
     if B < 1:
         raise ValueError("B must be >= 1")
     n_blocks = -(-W // block)
-    starts = rng.integers(0, W, size=(B, n_blocks))
-    idx = (starts[:, :, None] + np.arange(block)[None, None, :]) % W
-    idx = idx.reshape(B, n_blocks * block)[:, :W]
+    starts = rng.integers(0, W - block + 1, size=(B, n_blocks))
+    idx = starts[:, :, None] + np.arange(block)[None, None, :]
+    return idx.reshape(B, n_blocks * block)[:, :W]
+
+
+def week_block_multiplicity(n_weeks: int, block: int, B: int, rng) -> np.ndarray:
+    """(B, n_weeks) moving-block (non-circular) bootstrap multiplicities; each row sums to n_weeks."""
+    W, B = _int("n_weeks", n_weeks), _int("B", B)
+    idx = week_block_indices(W, block, B, rng)
     flat = (idx + (np.arange(B) * W)[:, None]).ravel()
     return np.bincount(flat, minlength=B * W).astype(np.float64).reshape(B, W)
 
@@ -98,6 +112,19 @@ def metric_ci(st, mult, level: float, metric: str):
 
 def _bss_dbs(bs_ref, bs_cand):
     return metrics.brier_skill_score(bs_cand, bs_ref), np.asarray(bs_ref) - np.asarray(bs_cand)
+
+
+def week_block_bss_ci(ref, cand, mult, level: float = 0.95):
+    """(bss, lo, hi, n_valid) of cand vs ref over the replicate matrix ``mult`` (week blocks)."""
+    W = len(ref.n)
+    mult = np.asarray(mult, dtype=np.float64)
+    if mult.ndim != 2 or mult.shape[1] != W:
+        raise ValueError(f"multiplicity must have shape (B, {W}), got {mult.shape}")
+    ones = np.ones(W)
+    bss = float(metrics.brier_skill_score(float(metrics.stats_brier(cand, ones)), float(metrics.stats_brier(ref, ones))))
+    rb, _ = _bss_dbs(metrics.stats_brier(ref, mult), metrics.stats_brier(cand, mult))
+    lo, hi, nv = percentile_ci(rb, level)
+    return bss, lo, hi, nv
 
 
 def paired_comparison(ref, cand, *, mult_week, mult_year, level: float = 0.95) -> dict:

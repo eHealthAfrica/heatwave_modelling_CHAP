@@ -318,3 +318,15 @@ def test_test_scoring_is_one_shot(panel, cfg, attrs, tmp_path, allow_test_rows):
     with pytest.raises(testlock.TestLockError, match="one-shot"):
         harness.score_lead({"a": a, "b": b}, other, references=["a"])
     assert testlock.count_test_runs(tmp_path) == 1
+
+
+def test_block_sensitivity_present(scored):
+    """Review WR-09: BSS CIs at 8- and 13-week blocks next to the default 4."""
+    res, ctx = scored[0], scored[1]
+    s = res.block_sensitivity
+    assert set(s["block_weeks"]) == {8, 13} and ctx.block == 4
+    assert len(s) == 2 * len(res.predictors) * 1  # blocks x candidates x references
+    assert set(s["reference"]) == {"ref"} and (s["n_valid"] <= ctx.B).all() and (s["n_valid"] > 0).all()
+    own = s[s["candidate"] == "ref"]
+    assert (own["bss"] == 0.0).all()
+    assert "block_sensitivity" in harness.results_to_dict(res)

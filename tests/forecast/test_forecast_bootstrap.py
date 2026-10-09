@@ -135,3 +135,34 @@ def test_metric_ci_all_metrics_and_unknown():
         assert n > 0 and lo <= hi
     with pytest.raises(ValueError):
         bs.metric_ci(st, m, 0.9, "accuracy")
+
+
+# ------------------------------------------------------- review WR-09: non-circular blocks
+def test_blocks_never_wrap_around():
+    W, block = 30, 4
+    idx = bs.week_block_indices(W, block, 500, bs.lead_rng(5, 7))
+    assert idx.shape == (500, W) and idx.min() >= 0 and idx.max() <= W - 1
+    n_full = W // block
+    for b in range(n_full):
+        seg = idx[:, b * block:(b + 1) * block]
+        assert np.all(np.diff(seg, axis=1) == 1), "a block jumped (wrapped) instead of staying consecutive"
+
+
+def test_multiplicity_from_non_circular_indices_sums_to_n_weeks():
+    m = bs.week_block_multiplicity(26, 4, 50, bs.lead_rng(1, 2))
+    assert np.all(m.sum(axis=1) == 26)
+    # last block start <= W - block, so the final week needs a block ending exactly there
+    idx = bs.week_block_indices(26, 4, 2000, bs.lead_rng(1, 2))
+    assert idx.max() == 25 and idx.min() == 0
+    assert bs.SENSITIVITY_BLOCK_WEEKS == (8, 13) and min(bs.SENSITIVITY_BLOCK_WEEKS) > bs.MIN_BLOCK_WEEKS
+
+
+def test_week_block_bss_ci_matches_paired_comparison_shape():
+    p, y, wk = _panel(W=60, sites=2, seed=2)
+    ref = _stats(p, y, wk, 60)
+    cand = _stats(np.clip(p + 0.05, 0.01, 0.99), y, wk, 60)
+    m = bs.week_block_multiplicity(60, 8, 100, bs.lead_rng(0, 1, 2))
+    bss, lo, hi, nv = bs.week_block_bss_ci(ref, cand, m)
+    assert nv == 100 and lo <= hi
+    full = bs.paired_comparison(ref, cand, mult_week=m, mult_year=m)
+    assert (bss, lo, hi) == pytest.approx((full["bss"], full["bss_week_lo"], full["bss_week_hi"]))
