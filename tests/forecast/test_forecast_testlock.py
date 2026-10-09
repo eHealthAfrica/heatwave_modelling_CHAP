@@ -3,8 +3,10 @@
 Quick tests stub the private ``_git_runner``; real-git tests are marked slow.
 """
 import dataclasses
+import hashlib
 import inspect
 import json
+from pathlib import Path
 
 import pytest
 
@@ -21,10 +23,16 @@ class FakeGit:
         self.tracked = tracked
         self.head = head
         self.worktree = worktree
+        self.blob = None  # committed text for `git show`; None = same as the working-tree file
         self.calls = []
 
     def __call__(self, args, repo_root):
         self.calls.append(list(args))
+        if args[0] == "show":
+            if self.blob is not None:
+                return self.blob
+            p = Path(self.toplevel) / testlock.PREREG_RELPATH
+            return p.read_text(encoding="utf-8") if p.exists() else None
         if args[0] == "rev-parse" and args[1] == "--show-toplevel":
             return self.toplevel + "\n"
         if args[0] == "ls-files":
@@ -43,11 +51,24 @@ def repo(tmp_path):
     return r
 
 
+BUNDLE_BYTES = b"bundle-bytes"
+BUNDLE_SHA = hashlib.sha256(BUNDLE_BYTES).hexdigest()
+
+
+def prereg_text(cfg, bundle_sha=BUNDLE_SHA, eol="\n"):
+    """A pre-registration body with both labelled frozen identifiers (default bundle content)."""
+    return (
+        "# pre-registration" + eol
+        + "- config sha256: " + config_hash(cfg) + eol
+        + "- model bundle sha256: " + bundle_sha + eol
+    )
+
+
 def write_prereg(repo, text):
     (repo / testlock.PREREG_RELPATH).write_text(text, encoding="utf-8")
 
 
-def make_bundle(data_root, content=b"bundle-bytes"):
+def make_bundle(data_root, content=BUNDLE_BYTES):
     p = testlock.forecast_runs_dir(data_root) / "run1" / "bundle.bin"
     p.parent.mkdir(parents=True, exist_ok=True)
     p.write_bytes(content)
@@ -63,7 +84,7 @@ def fake(monkeypatch, repo):
 
 @pytest.fixture
 def opened(forecast_cfg, testlock_root, repo, fake):
-    write_prereg(repo, f"config sha256: {config_hash(forecast_cfg)}\n")
+    write_prereg(repo, prereg_text(forecast_cfg))
     bundle = make_bundle(testlock_root)
     rec = testlock.open_lock(
         forecast_cfg, model_bundle_path=bundle, opened_by="unit", repo_root=repo
@@ -115,13 +136,14 @@ def test_open_lock_idempotent_and_conflict(forecast_cfg, testlock_root, repo, op
     )
     assert again == rec
     bundle.write_bytes(b"different")
+    write_prereg(repo, prereg_text(forecast_cfg, hashlib.sha256(b"different").hexdigest()))
     with pytest.raises(TestLockError, match="different hashes"):
         testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="u", repo_root=repo)
 
 
 def test_open_lock_refuses_placeholder_and_missing_hash(forecast_cfg, testlock_root, repo, fake):
     bundle = make_bundle(testlock_root)
-    write_prereg(repo, f"{config_hash(forecast_cfg)} {testlock.PLACEHOLDER}\n")
+    write_prereg(repo, prereg_text(forecast_cfg) + testlock.PLACEHOLDER + "\n")
     with pytest.raises(TestLockError, match="placeholder"):
         testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="u", repo_root=repo)
     write_prereg(repo, "no hash here\n")
@@ -309,17 +331,17 @@ def _open(cfg, repo, root):
 
 @pytest.mark.slow
 def test_real_git_open_and_grant(forecast_cfg, testlock_root, real_repo):
-    _commit_prereg(real_repo, f"hash {config_hash(forecast_cfg)}\n".encode())
+    _commit_prereg(real_repo, prereg_text(forecast_cfg).encode())
     _open(forecast_cfg, real_repo, testlock_root)
     assert testlock.require_open(forecast_cfg, "slow", repo_root=real_repo)["opened_by"] == "slow"
 
 
 @pytest.mark.slow
 def test_real_git_modified_after_commit_refused(forecast_cfg, testlock_root, real_repo):
-    _commit_prereg(real_repo, f"hash {config_hash(forecast_cfg)}\n".encode())
+    _commit_prereg(real_repo, prereg_text(forecast_cfg).encode())
     _open(forecast_cfg, real_repo, testlock_root)
     (real_repo / testlock.PREREG_RELPATH).write_bytes(
-        f"hash {config_hash(forecast_cfg)}\nedited\n".encode()
+        (prereg_text(forecast_cfg) + "edited" + chr(10)).encode()
     )
     with pytest.raises(TestLockError):
         testlock.require_open(forecast_cfg, "slow", repo_root=real_repo)
@@ -331,7 +353,7 @@ def test_real_git_untracked_and_staged_only_refused(forecast_cfg, testlock_root,
     _git(real_repo, "add", "README")
     _git(real_repo, "commit", "-q", "-m", "init")
     path = real_repo / testlock.PREREG_RELPATH
-    path.write_bytes(f"hash {config_hash(forecast_cfg)}\n".encode())
+    path.write_bytes(prereg_text(forecast_cfg).encode())
     bundle = make_bundle(testlock_root)
     with pytest.raises(TestLockError):  # untracked
         testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="s", repo_root=real_repo)
@@ -344,7 +366,7 @@ def test_real_git_untracked_and_staged_only_refused(forecast_cfg, testlock_root,
 def test_real_git_crlf_working_copy_is_clean(forecast_cfg, testlock_root, tmp_path, make_git_repo):
     repo = make_git_repo(tmp_path / "crlf", autocrlf=True)
     (repo / "docs" / "forecast").mkdir(parents=True)
-    _commit_prereg(repo, f"hash {config_hash(forecast_cfg)}\r\nline\r\n".encode())
+    _commit_prereg(repo, prereg_text(forecast_cfg, eol=chr(13) + chr(10)).encode())
     _open(forecast_cfg, repo, testlock_root)
     assert testlock.lock_status(forecast_cfg, repo_root=repo) == (True, "open")
 
@@ -352,7 +374,7 @@ def test_real_git_crlf_working_copy_is_clean(forecast_cfg, testlock_root, tmp_pa
 @pytest.mark.slow
 def test_real_git_template_copy_refused(forecast_cfg, testlock_root, real_repo):
     template = (artifacts.REPO_ROOT / testlock.TEMPLATE_RELPATH).read_bytes()
-    _commit_prereg(real_repo, template + f"\n{config_hash(forecast_cfg)}\n".encode())
+    _commit_prereg(real_repo, template + (chr(10) + prereg_text(forecast_cfg)).encode())
     bundle = make_bundle(testlock_root)
     with pytest.raises(TestLockError, match="placeholder"):
         testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="s", repo_root=real_repo)
@@ -360,7 +382,7 @@ def test_real_git_template_copy_refused(forecast_cfg, testlock_root, real_repo):
 
 @pytest.mark.slow
 def test_real_git_config_change_after_open_refused(forecast_cfg, testlock_root, real_repo):
-    _commit_prereg(real_repo, f"hash {config_hash(forecast_cfg)}\n".encode())
+    _commit_prereg(real_repo, prereg_text(forecast_cfg).encode())
     _open(forecast_cfg, real_repo, testlock_root)
     cfg2 = dataclasses.replace(forecast_cfg, seed=forecast_cfg.seed + 1)
     with pytest.raises(TestLockError):
@@ -430,7 +452,7 @@ def test_count_test_runs_refuses_broken_chain(testlock_root):
 
 
 def test_open_lock_refuses_on_broken_chain(forecast_cfg, testlock_root, repo, fake):
-    write_prereg(repo, f"config sha256: {config_hash(forecast_cfg)}\n")
+    write_prereg(repo, prereg_text(forecast_cfg))
     bundle = make_bundle(testlock_root)
     for i in range(3):
         testlock.log_event("score", outcome="scored", split="validate", predictor=f"p{i}")
@@ -470,3 +492,57 @@ def test_real_log_chain_is_intact_and_has_no_lock():
     root = Path(settings.local_data_dir)
     assert testlock.verify_log_chain(root) is True
     assert not testlock.lock_path(root).exists()
+
+
+# ----------------------------------------------------------------------------- review WR-05
+def _open_attempt(cfg, repo, root, bundle=None):
+    bundle = bundle or make_bundle(root)
+    return testlock.open_lock(cfg, model_bundle_path=bundle, opened_by="u", repo_root=repo)
+
+
+def test_open_requires_bundle_hash_in_preregistration(forecast_cfg, testlock_root, repo, fake):
+    write_prereg(repo, "- config sha256: " + config_hash(forecast_cfg) + chr(10))
+    with pytest.raises(TestLockError, match="bundle hash"):
+        _open_attempt(forecast_cfg, repo, testlock_root)
+    write_prereg(repo, prereg_text(forecast_cfg, "f" * 64))  # a different bundle was registered
+    with pytest.raises(TestLockError, match="bundle hash"):
+        _open_attempt(forecast_cfg, repo, testlock_root)
+    assert not testlock.lock_path().exists()
+
+
+def test_open_rejects_hashes_that_only_appear_somewhere(forecast_cfg, testlock_root, repo, fake):
+    write_prereg(repo, "see " + config_hash(forecast_cfg) + " and " + BUNDLE_SHA + " in the appendix" + chr(10))
+    with pytest.raises(TestLockError, match="config hash"):
+        _open_attempt(forecast_cfg, repo, testlock_root)
+
+
+def test_open_rejects_hashes_hidden_in_html_comment(forecast_cfg, testlock_root, repo, fake):
+    write_prereg(repo, "<!--" + chr(10) + prereg_text(forecast_cfg) + "-->" + chr(10))
+    with pytest.raises(TestLockError, match="config hash"):
+        _open_attempt(forecast_cfg, repo, testlock_root)
+
+
+def test_status_reads_committed_blob_not_working_tree(forecast_cfg, testlock_root, repo, opened, fake):
+    assert testlock.lock_status(forecast_cfg, repo_root=repo) == (True, "open")
+    fake.blob = "- config sha256: " + config_hash(forecast_cfg) + chr(10)  # committed text lacks the bundle line
+    ok, reason = testlock.lock_status(forecast_cfg, repo_root=repo)
+    assert not ok and "bundle hash" in reason
+    fake.blob = None
+
+
+def test_open_audits_blob_even_if_working_tree_looks_right(forecast_cfg, testlock_root, repo, fake):
+    write_prereg(repo, prereg_text(forecast_cfg))  # working tree is fine ...
+    fake.blob = "nothing registered" + chr(10)  # ... but the committed bytes are not
+    with pytest.raises(TestLockError, match="config hash"):
+        _open_attempt(forecast_cfg, repo, testlock_root)
+
+
+@pytest.mark.parametrize("name", [testlock.LOCK_NAME, testlock.LOG_NAME])
+def test_bundle_cannot_be_lock_or_log_file(forecast_cfg, testlock_root, repo, fake, name):
+    runs = testlock.forecast_runs_dir()
+    runs.mkdir(parents=True, exist_ok=True)
+    f = runs / name
+    f.write_bytes(b"x")
+    write_prereg(repo, prereg_text(forecast_cfg, hashlib.sha256(b"x").hexdigest()))
+    with pytest.raises(TestLockError, match="lock or the evaluation log"):
+        _open_attempt(forecast_cfg, repo, testlock_root, bundle=f)

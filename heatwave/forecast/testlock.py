@@ -9,7 +9,9 @@ hash-chained JSONL log so tampering with its history is detectable.
 The lock is closed by default. It opens only while all of these hold: ``TEST_LOCK.json``
 exists; the current config hash and the model bundle sha256 equal the recorded ones;
 ``docs/forecast/PREREGISTRATION.md`` is tracked, committed in HEAD, unmodified in the
-working tree, contains the config hash and holds no placeholder token; and the evaluation
+working tree, holds no placeholder token and (read from the committed blob, not the working
+tree) carries the labelled lines ``config sha256: <hash>`` and ``model bundle sha256: <hash>``
+for the current config and the bundle being opened; and the evaluation
 log has an intact hash chain that still contains the head hash recorded in ``TEST_LOCK.json``
 at open time (a missing, truncated or edited log re-closes the lock). Changing any of
 them re-closes the lock.
@@ -260,16 +262,34 @@ def preregistration_status(repo_root=artifacts.REPO_ROOT) -> dict:
     return out
 
 
-def _preregistration_text_ok(cfg: ForecastConfig, repo_root) -> tuple[bool, str]:
-    path = Path(repo_root) / PREREG_RELPATH
-    try:
-        text = path.read_text(encoding="utf-8")
-    except (OSError, UnicodeDecodeError):
+_HTML_COMMENT = re.compile(r"<!--.*?-->", re.DOTALL)
+
+
+def _has_labelled_hash(text: str, label: str, digest: str) -> bool:
+    """True when a line reads ``[- ]<label>: <digest>`` (optionally backticked); comments ignored."""
+    pat = re.compile(
+        r"^[ \t]*(?:[-*][ \t]+)?" + re.escape(label) + r":[ \t]*`?" + re.escape(digest) + r"`?[ \t]*$",
+        re.MULTILINE,
+    )
+    return pat.search(_HTML_COMMENT.sub("", text)) is not None
+
+
+def _preregistration_text_ok(cfg: ForecastConfig, repo_root, bundle_sha256: str) -> tuple[bool, str]:
+    """Check the COMMITTED blob (``git show HEAD:<path>``), never the working tree (WR-05).
+
+    The blob must hold no placeholder token and must carry both frozen identifiers on their own
+    labelled lines: ``config sha256: <current config hash>`` and
+    ``model bundle sha256: <hash of the bundle being opened>``.
+    """
+    text = _git_runner(["show", "HEAD:" + PREREG_RELPATH], Path(repo_root))
+    if text is None:
         return False, "pre-registration unreadable"
     if PLACEHOLDER in text:
         return False, "pre-registration still contains a placeholder"
-    if config_hash(cfg) not in text:
+    if not _has_labelled_hash(text, "config sha256", config_hash(cfg)):
         return False, "pre-registration does not contain the current config hash"
+    if not _has_labelled_hash(text, "model bundle sha256", bundle_sha256):
+        return False, "pre-registration does not contain the model bundle hash"
     return True, "ok"
 
 
@@ -330,7 +350,7 @@ def lock_status(
     st = preregistration_status(repo_root)
     if not st["clean"] or st["head_blob"] != rec["preregistration_blob_sha"]:
         return False, "pre-registration missing, modified or not committed"
-    ok, reason = _preregistration_text_ok(cfg, repo_root)
+    ok, reason = _preregistration_text_ok(cfg, repo_root, rec["model_bundle_sha256"])
     if not ok:
         return False, reason
     return True, "open"
@@ -357,9 +377,6 @@ def open_lock(
     st = preregistration_status(repo_root)
     if not st["clean"]:
         _refuse_open(cfg, f"pre-registration: {st['reason']}", data_root)
-    ok, reason = _preregistration_text_ok(cfg, repo_root)
-    if not ok:
-        _refuse_open(cfg, reason, data_root)
     runs = forecast_runs_dir(data_root)
     bundle = Path(model_bundle_path)
     if not bundle.is_file():
@@ -367,6 +384,11 @@ def open_lock(
     bundle = bundle.resolve()
     if runs not in bundle.parents:
         _refuse_open(cfg, "model bundle must lie inside forecast_runs", data_root)
+    if bundle.name in (LOCK_NAME, LOG_NAME) or bundle.name.endswith(".tmp"):
+        _refuse_open(cfg, "model bundle must not be the lock or the evaluation log", data_root)
+    ok, reason = _preregistration_text_ok(cfg, repo_root, sha256_file(bundle))
+    if not ok:
+        _refuse_open(cfg, reason, data_root)
     record = {
         "schema_version": SCHEMA_VERSION,
         "opened_utc": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
