@@ -55,6 +55,7 @@ class ScoringContext:
     h_bins: int | None = None
     run_id: str | None = None
     log_root: object = None
+    data_sha256: str | None = None  # panel hash the predictions must carry; None = only require agreement
 
     def __post_init__(self):
         ev = self.cfg.evaluation
@@ -127,6 +128,21 @@ def _load_aligned(paths: Mapping[str, Path], ctx: ScoringContext):
         if meta.lead != ctx.lead:
             raise ValueError(f"{name!r} is lead {meta.lead}, expected lead {ctx.lead}")
         frames[name], metas[name] = df, meta
+    # provenance (WR-06): every file must come from the current config and one data pin
+    chash = config_hash(ctx.cfg)
+    for name, m in metas.items():
+        if m.config_sha256 != chash:
+            raise ValueError(
+                f"{name!r} was produced under config {m.config_sha256[:12]}, current config is {chash[:12]}"
+            )
+    data_hashes = {m.data_sha256 for m in metas.values()}
+    if len(data_hashes) != 1:
+        raise ValueError(f"prediction files carry different data hashes: {sorted(h[:12] for h in data_hashes)}")
+    if ctx.data_sha256 is not None and data_hashes != {ctx.data_sha256}:
+        raise ValueError(
+            f"prediction files carry data hash {next(iter(data_hashes))[:12]}, "
+            f"expected {ctx.data_sha256[:12]}"
+        )
     splits_seen = {m.split for m in metas.values()}
     if len(splits_seen) != 1:
         raise ValueError(f"prediction files mix splits {sorted(splits_seen)}")

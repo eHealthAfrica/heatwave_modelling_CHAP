@@ -6,7 +6,7 @@ import numpy as np
 import pytest
 
 from heatwave.forecast import report, targets, weeks
-from heatwave.forecast.config import load_forecast_config
+from heatwave.forecast.config import config_hash, load_forecast_config
 from heatwave.forecast.dataset import lead_row_index
 from heatwave.forecast.evaluation import baselines_report as BR
 from heatwave.forecast.evaluation import harness, predictions as P, slices
@@ -39,7 +39,7 @@ def results(cfg, tmp_path_factory):
     for i, nm in enumerate(cfg.baselines.names):
         p = np.clip(0.12 + 0.02 * i + 0.1 * y * (i % 2) + rng.normal(0, 0.03, len(y)), 0.01, 0.99).astype(np.float32)
         df = P.build_frame(panel, cfg, nm, 1, "validate", w, o, p)
-        paths[nm] = P.write_predictions(df, P.PredictionMeta(RUN_ID, SHA, SHA, nm, 1, "validate"), run_dir)
+        paths[nm] = P.write_predictions(df, P.PredictionMeta(RUN_ID, config_hash(cfg), SHA, nm, 1, "validate"), run_dir)
     idx = df["target_week_index"].to_numpy()
     start = {int(i): np.datetime64(weeks.index_to_week_start(int(i)).isoformat(), "D") for i in np.unique(idx)}
     wa = slices.week_attributes(idx, np.array([start[int(i)] for i in idx]), df["target_week"].astype(str).to_numpy())

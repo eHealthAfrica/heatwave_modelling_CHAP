@@ -49,7 +49,7 @@ def _write(panel, cfg, run_dir, name, p_fn, lead=1, split="validate"):
     y = targets.lead_label(panel, lead)[w, o]
     p = np.clip(p_fn(y, len(y)), 0, 1).astype(np.float32)
     df = P.build_frame(panel, cfg, name, lead, split, w, o, p)
-    return P.write_predictions(df, P.PredictionMeta(RUN_ID, SHA, SHA, name, lead, split), run_dir), df
+    return P.write_predictions(df, P.PredictionMeta(RUN_ID, config_hash(cfg), SHA, name, lead, split), run_dir), df
 
 
 @pytest.fixture(scope="module")
@@ -245,3 +245,51 @@ def test_prf_surfaces_n_valid(scored):
         assert ((res.prf[col] > 0) & (res.prf[col] <= ctx.B)).all()
     # F1 has no undefined replicate once at least one true positive is possible in a block
     assert (res.prf["f1_n_valid"] == ctx.B).all()
+
+
+# ------------------------------------------------------------ review WR-06: provenance checks
+def _meta_variant(path, run_dir, **changes):
+    """Rewrite a stored file under a different provenance (config or data hash)."""
+    import dataclasses
+
+    df, meta = P.load_predictions(path, load_forecast_config())
+    out_dir = run_dir.parent / (run_dir.name[:-1] + "0")
+    out_dir.mkdir(exist_ok=True)
+    return P.write_predictions(df, dataclasses.replace(meta, **changes), out_dir)
+
+
+def _two_files(panel, cfg, tmp_path):
+    run_dir = tmp_path / "forecast_runs" / RUN_ID
+    run_dir.mkdir(parents=True)
+    a, df = _write(panel, cfg, run_dir, "a", lambda y, n: np.full(n, 0.2))
+    b, _ = _write(panel, cfg, run_dir, "b", lambda y, n: np.full(n, 0.25))
+    return run_dir, a, b, df
+
+
+def test_score_lead_rejects_stale_config_hash(panel, cfg, attrs, tmp_path):
+    run_dir, a, b, df = _two_files(panel, cfg, tmp_path)
+    b2 = _meta_variant(b, run_dir, config_sha256="b" * 64)
+    ctx = harness.ScoringContext(cfg, 1, 0.2, attrs, _week_attrs(df), B=B, h_bins=50, log_root=tmp_path)
+    with pytest.raises(ValueError, match="config"):
+        harness.score_lead({"a": a, "b": b2}, ctx, references=["a"])
+
+
+def test_score_lead_rejects_mixed_data_hashes(panel, cfg, attrs, tmp_path):
+    run_dir, a, b, df = _two_files(panel, cfg, tmp_path)
+    b2 = _meta_variant(b, run_dir, data_sha256="c" * 64)
+    ctx = harness.ScoringContext(cfg, 1, 0.2, attrs, _week_attrs(df), B=B, h_bins=50, log_root=tmp_path)
+    with pytest.raises(ValueError, match="different data hashes"):
+        harness.score_lead({"a": a, "b": b2}, ctx, references=["a"])
+
+
+def test_score_lead_rejects_data_hash_not_matching_context(panel, cfg, attrs, tmp_path):
+    run_dir, a, b, df = _two_files(panel, cfg, tmp_path)
+    ctx = harness.ScoringContext(
+        cfg, 1, 0.2, attrs, _week_attrs(df), B=B, h_bins=50, log_root=tmp_path, data_sha256="d" * 64
+    )
+    with pytest.raises(ValueError, match="expected"):
+        harness.score_lead({"a": a, "b": b}, ctx, references=["a"])
+    ok = harness.ScoringContext(
+        cfg, 1, 0.2, attrs, _week_attrs(df), B=B, h_bins=50, log_root=tmp_path, data_sha256=SHA
+    )
+    assert harness.score_lead({"a": a, "b": b}, ok, references=["a"]).n_rows == len(df)

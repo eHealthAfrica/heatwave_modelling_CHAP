@@ -193,7 +193,7 @@ def main(argv=None) -> int:
             )
             sctx = harness.ScoringContext(
                 cfg, lead, threshold, ward_attrs, _week_attrs(panel, cfg, lead, kept_op),
-                B=B, run_id=rctx.run_id, log_root=runs_root,
+                B=B, run_id=rctx.run_id, log_root=runs_root, data_sha256=panel.sha256,
             )
             val_results[lead] = harness.score_lead(paths, sctx, references=REFERENCES)
             if lead in train_leads:
@@ -203,7 +203,7 @@ def main(argv=None) -> int:
                 )
                 tctx = harness.ScoringContext(
                     cfg, lead, threshold, ward_attrs, _week_attrs(panel, cfg, lead, kept_ot),
-                    B=B, run_id=rctx.run_id, log_root=runs_root,
+                    B=B, run_id=rctx.run_id, log_root=runs_root, data_sha256=panel.sha256,
                 )
                 train_results[lead] = harness.score_lead(tpaths, tctx, references=REFERENCES)
 
