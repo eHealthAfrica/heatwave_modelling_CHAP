@@ -9,7 +9,9 @@ hash-chained JSONL log so tampering with its history is detectable.
 The lock is closed by default. It opens only while all of these hold: ``TEST_LOCK.json``
 exists; the current config hash and the model bundle sha256 equal the recorded ones;
 ``docs/forecast/PREREGISTRATION.md`` is tracked, committed in HEAD, unmodified in the
-working tree, contains the config hash and holds no placeholder token. Changing any of
+working tree, contains the config hash and holds no placeholder token; and the evaluation
+log has an intact hash chain that still contains the head hash recorded in ``TEST_LOCK.json``
+at open time (a missing, truncated or edited log re-closes the lock). Changing any of
 them re-closes the lock.
 
 The ``repo_root`` and ``data_root`` keyword parameters exist only so tests can point at tmp
@@ -46,7 +48,7 @@ _MAX_OPENED_BY = 200
 
 _LOCK_FIELDS = (
     "schema_version", "opened_utc", "preregistration_path", "preregistration_blob_sha",
-    "config_sha256", "model_bundle_path", "model_bundle_sha256", "opened_by",
+    "config_sha256", "model_bundle_path", "model_bundle_sha256", "opened_by", "log_head_sha256",
 )
 
 
@@ -163,10 +165,11 @@ def read_log(data_root=None) -> list[dict]:
     return out
 
 
-def verify_log_chain(data_root=None) -> bool:
-    path = log_path(data_root)
+def _scan_chain(path: Path) -> tuple[bool, list[str]]:
+    """(chain_intact, sha256 of every line in order). A missing file is an intact empty chain."""
+    hashes: list[str] = []
     if not path.exists():
-        return True
+        return True, hashes
     prev_hash = GENESIS
     with open(path, "rb") as f:
         for raw in f:
@@ -176,14 +179,45 @@ def verify_log_chain(data_root=None) -> bool:
             try:
                 rec = json.loads(raw.decode("utf-8"))
             except ValueError:
-                return False
+                return False, hashes
             if not isinstance(rec, dict) or rec.get("prev_sha256") != prev_hash:
-                return False
+                return False, hashes
             prev_hash = _sha_bytes(raw)
-    return True
+            hashes.append(prev_hash)
+    return True, hashes
+
+
+def verify_log_chain(data_root=None) -> bool:
+    return _scan_chain(log_path(data_root))[0]
+
+
+def log_head_sha256(data_root=None) -> str | None:
+    """sha256 of the last log line (the value the next record chains to), None for no log."""
+    last = _last_line(log_path(data_root))
+    return None if last is None else _sha_bytes(last)
+
+
+def _log_consistent_with_lock(rec: dict, data_root) -> tuple[bool, str]:
+    """Fail-safe log check for an existing lock: intact chain that still contains the recorded head."""
+    path = log_path(data_root)
+    if not path.exists():
+        return False, "evaluation log missing"
+    intact, hashes = _scan_chain(path)
+    if not intact:
+        return False, "evaluation log hash chain is broken"
+    if rec["log_head_sha256"] not in hashes:
+        return False, "evaluation log truncated or replaced (recorded head not found)"
+    return True, "ok"
 
 
 def count_test_runs(data_root=None) -> int:
+    """Number of test runs recorded in the log.
+
+    Raises TestLockError when the log hash chain is broken, so a count read from a tampered
+    log is never reported as a fact.
+    """
+    if not verify_log_chain(data_root):
+        raise TestLockError("evaluation log hash chain is broken; refusing to report a test-run count")
     return sum(
         1
         for r in read_log(data_root)
@@ -259,8 +293,12 @@ def _read_lock(data_root) -> tuple[dict | None, str]:
             and bool(_SHA64.match(rec["config_sha256"]))
             and isinstance(rec["model_bundle_sha256"], str)
             and bool(_SHA64.match(rec["model_bundle_sha256"]))
+            and isinstance(rec["log_head_sha256"], str)
+            and bool(_SHA64.match(rec["log_head_sha256"]))
             and isinstance(bundle, str)
             and bool(bundle)
+            and not Path(bundle).drive
+            and not Path(bundle).anchor
             and not Path(bundle).is_absolute()
             and ".." not in Path(bundle).parts
             and rec["preregistration_path"] == PREREG_RELPATH
@@ -286,6 +324,9 @@ def lock_status(
         bundle_ok = False
     if not bundle_ok:
         return False, "model bundle changed"
+    log_ok, log_reason = _log_consistent_with_lock(rec, data_root)
+    if not log_ok:
+        return False, log_reason
     st = preregistration_status(repo_root)
     if not st["clean"] or st["head_blob"] != rec["preregistration_blob_sha"]:
         return False, "pre-registration missing, modified or not committed"
@@ -348,16 +389,21 @@ def open_lock(
             return existing
         _refuse_open(cfg, "lock already opened with different hashes", data_root)
     path.parent.mkdir(parents=True, exist_ok=True)
+    if not verify_log_chain(data_root):
+        _refuse_open(cfg, "evaluation log hash chain is broken", data_root)
+    # The lock_opened record is appended first; its line hash is the log head the lock records, so
+    # truncating or replacing the log later re-closes the lock (WR-04).
+    log_event(
+        "lock_opened", outcome="opened", split="test", config_sha256=record["config_sha256"],
+        purpose="open_lock", data_root=data_root,
+    )
+    record["log_head_sha256"] = log_head_sha256(data_root)
     tmp = path.with_name(path.name + ".tmp")
     with open(tmp, "w", encoding="utf-8", newline="\n") as f:
         f.write(json.dumps(record, sort_keys=True, indent=2) + "\n")
         f.flush()
         os.fsync(f.fileno())
     os.replace(tmp, path)
-    log_event(
-        "lock_opened", outcome="opened", split="test", config_sha256=record["config_sha256"],
-        purpose="open_lock", data_root=data_root,
-    )
     return record
 
 

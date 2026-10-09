@@ -365,3 +365,108 @@ def test_real_git_config_change_after_open_refused(forecast_cfg, testlock_root, 
     cfg2 = dataclasses.replace(forecast_cfg, seed=forecast_cfg.seed + 1)
     with pytest.raises(TestLockError):
         testlock.require_open(cfg2, "slow", repo_root=real_repo)
+
+
+# ----------------------------------------------------------------------------- review WR-04
+def _log_lines():
+    return testlock.log_path().read_text(encoding="utf-8").splitlines()
+
+
+def _write_lines(lines):
+    testlock.log_path().write_text("\n".join(lines) + ("\n" if lines else ""), encoding="utf-8")
+
+
+def test_lock_records_log_head(forecast_cfg, testlock_root, repo, opened):
+    rec, _ = opened
+    assert rec["log_head_sha256"] == testlock.log_head_sha256()
+    assert json.loads(testlock.lock_path().read_text(encoding="utf-8"))["log_head_sha256"] == rec["log_head_sha256"]
+    assert testlock.lock_status(forecast_cfg, repo_root=repo) == (True, "open")
+
+
+def test_open_survives_later_appends(forecast_cfg, testlock_root, repo, opened):
+    testlock.require_open(forecast_cfg, "unit", repo_root=repo)
+    testlock.log_event("score", outcome="scored", split="validate")
+    assert testlock.lock_status(forecast_cfg, repo_root=repo) == (True, "open")
+
+
+def test_log_tail_truncation_recloses(forecast_cfg, testlock_root, repo, opened):
+    testlock.require_open(forecast_cfg, "unit", repo_root=repo)
+    lines = _log_lines()
+    assert len(lines) == 2
+    _write_lines(lines[:-2])  # drop lock_opened and the grant: the chain is still valid, the head is gone
+    assert testlock.verify_log_chain() is True
+    ok, reason = testlock.lock_status(forecast_cfg, repo_root=repo)
+    assert not ok and "truncated" in reason
+    with pytest.raises(TestLockError):
+        testlock.require_open(forecast_cfg, "unit", repo_root=repo)
+
+
+def test_log_deletion_recloses(forecast_cfg, testlock_root, repo, opened):
+    testlock.log_path().unlink()
+    ok, reason = testlock.lock_status(forecast_cfg, repo_root=repo)
+    assert not ok and "missing" in reason
+    # a fresh log restarting at GENESIS must not reopen it either
+    testlock.log_event("score", outcome="scored", split="validate")
+    ok, reason = testlock.lock_status(forecast_cfg, repo_root=repo)
+    assert not ok and "truncated" in reason
+
+
+def test_log_edit_recloses(forecast_cfg, testlock_root, repo, opened):
+    testlock.require_open(forecast_cfg, "unit", repo_root=repo)
+    lines = _log_lines()
+    lines[0] = lines[0].replace('"unit"', '"x"').replace("open_lock", "xxxx_lock")
+    _write_lines(lines)
+    ok, reason = testlock.lock_status(forecast_cfg, repo_root=repo)
+    assert not ok and "chain" in reason
+
+
+def test_count_test_runs_refuses_broken_chain(testlock_root):
+    for i in range(3):
+        testlock.log_event("score", outcome="scored", split="test", predictor=f"p{i}")
+    lines = _log_lines()
+    _write_lines(lines[:1] + lines[2:])
+    with pytest.raises(TestLockError, match="chain"):
+        testlock.count_test_runs()
+
+
+def test_open_lock_refuses_on_broken_chain(forecast_cfg, testlock_root, repo, fake):
+    write_prereg(repo, f"config sha256: {config_hash(forecast_cfg)}\n")
+    bundle = make_bundle(testlock_root)
+    for i in range(3):
+        testlock.log_event("score", outcome="scored", split="validate", predictor=f"p{i}")
+    lines = _log_lines()
+    _write_lines(lines[:1] + lines[2:])
+    with pytest.raises(TestLockError, match="chain"):
+        testlock.open_lock(forecast_cfg, model_bundle_path=bundle, opened_by="u", repo_root=repo)
+    assert not testlock.lock_path().exists()
+
+
+def test_lock_missing_log_head_is_malformed(forecast_cfg, testlock_root, repo, opened):
+    p = testlock.lock_path()
+    rec = json.loads(p.read_text(encoding="utf-8"))
+    del rec["log_head_sha256"]
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    ok, reason = testlock.lock_status(forecast_cfg, repo_root=repo)
+    assert not ok and "malformed" in reason
+
+
+@pytest.mark.parametrize("bundle", ["C:foo.bin", "C:/abs.bin", "/abs.bin"])
+def test_lock_with_drive_or_anchor_bundle_path_is_malformed(forecast_cfg, testlock_root, repo, opened, bundle):
+    p = testlock.lock_path()
+    rec = json.loads(p.read_text(encoding="utf-8"))
+    rec["model_bundle_path"] = bundle
+    p.write_text(json.dumps(rec), encoding="utf-8")
+    ok, reason = testlock.lock_status(forecast_cfg, repo_root=repo)
+    assert not ok and "malformed" in reason
+
+
+@pytest.mark.frozen
+def test_real_log_chain_is_intact_and_has_no_lock():
+    """Read-only: the fail-safe must not treat the real hash-chained log as broken."""
+    from pathlib import Path
+
+    from heatwave.config import settings
+
+    root = Path(settings.local_data_dir)
+    assert testlock.verify_log_chain(root) is True
+    assert not testlock.lock_path(root).exists()
