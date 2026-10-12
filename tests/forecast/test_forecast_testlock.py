@@ -474,7 +474,10 @@ def test_lock_missing_log_head_is_malformed(forecast_cfg, testlock_root, repo, o
     assert not ok and "malformed" in reason
 
 
-@pytest.mark.parametrize("bundle", ["C:foo.bin", "C:/abs.bin", "/abs.bin"])
+@pytest.mark.parametrize(
+    "bundle",
+    ["C:foo.bin", "C:/abs.bin", "/abs.bin", r"\\srv\share\x.bin", r"\abs.bin", r"..\x.bin"],
+)
 def test_lock_with_drive_or_anchor_bundle_path_is_malformed(forecast_cfg, testlock_root, repo, opened, bundle):
     p = testlock.lock_path()
     rec = json.loads(p.read_text(encoding="utf-8"))

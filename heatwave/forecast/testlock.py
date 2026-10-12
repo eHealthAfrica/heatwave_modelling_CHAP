@@ -28,7 +28,7 @@ import json
 import os
 import re
 from datetime import datetime, timezone
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 
 from heatwave.forecast import artifacts
 from heatwave.forecast.config import ForecastConfig, config_hash
@@ -334,10 +334,14 @@ def _read_lock(data_root) -> tuple[dict | None, str]:
             and bool(_SHA64.match(rec["log_head_sha256"]))
             and isinstance(bundle, str)
             and bool(bundle)
-            and not Path(bundle).drive
+            # Check Windows rules as well as the native ones, so drive-letter and
+            # backslash-anchored paths are malformed on every platform (CI runs Linux).
+            and not PureWindowsPath(bundle).drive
+            and not PureWindowsPath(bundle).anchor
             and not Path(bundle).anchor
             and not Path(bundle).is_absolute()
             and ".." not in Path(bundle).parts
+            and ".." not in PureWindowsPath(bundle).parts
             and rec["preregistration_path"] == PREREG_RELPATH
         )
     if not ok:
