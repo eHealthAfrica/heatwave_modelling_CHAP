@@ -33,7 +33,8 @@ findings:
   warning: 9
   info: 11
   total: 20
-status: issues_found
+status: warnings_fixed
+fix_report: 10-REVIEW-FIX.md
 ---
 
 # Phase 10: Code Review Report
@@ -41,7 +42,7 @@ status: issues_found
 **Reviewed:** 2026-10-08
 **Depth:** standard (cross-file tracing for the lock and loaders)
 **Files Reviewed:** 24
-**Status:** issues_found
+**Status:** warnings fixed (see 10-REVIEW-FIX.md); info items open
 
 ## Summary
 
@@ -67,6 +68,8 @@ if cfg.splits.validate_years[1] >= cfg.splits.test_years[0] or cfg.splits.test_y
     return _bad("config splits must keep 2021-2026 as the test years")
 ```
 
+**Status: fixed** (95d56e3). `SplitsConfig` pins the test window (`validate_end == 2021-01-04`, `test_years[0] == 2021`); `lead_row_index` and `build_frame` also require the lock for any row whose target week is on or after the pinned date, whatever the split label. The script reports an invalid `--config` as exit 2. Regression tests: pinned-window validation, tampered-config guards in `test_forecast_predictions.py`, script test with an extended `validate_years`.
+
 ### WR-02: `load_predictions` trusts the `split` label, not the target weeks
 
 **File:** `heatwave/forecast/evaluation/predictions.py:211-233` (also `write_predictions:167-189`)
@@ -81,17 +84,23 @@ if (derived != df["split"].astype(str).to_numpy()).any():
 ```
 Also call `require_open` before `pq.read_table` whenever `read_schema` shows test-range rows are possible, so the data is never in memory while the lock is closed.
 
+**Status: fixed** (43f5b7a). `load_predictions` reads only the key columns first, derives the split from `target_week_index`, requires the lock before any label is loaded when protected rows exist, and rejects a label that disagrees with the derived split. `write_predictions(cfg=...)` enforces the same. Tests use a mislabelled file.
+
 ### WR-03: F1 is NaN rather than 0 when tp = 0 but both fp+fn > 0, and bootstrap drops those replicates
 
 **File:** `heatwave/forecast/evaluation/metrics.py:194-199,354-358`; `bootstrap.py:69-79`
 **Issue:** `_prf` computes `2*prec*rec/(prec+rec)`. With tp = 0, fp > 0 and fn > 0, prec = rec = 0, so F1 = 0/0 = NaN. The correct value is 0. This hits `prf_at_threshold` and every bootstrap replicate in which a resampled set of weeks has no true positive. `percentile_ci` silently ignores NaN replicates, so the F1 interval is truncated and biased upward for low-skill predictors at long leads. The `n_valid` count is discarded for P/R/F1 at `harness.py:215-217`, so the user never sees this.
 **Fix:** Compute F1 as `2*tp / (2*tp + fp + fn)`, which is 0 when tp = 0 and fp+fn > 0 and NaN only when everything is zero. Keep NaN for precision when tp+fp = 0, but surface `n_valid` in the P/R/F1 tables.
 
+**Status: fixed** (a71966c). F1 = 2TP/(2TP+FP+FN), precision = 0 when nothing is predicted positive (documented in `_prf`), recall NaN only without positives. `*_n_valid` is stored per P/R/F1 interval and shown as 'valid replicates' in the report (also closes IN-05).
+
 ### WR-04: The log hash chain is never verified and cannot detect tail truncation
 
 **File:** `heatwave/forecast/testlock.py:166-183`, `log_event:109-150`; callers (none) in `heatwave/` and `scripts/`
 **Issue:** `verify_log_chain` is referenced only by tests. Neither `lock_status`, `require_open`, `count_test_runs` nor the script calls it. A broken chain therefore does not close the lock, and `test_runs` in the report is read from a log whose integrity nobody checked. The chain also has no external anchor. Deleting the last N lines, or the whole log (`log_event` restarts at GENESIS), leaves a valid chain, and `count_test_runs` then reports 0 test runs. `test_log_chain_detects_edit_and_deletion` covers only edit and middle deletion.
 **Fix:** Call `verify_log_chain` in `scripts/forecast_baselines.py` before using `count_test_runs` (fail loudly). Write the log head hash into `TEST_LOCK.json` or the run manifest at open time so truncation shows up. Record the head hash in each run manifest. Add a tail-truncation test.
+
+**Status: fixed** (1aae38c). `TEST_LOCK.json` records `log_head_sha256` at open; `lock_status` re-closes the lock when the log is missing, its chain is broken or the head is gone (tail truncation, deletion, edit). `count_test_runs` and `open_lock` refuse a broken chain. The real 55-record log verifies intact (read-only check, frozen test). Also rejects drive/anchor bundle paths (part of IN-07).
 
 ### WR-05: Pre-registration binding is a substring check and ignores the bundle hash
 
@@ -103,11 +112,15 @@ Also call `require_open` before `pq.read_table` whenever `read_schema` shows tes
 - Only the literal `<<FILL>>` is rejected.
 **Fix:** Read the committed blob (`git show HEAD:docs/forecast/PREREGISTRATION.md`) once, and test that blob. Require both `config sha256: <hash>` and `model bundle sha256: <hash>` lines via a regex anchored on those labels.
 
+**Status: fixed** (c75d57d). The text check reads `git show HEAD:docs/forecast/PREREGISTRATION.md` and requires labelled lines `config sha256: <hash>` and `model bundle sha256: <hash>` (HTML comments ignored). The lock and log files cannot be the bundle (part of IN-10).
+
 ### WR-06: Stored predictions are not tied to the current config or data
 
 **File:** `heatwave/forecast/evaluation/predictions.py:211-233`; `harness.py:118-147`
 **Issue:** `PredictionMeta` stores `config_sha256` and `data_sha256`, but nothing compares them with `config_hash(cfg)` or the loaded panel, or across the predictors being compared. The harness will happily score and compare files produced under different configs, data pins or runs. `align` checks only keys and labels. Stale or mixed-provenance files therefore yield valid-looking comparisons. For the test split this also means the lock's config binding applies to the config passed in, not to the config that produced the predictions.
 **Fix:** In `_load_aligned`, require every `meta.config_sha256 == config_hash(ctx.cfg)` and all `data_sha256` equal (or equal to the supplied panel hash). Raise on mismatch.
+
+**Status: fixed** (5e65ad3). `score_lead` raises on a config hash different from the scoring config, on mixed `data_sha256` values, and on a mismatch with `ScoringContext.data_sha256` (the script passes the panel hash).
 
 ### WR-07: "Test run" accounting overcounts and single-shot scoring is not enforced
 
@@ -115,17 +128,23 @@ Also call `require_open` before `pq.read_table` whenever `read_schema` shows tes
 **Issue:** The pre-registration says "Test years 2021-2026, scored once", but nothing enforces or even detects a repeat. `count_test_runs` counts every test `granted` and every test `scored` record. One test scoring of 5 predictors x 6 leads yields 30 `granted` (one per `load_predictions`) plus 30 `scored` records, plus any `build_frame` or `lead_rows` grants. The number printed in the report ("evaluation log test runs: N") is therefore not a run count and cannot show "scored once". `LOCKED_NOTE` also asserts "no test-split row was loaded or scored in this run" unconditionally, independent of what the log says.
 **Fix:** Count distinct `run_id` values with a `scored` test record. Make `score_lead` for the test split refuse when a test `scored` record for the same config hash already exists, unless an explicit, logged override is given. Derive the LOCKED_NOTE text from the log instead of asserting it.
 
+**Status: fixed** (27ebc89). One `test_evaluation_opened` event per evaluation; `count_test_runs` counts those. `open_test_evaluation` (called by `score_lead` on the test split) refuses a second evaluation by another run and a repeat scoring of a lead. The report sentence comes from `locked_note(meta)`, built from the verified log, not asserted.
+
 ### WR-08: Test-year label statistics are exposed unguarded by the Phase 9 report (lock gap)
 
 **File:** `heatwave/forecast/report.py:38-60` (`prevalence_tables`, `ERAS` includes (2021, 2026)); `heatwave/forecast/dataset.py:197` (not in the Phase 10 diff, but the lock claims to cover all loaders)
 **Issue:** `prevalence_tables` reads `targets.heatwave_week_matrix(panel)` over all years and publishes per-year and per-era (2021-2026) heatwave prevalence. It does not go through `testlock`. Test-period prevalence and trend are visible before the pre-registration, which informs threshold, reference and slice choices. The lock docstring admits raw arrays are unguarded, but this is a shipped report path, not a raw-array escape hatch.
 **Fix:** Route the report's year and era rows with test years through `testlock.labels_unlocked` and blank them (or mask years > `validate_years[1]`) while closed. Add a test that the generated report has no 2021+ prevalence row while the lock is closed.
 
+**Status: documented, no behaviour change** (0cc918a). Decision recorded in 10-CONTEXT and in the data report Caveats (`report.PREVALENCE_DECISION`): test-year descriptive prevalence is published by design and is not model scoring.
+
 ### WR-09: Fixed 4-week block length with no autocorrelation sensitivity
 
 **File:** `heatwave/forecast/evaluation/bootstrap.py:19,36-50`; `forecast.yaml` (`block_weeks: 4`)
 **Issue:** 4 weeks is the minimum allowed. Heatwave-week labels, and especially model skill differences, are strongly autocorrelated at seasonal scale (the same hot spell, the same MAM season). The gate rests on the week-block CI "excluding the threshold", so the CI is the decisive quantity. A 4-week block understates the variance of a Brier difference over seasonal clusters. The year-block check has only 6 clusters. There is also a wrap-around: the circular block joins the last validation week to the first, six years apart and in a different season. Neither the report nor the gate shows how much the interval widens with longer blocks.
 **Fix:** Report a block-length sensitivity (4, 8, 13 weeks) for the primary leads, or choose the block length from the autocorrelation of the paired per-week loss difference. State the choice in the pre-registration.
+
+**Status: fixed** (779d75b). Week blocks are moving and non-circular; the default stays 4 (minimum 4). `score_lead` adds BSS intervals at 8 and 13 week blocks for every reference/candidate pair; the report has a 'Block-length sensitivity' section.
 
 ## Info
 
