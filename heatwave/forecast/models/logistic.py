@@ -101,6 +101,22 @@ def year_shuffle_map(panel, origins, seed: int):
     return lookup, self_mapped
 
 
+def design_matrix(store, panel, static, cfg, feature_names, lead, ward_pos, origin_pos, feature_origin=None,
+                  registry=REGISTRY, dtype=np.float64):
+    """(rows, features) design for one lead. Season always follows the true target week; panel
+    features are read at ``feature_origin`` (default: the row's own origin)."""
+    ward_pos = np.asarray(ward_pos, dtype=np.int64)
+    origin_pos = np.asarray(origin_pos, dtype=np.int64)
+    fo = origin_pos if feature_origin is None else np.asarray(feature_origin, dtype=np.int64)
+    tf = targets.timing_fields(panel, lead, cfg.latency_days)
+    target_start = np.asarray(tf.target_week_start)[origin_pos]
+    cols = dataset._gather_features(store, static, panel, feature_names, ward_pos, fo, target_start, lead, registry)
+    X = np.column_stack([np.asarray(cols[nm], dtype=dtype) for nm in feature_names])
+    if not np.isfinite(X).all():
+        raise ValueError(f"non-finite feature values for lead {lead} (warm-up rows must be excluded)")
+    return X
+
+
 class LogisticForecaster:
     """Per-lead regularised logistic regression on the leakage-tested feature store."""
 
@@ -121,18 +137,8 @@ class LogisticForecaster:
     # ------------------------------------------------------------------ design
     def _design(self, ctx_or_parts, lead, ward_pos, origin_pos, feature_origin=None):
         panel, static, cfg = ctx_or_parts
-        ward_pos = np.asarray(ward_pos, dtype=np.int64)
-        origin_pos = np.asarray(origin_pos, dtype=np.int64)
-        fo = origin_pos if feature_origin is None else np.asarray(feature_origin, dtype=np.int64)
-        tf = targets.timing_fields(panel, lead, cfg.latency_days)
-        target_start = np.asarray(tf.target_week_start)[origin_pos]  # true target season, never shuffled
-        cols = dataset._gather_features(
-            self.store, static, panel, self.feature_names, ward_pos, fo, target_start, lead, self.registry
-        )
-        X = np.column_stack([np.asarray(cols[nm], dtype=np.float64) for nm in self.feature_names])
-        if not np.isfinite(X).all():
-            raise ValueError(f"non-finite feature values for lead {lead} (warm-up rows must be excluded)")
-        return X
+        return design_matrix(self.store, panel, static, cfg, self.feature_names, lead, ward_pos, origin_pos,
+                             feature_origin, self.registry)
 
     def _feature_origins(self, panel, lead, split_origins, origin_pos):
         if self.shuffle_seed is None:
