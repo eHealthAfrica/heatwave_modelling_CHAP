@@ -1,0 +1,260 @@
+{
+ "generated_by": "scripts/forecast_freeze.py",
+ "generated_utc": "2026-10-13T16:15:40Z",
+ "bundle_path": "20261013T160730Z_b82dc7bd/model_bundle.joblib",
+ "bundle_sha256": "f27f9bafc986d136aff9c5dac6d4961d164239f11ee972130b7cd890ccb79190",
+ "run_id": "20261013T160730Z_b82dc7bd",
+ "config_sha256": "b82dc7bdc42485fafb369e36828d3adefe1e2ca5264c47161918c5ebdf542def",
+ "parquet_sha256": "82583fbf5deedce2ee1a3cee2ad2b12e36c9c2c83ef14e9f6b102a1eb4a7f137",
+ "selection_run": "20261013T124205Z_b82dc7bd",
+ "recalibration_run": "20261013T143836Z_b82dc7bd",
+ "seed": 20261002,
+ "schema": 1,
+ "leads": [
+  1,
+  2,
+  3,
+  4,
+  5,
+  6
+ ],
+ "n_features": 57,
+ "climatology_fit_end": "2021-01-04",
+ "calibration_years": [
+  2015,
+  2016,
+  2017,
+  2018,
+  2019,
+  2020
+ ],
+ "max_train_rows": 1500000,
+ "by_lead": {
+  "1": {
+   "kind": "lightgbm",
+   "model_method": "isotonic",
+   "best_baseline": "damped_persistence",
+   "baseline_method": "platt",
+   "lgb_config": "nl7_mcs200",
+   "n_estimators": 30,
+   "lgb_params": {
+    "colsample_bytree": 0.8,
+    "deterministic": true,
+    "force_row_wise": true,
+    "learning_rate": 0.05,
+    "min_child_samples": 200,
+    "num_leaves": 7,
+    "reg_lambda": 1.0,
+    "subsample": 0.8,
+    "subsample_freq": 1
+   },
+   "n_train": 1500000,
+   "calibrator_model": {
+    "method": "isotonic"
+   },
+   "calibrator_baseline": {
+    "method": "platt",
+    "slope": 0.7071911022726363,
+    "intercept": -0.22493746921445282
+   },
+   "oof": {
+    "n_rows": 1520074,
+    "base_rate": 0.1538451462984085,
+    "mean_p_raw": 0.11989837884902954,
+    "mean_p_cal": 0.1538451462984085,
+    "mean_pb_raw": 0.12228657305240631,
+    "mean_pb_cal": 0.15388123691082
+   }
+  },
+  "2": {
+   "kind": "lightgbm",
+   "model_method": "platt",
+   "best_baseline": "damped_persistence",
+   "baseline_method": "platt",
+   "lgb_config": "nl15_mcs200",
+   "n_estimators": 12,
+   "lgb_params": {
+    "colsample_bytree": 0.8,
+    "deterministic": true,
+    "force_row_wise": true,
+    "learning_rate": 0.05,
+    "min_child_samples": 200,
+    "num_leaves": 15,
+    "reg_lambda": 1.0,
+    "subsample": 0.8,
+    "subsample_freq": 1
+   },
+   "n_train": 1500000,
+   "calibrator_model": {
+    "method": "platt",
+    "slope": 0.3640308349325596,
+    "intercept": -0.9273177930354941
+   },
+   "calibrator_baseline": {
+    "method": "platt",
+    "slope": 0.4529474997205736,
+    "intercept": -0.7221165638258069
+   },
+   "oof": {
+    "n_rows": 1520074,
+    "base_rate": 0.1538451462984085,
+    "mean_p_raw": 0.10785044729709625,
+    "mean_p_cal": 0.1538395881652832,
+    "mean_pb_raw": 0.1089983731508255,
+    "mean_pb_cal": 0.15384678542613983
+   }
+  },
+  "3": {
+   "kind": "lightgbm",
+   "model_method": "platt",
+   "best_baseline": "trend_season",
+   "baseline_method": "platt",
+   "lgb_config": "nl15_mcs2000_l10",
+   "n_estimators": 20,
+   "lgb_params": {
+    "colsample_bytree": 0.8,
+    "deterministic": true,
+    "force_row_wise": true,
+    "learning_rate": 0.05,
+    "min_child_samples": 2000,
+    "num_leaves": 15,
+    "reg_lambda": 10.0,
+    "subsample": 0.8,
+    "subsample_freq": 1
+   },
+   "n_train": 1500000,
+   "calibrator_model": {
+    "method": "platt",
+    "slope": -0.32978041247633366,
+    "intercept": -2.415099115683522
+   },
+   "calibrator_baseline": {
+    "method": "platt",
+    "slope": -0.7111933097856222,
+    "intercept": -3.0613347139717986
+   },
+   "oof": {
+    "n_rows": 1520074,
+    "base_rate": 0.1538451462984085,
+    "mean_p_raw": 0.10969308018684387,
+    "mean_p_cal": 0.15385207533836365,
+    "mean_pb_raw": 0.13346165418624878,
+    "mean_pb_cal": 0.15384766459465027
+   }
+  },
+  "4": {
+   "kind": "lightgbm",
+   "model_method": "platt",
+   "best_baseline": "trend_season",
+   "baseline_method": "platt",
+   "lgb_config": "nl7_mcs200",
+   "n_estimators": 27,
+   "lgb_params": {
+    "colsample_bytree": 0.8,
+    "deterministic": true,
+    "force_row_wise": true,
+    "learning_rate": 0.05,
+    "min_child_samples": 200,
+    "num_leaves": 7,
+    "reg_lambda": 1.0,
+    "subsample": 0.8,
+    "subsample_freq": 1
+   },
+   "n_train": 1500000,
+   "calibrator_model": {
+    "method": "platt",
+    "slope": -0.29761097917961865,
+    "intercept": -2.332311231022137
+   },
+   "calibrator_baseline": {
+    "method": "platt",
+    "slope": -0.7086177846238195,
+    "intercept": -3.0575622212107008
+   },
+   "oof": {
+    "n_rows": 1520074,
+    "base_rate": 0.1538451462984085,
+    "mean_p_raw": 0.11418286710977554,
+    "mean_p_cal": 0.15389753878116608,
+    "mean_pb_raw": 0.13329730927944183,
+    "mean_pb_cal": 0.15384769439697266
+   }
+  },
+  "5": {
+   "kind": "logistic",
+   "model_method": "platt",
+   "best_baseline": "trend_season",
+   "baseline_method": "platt",
+   "lgb_config": "nl15_mcs500_col05",
+   "n_estimators": 10,
+   "lgb_params": {
+    "colsample_bytree": 0.5,
+    "deterministic": true,
+    "force_row_wise": true,
+    "learning_rate": 0.05,
+    "min_child_samples": 500,
+    "num_leaves": 15,
+    "reg_lambda": 1.0,
+    "subsample": 0.8,
+    "subsample_freq": 1
+   },
+   "n_train": 1500000,
+   "calibrator_model": {
+    "method": "platt",
+    "slope": -0.03303196113384659,
+    "intercept": -1.777161688195589
+   },
+   "calibrator_baseline": {
+    "method": "platt",
+    "slope": -0.7058271258251871,
+    "intercept": -3.0536675594586025
+   },
+   "oof": {
+    "n_rows": 1520074,
+    "base_rate": 0.1538451462984085,
+    "mean_p_raw": 0.113731250166893,
+    "mean_p_cal": 0.15385200083255768,
+    "mean_pb_raw": 0.13307803869247437,
+    "mean_pb_cal": 0.15384769439697266
+   }
+  },
+  "6": {
+   "kind": "logistic",
+   "model_method": "platt",
+   "best_baseline": "trend_season",
+   "baseline_method": "platt",
+   "lgb_config": "nl15_mcs500_col05",
+   "n_estimators": 10,
+   "lgb_params": {
+    "colsample_bytree": 0.5,
+    "deterministic": true,
+    "force_row_wise": true,
+    "learning_rate": 0.05,
+    "min_child_samples": 500,
+    "num_leaves": 15,
+    "reg_lambda": 1.0,
+    "subsample": 0.8,
+    "subsample_freq": 1
+   },
+   "n_train": 1500000,
+   "calibrator_model": {
+    "method": "platt",
+    "slope": 0.04053898195809489,
+    "intercept": -1.6158751213296518
+   },
+   "calibrator_baseline": {
+    "method": "platt",
+    "slope": -0.7034059384814864,
+    "intercept": -3.0504125998530323
+   },
+   "oof": {
+    "n_rows": 1520074,
+    "base_rate": 0.1538451462984085,
+    "mean_p_raw": 0.11292577534914017,
+    "mean_p_cal": 0.1538504809141159,
+    "mean_pb_raw": 0.1328764110803604,
+    "mean_pb_cal": 0.15384767949581146
+   }
+  }
+ }
+}

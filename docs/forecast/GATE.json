@@ -1,0 +1,89 @@
+{
+ "decision": "no-go",
+ "rule": "BSS of 'forecast' against the pre-registered reference > 0.0 with the paired week-block CI lower bound > 0.0, on every primary lead",
+ "primary_leads": [
+  1,
+  2
+ ],
+ "threshold": 0.0,
+ "leads_with_skill": [
+  6
+ ],
+ "leads_without_skill": [
+  1,
+  2,
+  3,
+  4,
+  5
+ ],
+ "by_lead": {
+  "1": {
+   "reference": "damped_persistence_recal",
+   "bss": -0.05246504450835987,
+   "bss_week_lo": -0.0871724288386961,
+   "bss_week_hi": -0.013990717489685577,
+   "bss_year_lo": -0.08672743525542051,
+   "bss_year_hi": -0.007181079805485879,
+   "skill": false
+  },
+  "2": {
+   "reference": "damped_persistence_recal",
+   "bss": -0.03416346837697515,
+   "bss_week_lo": -0.043940356985462115,
+   "bss_week_hi": -0.02081131704452783,
+   "bss_year_lo": -0.04975687848590793,
+   "bss_year_hi": -0.018459437278549786,
+   "skill": false
+  },
+  "3": {
+   "reference": "trend_season_recal",
+   "bss": -0.016440769285858803,
+   "bss_week_lo": -0.030694022041636165,
+   "bss_week_hi": -0.006549716950812851,
+   "bss_year_lo": -0.03857820493479891,
+   "bss_year_hi": -0.002795033692772231,
+   "skill": false
+  },
+  "4": {
+   "reference": "trend_season_recal",
+   "bss": -0.015192608810393304,
+   "bss_week_lo": -0.030429893513901917,
+   "bss_week_hi": -0.004187601730281076,
+   "bss_year_lo": -0.042976757751806066,
+   "bss_year_hi": -0.00472337936124567,
+   "skill": false
+  },
+  "5": {
+   "reference": "trend_season_recal",
+   "bss": 0.005702852063786401,
+   "bss_week_lo": -0.00829535794476881,
+   "bss_week_hi": 0.014194760751860838,
+   "bss_year_lo": -0.017024591593152363,
+   "bss_year_hi": 0.020540163891065055,
+   "skill": false
+  },
+  "6": {
+   "reference": "trend_season_recal",
+   "bss": 0.020774778009446382,
+   "bss_week_lo": 0.0054129498721609826,
+   "bss_week_hi": 0.030227827959744824,
+   "bss_year_lo": -0.006138262156776486,
+   "bss_year_hi": 0.03905712220554036,
+   "skill": true
+  }
+ },
+ "run_id": "20261013T162219Z_b82dc7bd",
+ "generated_utc": "2026-10-13T16:24:18Z",
+ "test_runs": 1,
+ "preregistration_blob_sha": "d7472e4cabc61cfe2a5b19a5b3efe38f96e08a0d",
+ "config_sha256": "b82dc7bdc42485fafb369e36828d3adefe1e2ca5264c47161918c5ebdf542def",
+ "bundle_sha256": "f27f9bafc986d136aff9c5dac6d4961d164239f11ee972130b7cd890ccb79190",
+ "candidate": "forecast",
+ "cautions": {
+  "6": [
+   "the whole-year bootstrap CI includes 0",
+   "it is worse than recent climatology (BSS -0.022)",
+   "its probabilities are outside the calibration tolerance"
+  ]
+ }
+}
