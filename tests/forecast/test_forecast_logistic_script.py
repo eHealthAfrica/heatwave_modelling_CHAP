@@ -19,6 +19,16 @@ SCRIPT = REPO / "scripts" / "forecast_logistic.py"
 BASELINES = ("climatology", "recent_climatology", "persistence", "damped_persistence", "trend_season")
 
 
+def _main(*args) -> int:
+    """Run the script's main() in-process (argument checks return before any data is loaded)."""
+    import importlib.util
+
+    spec = importlib.util.spec_from_file_location("_script_under_test", SCRIPT)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.main([str(a) for a in args])
+
+
 def _run(*args):
     r = subprocess.run([sys.executable, str(SCRIPT), *map(str, args)], cwd=REPO, capture_output=True, text=True)
     return r.returncode, r.stdout + r.stderr
@@ -34,10 +44,10 @@ def test_script_has_no_ee_import_and_no_test_split():
 
 
 def test_bad_arguments_exit_2(tmp_path):
-    assert _run("--leads", "9")[0] == 2
-    assert _run("--leads", "1", "--ablation-leads", "2")[0] == 2
-    assert _run("--bootstrap-b", "0")[0] == 2
-    assert _run("--docs-out", tmp_path / "x.md")[0] == 2  # outside docs/ without --force
+    assert _main("--leads", "9") == 2
+    assert _main("--leads", "1", "--ablation-leads", "2") == 2
+    assert _main("--bootstrap-b", "0") == 2
+    assert _main("--docs-out", tmp_path / "x.md") == 2  # outside docs/ without --force
 
 
 @pytest.mark.slow

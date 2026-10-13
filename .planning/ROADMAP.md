@@ -23,7 +23,7 @@ Rule-based detection pipeline, local covariate table build, Streamlit viewer, me
 - [x] **Phase 9: Features, Targets, Splits and Leakage Suite** - Leakage-safe as-of features, lead targets with timing fields, embargoed splits, prevalence/latency report (completed 2026-10-07)
 - [x] **Phase 10: Baselines, Evaluation Harness and Test Lock** - Five baselines, one scoring path, bootstrap CIs, slices, locked 2021-2026 test years
 - [x] **Phase 11: Logistic Regression per Lead** - First trained model, validation BSS with CIs, negative controls
-- [ ] **Phase 12: LightGBM, Calibration and Selection** - Tuned deterministic LightGBM, out-of-fold calibration, extrapolation check
+- [x] **Phase 12: LightGBM, Calibration and Selection** - Tuned deterministic LightGBM, out-of-fold calibration, extrapolation check
 - [ ] **Phase 13: Secondary Targets** - Heat Index anomaly quantiles and hot-night probability (deferred if Phase 12 shows no skill)
 - [ ] **Phase 14: Explainability, One-Shot Test, Report and Go/No-Go** - Ablations, single locked test, `GATE.json`, `FORECAST_REPORT.md` (gates Phases 15-16)
 - [ ] **Phase 15: Operational Weekly Forecast for CHAP** - Release bundle, CHAP-valid forecast table, archive, manifest, docs (runs only for leads that passed)
@@ -193,7 +193,8 @@ Plans:
   3. Reliability plots on held-out validation rows are within the stated tolerance.
   4. A report shows how many evaluation rows fall outside each feature's training range.
 
-**Plans**: TBD
+**Plans**: done directly without GSD; see `phases/12-lightgbm-calibration-and-selection/12-SUMMARY.md`
+**Outcome (2026-10-13)**: criteria 1, 2 and 4 met; criterion 3 (reliability tolerance) NOT met. Every candidate under-predicts by 0.04-0.07 because the calibration folds (2010-2014) have lower prevalence than 2015-2020. The selected models tie damped persistence at leads 1-2 (BSS -0.002 and -0.005, CIs span 0) and do not beat the best baseline at any lead. LightGBM beats logistic at leads 2-6. Phase 13 is deferred per the note below. The calibration fix is a user decision (see the summary).
 **Note**: Short design spike on real validation predictions is advised (calibration fit set, regime shift). If this phase shows no skill over the best baseline, Phase 13 is deferred.
 
 ### Phase 13: Secondary Targets
