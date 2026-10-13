@@ -68,15 +68,15 @@
 
 ### Decision and report (DEC)
 
-- [ ] **DEC-01**: Analyst can explain models with grouped SHAP and grouped permutation importance, and run the ablation ladder: season → +location → +trend → +persistence → +lagged heat → +soil/humidity/rain.
-- [ ] **DEC-02**: The confirmatory test runs once. The model is refit on 1991-2020 with frozen hyperparameters and scored on 2021-2026 against the pre-registered go/no-go: at leads 1-2, BSS > 0 against the best baseline, with a CI that excludes 0. The decision is recorded in `GATE.json`.
-- [ ] **DEC-03**: Stakeholders can read a forecast report (`docs/FORECAST_REPORT.md`). It includes:
+- [x] **DEC-01**: Analyst can explain models with grouped SHAP and grouped permutation importance, and run the ablation ladder: season → +location → +trend → +persistence → +lagged heat → +soil/humidity/rain.
+- [x] **DEC-02**: The confirmatory test runs once. The model is refit on 1991-2020 with frozen hyperparameters and scored on 2021-2026 against the pre-registered go/no-go: at leads 1-2, BSS > 0 against the best baseline, with a CI that excludes 0. The decision is recorded in `GATE.json`.
+- [x] **DEC-03**: Stakeholders can read a forecast report (`docs/FORECAST_REPORT.md`). It includes:
   - skill by lead, season and region, with CIs;
   - an effective-lead table;
   - a skill mask;
   - the mandatory caption "skill against ERA5-Land-defined heatwave weeks (reanalysis labels), 4,841 wards in 19 northern states and the FCT";
   - a clear separation between the rule-based detection layer and the trained forecast layer.
-- [ ] **DEC-04**: On a no-go, the report says plainly which leads have no skill beyond the baselines and recommends the next step (ECMWF S2S benchmark). The operational phase then runs only for leads that passed.
+- [x] **DEC-04**: On a no-go, the report says plainly which leads have no skill beyond the baselines and recommends the next step (ECMWF S2S benchmark). The operational phase then runs only for leads that passed.
 
 ### Operational forecast for CHAP (OPS)
 
@@ -147,13 +147,13 @@ Which phases cover which requirements. Updated during roadmap creation.
 | MODEL-04 | Phase 12 | Complete |
 | SEC-01 | Phase 13 | Pending |
 | SEC-02 | Phase 13 | Pending |
-| DEC-01 | Phase 14 | Pending |
+| DEC-01 | Phase 14 | Complete |
 | OPS-01 | Phase 15 | Pending |
-| DEC-02 | Phase 14 | Pending |
+| DEC-02 | Phase 14 | Complete |
 | OPS-02 | Phase 15 | Pending |
-| DEC-03 | Phase 14 | Pending |
+| DEC-03 | Phase 14 | Complete |
 | OPS-03 | Phase 15 | Pending |
-| DEC-04 | Phase 14 | Pending |
+| DEC-04 | Phase 14 | Complete |
 | OPS-04 | Phase 15 | Pending |
 | DRV-01 | Phase 16 | Pending |
 | DRV-02 | Phase 16 | Pending |

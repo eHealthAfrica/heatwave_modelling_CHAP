@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Heat Forecasting
 status: in_progress
-stopped_at: Phase 12 complete except reliability tolerance (direct, no GSD)
+stopped_at: Phase 14 complete, decision NO-GO
 last_updated: "2026-10-13T11:10:00.000Z"
 last_activity: 2026-10-13
 progress:
   total_phases: 9
-  completed_phases: 5
+  completed_phases: 6
   total_plans: 24
   completed_plans: 23
-  percent: 56
+  percent: 67
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Phase 14 — explainability, one-shot test, go/no-go (Phase 13 deferred)
+**Current focus:** Post-gate decision: NO-GO at leads 1-2; Phase 15 only for lead 6 (fragile) or stop; ECMWF S2S benchmark recommended
 
 ## Current Position
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
-Phase: 12 (LightGBM, Calibration and Selection) — COMPLETE except criterion 3 (reliability tolerance)
-Status: Phase 12 plus recalibration committed on `gsd/phase-12-lightgbm` (stacked on Phase 11, PR #14 open)
+Phase: 14 (Explainability, One-Shot Test, Report and Go/No-Go) — COMPLETE, decision NO-GO
+Status: committed on `gsd/phase-14-test-gate`; the test lock was opened once and the single test run is logged
 Last activity: 2026-10-13
 
 Progress: [██████████] 96%
@@ -63,7 +63,7 @@ None yet.
 - CHAP forecast-covariate column names (`heatwave_prob`, `heatwave_week`) are provisional; confirm with the CHAP team before Phase 15.
 - Phase 16: ATL3 source not located; PSL parsing and BoM user-agent need checking.
 - Phase 12 may need a design spike on real validation predictions (calibration fit set). Phase 11 shows the prevalence shift makes trained models under-predict; calibration must address it.
-- Skill at leads 3-6 is unknown; the no-go branch is planned up front.
+- Test result: NO-GO (leads 1-2 worse than recalibrated damped persistence). Lead 6 passed the rule fragilely; whether Phase 15 runs for it is a user decision.
 - PR #1 status and the potentially compromised GitHub PAT (from v1.0) remain as noted: use `gh auth login --web`.
 
 ## Deferred Items
@@ -81,7 +81,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-10-13
-Stopped at: Phase 12 + recalibration done; PR #14 (Phase 11) open; next Phase 14
+Stopped at: Phase 14 done (NO-GO); waiting for the user's decision on Phase 15/16 and the ECMWF S2S benchmark
 Resume file: None
 
 ## Operator Next Steps

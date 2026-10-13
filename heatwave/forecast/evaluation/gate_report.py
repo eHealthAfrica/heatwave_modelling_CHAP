@@ -90,6 +90,26 @@ def reliability(res: dict, name: str = CANDIDATE) -> dict:
             "ok": bool(abs(citl) <= CITL_TOL and _ok(dev) and dev <= BIN_TOL)}
 
 
+def cautions(results: dict, gate: dict) -> dict:
+    """Reasons to treat a lead that passed the pre-registered rule with care (reporting only; the
+    decision is unchanged): year-block CI not above 0, worse than recent climatology, or miscalibrated."""
+    out = {}
+    for k in gate["leads_with_skill"]:
+        k = str(k)
+        res, g = results[k], gate["by_lead"][k]
+        notes = []
+        if not (_ok(g["bss_year_lo"]) and g["bss_year_lo"] > gate["threshold"]):
+            notes.append("the whole-year bootstrap CI includes 0")
+        rc = comparison(res, "recent_climatology")
+        if rc is not None and _ok(rc["bss"]) and rc["bss"] < 0:
+            notes.append(f"it is worse than recent climatology (BSS {rc['bss']:.3f})")
+        if not reliability(res)["ok"]:
+            notes.append("its probabilities are outside the calibration tolerance")
+        if notes:
+            out[k] = notes
+    return out
+
+
 def _slice_table(results, references, family, leads) -> list:
     out = ["| Lead | " + family.capitalize() + " | n | BSS vs reference [week CI] |", "|---|---|---|---|"]
     for lead in leads:
@@ -113,6 +133,7 @@ def render_report(results: dict, gate: dict, meta: dict) -> str:
         f"**Decision: {gate['decision'].upper()}.** {gate['rule']} (primary leads "
         f"{', '.join(map(str, gate['primary_leads']))}).", "",
     ]
+    caut = gate.get("cautions") or {}
     if go:
         L += [f"Leads with skill: {', '.join(map(str, gate['leads_with_skill'])) or 'none'}. The operational phase "
               "(Phase 15) runs for these leads only.", ""]
@@ -125,6 +146,11 @@ def render_report(results: dict, gate: dict, meta: dict) -> str:
               "runs only for leads that passed"
               + (f" ({', '.join(map(str, gate['leads_with_skill']))})." if gate["leads_with_skill"] else
                  ", so none at present."), ""]
+    if caut:
+        L += ["**Caution on the leads that passed the rule.** " + " ".join(
+            f"Lead {k}: {'; '.join(v)}." for k, v in caut.items())
+            + " A pass this fragile is not enough on its own to release an operational forecast; this is a "
+              "reporting note and does not change the pre-registered decision.", ""]
     L += [
         "## How to read this", "",
         "- **Two layers.** The heatwave *detection* layer (which weeks are heatwave weeks) is rule-based: "

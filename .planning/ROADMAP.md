@@ -25,7 +25,7 @@ Rule-based detection pipeline, local covariate table build, Streamlit viewer, me
 - [x] **Phase 11: Logistic Regression per Lead** - First trained model, validation BSS with CIs, negative controls
 - [x] **Phase 12: LightGBM, Calibration and Selection** - Tuned deterministic LightGBM, out-of-fold calibration, extrapolation check
 - [ ] **Phase 13: Secondary Targets** - Heat Index anomaly quantiles and hot-night probability (deferred if Phase 12 shows no skill)
-- [ ] **Phase 14: Explainability, One-Shot Test, Report and Go/No-Go** - Ablations, single locked test, `GATE.json`, `FORECAST_REPORT.md` (gates Phases 15-16)
+- [x] **Phase 14: Explainability, One-Shot Test, Report and Go/No-Go** - Ablations, single locked test, `GATE.json`, `FORECAST_REPORT.md` (gates Phases 15-16)
 - [ ] **Phase 15: Operational Weekly Forecast for CHAP** - Release bundle, CHAP-valid forecast table, archive, manifest, docs (runs only for leads that passed)
 - [ ] **Phase 16: Climate Drivers** - ENSO, tropical Atlantic SST, MJO as frozen inputs, judged by added skill under a fresh protocol
 
@@ -222,8 +222,9 @@ Plans:
   3. `docs/FORECAST_REPORT.md` gives skill by lead, season and region with CIs, an effective-lead table, a skill mask, the mandatory reanalysis-label caption, and separates the rule-based detection layer from the trained forecast layer.
   4. On a no-go, the report names the leads without skill and recommends the ECMWF S2S benchmark; Phases 15-16 then proceed only for leads that passed (or not at all).
 
-**Plans**: TBD
+**Plans**: done directly without GSD; see `phases/14-explainability-test-and-go-no-go/14-SUMMARY.md`
 **Gate**: Go/no-go here controls Phases 15 and 16.
+**Outcome (2026-10-13)**: **NO-GO.** Single test run `20261013T162219Z_b82dc7bd` (exactly one in the log). Leads 1-2 are significantly worse than recalibrated damped persistence (BSS -0.052, -0.034). Only lead 6 passes the rule, and fragilely (year CI spans 0, worse than recent climatology, miscalibrated). The report recommends the ECMWF S2S benchmark. Phase 15 is limited to passing leads (lead 6 only, pending user decision).
 
 ### Phase 15: Operational Weekly Forecast for CHAP
 

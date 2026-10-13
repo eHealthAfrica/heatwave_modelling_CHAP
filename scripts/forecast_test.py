@@ -90,6 +90,7 @@ def render(run_dir: Path, cfg, report_out: Path, gate_out: Path, runs_root: Path
     gate.update({"run_id": meta["run_id"], "generated_utc": meta["generated_utc"], "test_runs": meta["test_runs"],
                  "preregistration_blob_sha": meta["preregistration_blob_sha"], "config_sha256": meta["config_sha256"],
                  "bundle_sha256": meta["bundle_sha256"], "candidate": gate_report.CANDIDATE})
+    gate["cautions"] = gate_report.cautions(results, gate)
     gate_text = json.dumps(_json_safe(gate), indent=1, allow_nan=False)
     report = gate_report.render_report(results, gate, meta)
     (run_dir / "GATE.json").write_text(gate_text, encoding="utf-8")

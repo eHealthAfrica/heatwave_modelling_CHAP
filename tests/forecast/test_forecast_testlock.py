@@ -6,6 +6,7 @@ import dataclasses
 import hashlib
 import inspect
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -279,9 +280,12 @@ def test_session_root_is_isolated_from_real_data_root():
 
 
 # ----------------------------------------------------------------------------- template / repo
-def test_phase10_has_no_real_preregistration():
-    """Phase 14 replaces this test when it commits the real pre-registration file."""
-    assert not (artifacts.REPO_ROOT / testlock.PREREG_RELPATH).exists()
+def test_phase14_preregistration_is_complete_and_matches_config(forecast_cfg):
+    """Phase 14 committed the real pre-registration; it must stay filled in and tied to the config."""
+    text = (artifacts.REPO_ROOT / testlock.PREREG_RELPATH).read_text(encoding="utf-8")
+    assert testlock.PLACEHOLDER not in text
+    assert testlock._has_labelled_hash(text, "config sha256", config_hash(forecast_cfg))
+    assert re.search(r"^- model bundle sha256: [0-9a-f]{64}$", text, re.MULTILINE)
 
 
 def test_template_has_placeholders():

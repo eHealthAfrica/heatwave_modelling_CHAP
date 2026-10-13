@@ -116,3 +116,16 @@ def test_freeze_and_single_test_end_to_end(tmp_path, monkeypatch):
     with pytest.raises(testlock.TestLockError):
         mod.main(args)
     assert testlock.count_test_runs(runs) == 1
+
+
+def test_cautions_flag_a_fragile_pass():
+    res = {"6": {"comparisons": [_cmp("r", 0.02, 0.005, 0.03),
+                                 {"reference": "recent_climatology", "candidate": G.CANDIDATE, "bss": -0.02}],
+                 "summary": [{"predictor": G.CANDIDATE, "mean_p": 0.15, "base_rate": 0.21}],
+                 "reliability": [{"predictor": G.CANDIDATE, "n": 100, "mean_p": 0.15, "obs_freq": 0.21}]}}
+    res["6"]["comparisons"][0]["bss_year_lo"] = -0.01
+    gate = G.decide(res, {"6": "r"}, (6,))
+    assert gate["decision"] == "go"
+    c = G.cautions(res, gate)["6"]
+    assert any("whole-year" in n for n in c) and any("recent climatology" in n for n in c)
+    assert any("calibration" in n for n in c)
