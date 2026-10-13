@@ -35,19 +35,26 @@ def _target_cols(origin_pos, lead) -> np.ndarray:
 
 @dataclass(frozen=True, eq=False)
 class FitContext:
-    """Everything a baseline may fit on. ``clim`` must be fitted at ``cfg.splits.train_end``."""
+    """Everything a baseline may fit on.
+
+    ``clim`` must be fitted at ``cfg.splits.train_end``, or at ``fit_end`` when a caller fits on a
+    different window (CV folds, or the Phase 14 pre-test refit on 1991-2020). A custom ``fit_end``
+    requires an explicit ``train_index`` so the rows and the climatology window are chosen together.
+    """
 
     panel: object
     static: object
     clim: Climatology
     cfg: object
     train_index: Callable[[int], tuple] = None
+    fit_end: object = None
 
     def __post_init__(self):
-        if self.clim.fit_end != self.cfg.splits.train_end:
-            raise ValueError(
-                f"climatology fit_end {self.clim.fit_end} must equal splits.train_end {self.cfg.splits.train_end}"
-            )
+        expected = self.cfg.splits.train_end if self.fit_end is None else self.fit_end
+        if self.fit_end is not None and self.train_index is None:
+            raise ValueError("a custom fit_end needs an explicit train_index")
+        if self.clim.fit_end != expected:
+            raise ValueError(f"climatology fit_end {self.clim.fit_end} must equal {expected}")
         object.__setattr__(self, "static", self.static.align(self.panel.wards))
         if self.train_index is None:
             panel, cfg = self.panel, self.cfg
