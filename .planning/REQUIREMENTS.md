@@ -143,7 +143,7 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EVAL-06 | Phase 11 | Complete |
 | MODEL-01 | Phase 11 | Complete |
 | MODEL-02 | Phase 12 | Complete |
-| MODEL-03 | Phase 12 | Partial (built; reliability tolerance not met) |
+| MODEL-03 | Phase 12 | Partial (LOYO recalibration on 2015-2020 fixes bias; bin tolerance met at leads 1-2 only) |
 | MODEL-04 | Phase 12 | Complete |
 | SEC-01 | Phase 13 | Pending |
 | SEC-02 | Phase 13 | Pending |

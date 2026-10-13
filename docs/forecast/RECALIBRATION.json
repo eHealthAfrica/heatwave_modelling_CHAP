@@ -1,0 +1,340 @@
+{
+ "generated_by": "scripts/forecast_recalibrate.py",
+ "run_id": "20261013T143836Z_b82dc7bd",
+ "source_run": "20261013T124205Z_b82dc7bd",
+ "config_sha256": "b82dc7bdc42485fafb369e36828d3adefe1e2ca5264c47161918c5ebdf542def",
+ "parquet_sha256": "82583fbf5deedce2ee1a3cee2ad2b12e36c9c2c83ef14e9f6b102a1eb4a7f137",
+ "calibration_years": [
+  2015,
+  2020
+ ],
+ "recipe": "leave-one-year-out choice of Platt vs isotonic on 2015-2020; final calibrator fitted on all six years; outputs clipped",
+ "by_lead": {
+  "1": {
+   "base_model": "lightgbm",
+   "logistic": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.1270665960858177,
+     "platt": 0.12423216053087587,
+     "isotonic": 0.12445309922666199
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.5770497523914601,
+     "intercept": -0.41745399209478645
+    }
+   },
+   "lightgbm": {
+    "method": "isotonic",
+    "cv_brier": {
+     "raw": 0.12514536522574296,
+     "platt": 0.12393894943930289,
+     "isotonic": 0.12352073863214712
+    },
+    "final": {
+     "method": "isotonic"
+    }
+   },
+   "damped_persistence": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.1248833242474649,
+     "platt": 0.12318083797397789,
+     "isotonic": 0.12359078056524048
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.7004915277634117,
+     "intercept": -0.19799900580981442
+    }
+   },
+   "trend_season": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13304492028261,
+     "platt": 0.13077386975979194,
+     "isotonic": 0.13120930140789103
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.4182541808930682,
+     "intercept": -2.5670296597580324
+    }
+   }
+  },
+  "2": {
+   "base_model": "lightgbm",
+   "logistic": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.1360371106986224,
+     "platt": 0.13084243840810647,
+     "isotonic": 0.13107823606429023
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.19245688259114688,
+     "intercept": -1.2599374908816101
+    }
+   },
+   "lightgbm": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13292824259552946,
+     "platt": 0.1305567067200689,
+     "isotonic": 0.13081173543054633
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.380671326324679,
+     "intercept": -0.8656042361411058
+    }
+   },
+   "damped_persistence": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13223878406960626,
+     "platt": 0.1300610810416858,
+     "isotonic": 0.13044211366947472
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.4583832038128939,
+     "intercept": -0.6786664501059375
+    }
+   },
+   "trend_season": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13306876723557987,
+     "platt": 0.13077986193900518,
+     "isotonic": 0.13120417560017503
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.41495100566997517,
+     "intercept": -2.5614611727679177
+    }
+   }
+  },
+  "3": {
+   "base_model": "lightgbm",
+   "logistic": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13832534250313666,
+     "platt": 0.1311842055744521,
+     "isotonic": 0.13119742123525838
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.019244519083369542,
+     "intercept": -1.7497562160863407
+    }
+   },
+   "lightgbm": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13509684084063334,
+     "platt": 0.13091098776913104,
+     "isotonic": 0.13094454873195246
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.12527229410008592,
+     "intercept": -1.9864006285099944
+    }
+   },
+   "damped_persistence": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13448301877006208,
+     "platt": 0.13155684129221326,
+     "isotonic": 0.13165063408404573
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.17746338409599346,
+     "intercept": -1.3010959838845872
+    }
+   },
+   "trend_season": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13309458484836978,
+     "platt": 0.1307856331034214,
+     "isotonic": 0.13122611517290458
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.411620264466903,
+     "intercept": -2.5561930336543965
+    }
+   }
+  },
+  "4": {
+   "base_model": "lightgbm",
+   "logistic": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13873233036071045,
+     "platt": 0.13092488203324526,
+     "isotonic": 0.13115598990201616
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.08848632720409039,
+     "intercept": -1.911072524352663
+    }
+   },
+   "lightgbm": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13447559604615383,
+     "platt": 0.13083204244488325,
+     "isotonic": 0.13087606219329292
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.10439463690777584,
+     "intercept": -1.9322101744156177
+    }
+   },
+   "damped_persistence": {
+    "method": "isotonic",
+    "cv_brier": {
+     "raw": 0.13689649049359598,
+     "platt": 0.13129588793464841,
+     "isotonic": 0.13104231310603542
+    },
+    "final": {
+     "method": "isotonic"
+    }
+   },
+   "trend_season": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13311621503499452,
+     "platt": 0.13079040351217344,
+     "isotonic": 0.13120834223773056
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.4051580056928243,
+     "intercept": -2.543786575646273
+    }
+   }
+  },
+  "5": {
+   "base_model": "logistic",
+   "logistic": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13720794311158654,
+     "platt": 0.13084268759127085,
+     "isotonic": 0.13125406542657655
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.006232335437300188,
+     "intercept": -1.6901809091232851
+    }
+   },
+   "lightgbm": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13370604097004465,
+     "platt": 0.1308481292491709,
+     "isotonic": 0.13109826204662436
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.03321605237373272,
+     "intercept": -1.7788329458525174
+    }
+   },
+   "damped_persistence": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.1364602595864194,
+     "platt": 0.13092239451124252,
+     "isotonic": 0.1309412678717646
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.23921321274698365,
+     "intercept": -2.2561779220114646
+    }
+   },
+   "trend_season": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13314043712084944,
+     "platt": 0.13079634957936112,
+     "isotonic": 0.13120233455442762
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.40629384079209496,
+     "intercept": -2.5477910426470376
+    }
+   }
+  },
+  "6": {
+   "base_model": "logistic",
+   "logistic": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13670876034537083,
+     "platt": 0.13085378176253892,
+     "isotonic": 0.1313184766372735
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.05129377204141052,
+     "intercept": -1.5856856752985287
+    }
+   },
+   "lightgbm": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13356022624049163,
+     "platt": 0.13104262190412086,
+     "isotonic": 0.13118032356031212
+    },
+    "final": {
+     "method": "platt",
+     "slope": 0.06877965060971099,
+     "intercept": -1.5506584944505586
+    }
+   },
+   "damped_persistence": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13557501195913985,
+     "platt": 0.13088896571322278,
+     "isotonic": 0.13151213164545442
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.0846998978959004,
+     "intercept": -1.8986014311157706
+    }
+   },
+   "trend_season": {
+    "method": "platt",
+    "cv_brier": {
+     "raw": 0.13316186868801086,
+     "platt": 0.1308008800102254,
+     "isotonic": 0.13119609263742374
+    },
+    "final": {
+     "method": "platt",
+     "slope": -0.4058864570016034,
+     "intercept": -2.5480713711630543
+    }
+   }
+  }
+ }
+}

@@ -194,7 +194,7 @@ Plans:
   4. A report shows how many evaluation rows fall outside each feature's training range.
 
 **Plans**: done directly without GSD; see `phases/12-lightgbm-calibration-and-selection/12-SUMMARY.md`
-**Outcome (2026-10-13)**: criteria 1, 2 and 4 met; criterion 3 (reliability tolerance) NOT met. Every candidate under-predicts by 0.04-0.07 because the calibration folds (2010-2014) have lower prevalence than 2015-2020. The selected models tie damped persistence at leads 1-2 (BSS -0.002 and -0.005, CIs span 0) and do not beat the best baseline at any lead. LightGBM beats logistic at leads 2-6. Phase 13 is deferred per the note below. The calibration fix is a user decision (see the summary).
+**Outcome (2026-10-13)**: criteria 1, 2 and 4 met; criterion 3 (reliability tolerance) NOT met. Every candidate under-predicts by 0.04-0.07 because the calibration folds (2010-2014) have lower prevalence than 2015-2020. The selected models tie damped persistence at leads 1-2 (BSS -0.002 and -0.005, CIs span 0) and do not beat the best baseline at any lead. LightGBM beats logistic at leads 2-6. Phase 13 is deferred per the note below. The user chose recalibration on 2015-2020 (leave-one-year-out). That removes the bias (mean p minus observed is 0.000) and passes the bin tolerance for one model each at leads 1 and 2, but against equally recalibrated baselines the trained models add nothing (BSS within ±0.004).
 **Note**: Short design spike on real validation predictions is advised (calibration fit set, regime shift). If this phase shows no skill over the best baseline, Phase 13 is deferred.
 
 ### Phase 13: Secondary Targets

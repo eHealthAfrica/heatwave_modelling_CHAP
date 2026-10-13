@@ -2,7 +2,7 @@
 phase: 12
 name: LightGBM, Calibration and Selection
 requirements: [MODEL-02, MODEL-03, MODEL-04]
-status: complete with one criterion not met (reliability tolerance)
+status: complete; reliability tolerance met only at leads 1-2 for one model each after recalibration
 completed: 2026-10-13
 workflow: direct (no GSD agents, per user instruction 2026-10-13)
 official_run: 20261013T124205Z_b82dc7bd
@@ -52,6 +52,21 @@ Candidates per lead: logistic, logistic_cal, lightgbm, lightgbm_cal. Selection u
 1. **Calibrate on recent folds for the test.** `retrain_policy.pre_test_refit_years` is 1991-2020, and the CV folds already run to 2020. Before the single test, refit with calibrators from OOF folds 2015-2020. This needs no new data, but its validation evidence would be leave-one-year-out within 2015-2020 rather than a clean held-out split.
 2. **Add an explicit recency signal** (e.g. a recent base-rate feature with a short window, or year-weighted fitting), chosen by CV only.
 3. **Accept and document.** Report the miscalibration and judge by Brier and BSS only. Phase 13 is deferred anyway, because Phase 12 shows no skill over the best baseline.
+
+## Recalibration on 2015-2020 (user decision 2026-10-13: "recent folds")
+
+`scripts/forecast_recalibrate.py` (run `20261013T143836Z_b82dc7bd`, B = 1000) takes the stored Phase 12 validation predictions and recalibrates each validation year with a calibrator fitted on the other five years. Platt or isotonic is chosen by the leave-one-year-out Brier. Damped persistence and trend_season are recalibrated the same way, for a fair comparison. No model is refitted. The final calibrators (fitted on all of 2015-2020) are in `docs/forecast/RECALIBRATION.json`, for Phase 14 to freeze. Report: `docs/forecast/RECALIBRATION_VALIDATION.md`.
+
+| Lead | Model | Brier | BSS vs best baseline (raw) [week CI] | BSS vs best baseline recalibrated [week CI] | Reliability |
+|---|---|---|---|---|---|
+| 1 | lightgbm_recal | 0.1235 | 0.011 [-0.025, 0.039] | -0.003 [-0.028, 0.019] | bias 0; max bin 0.091 (fail) |
+| 2 | lightgbm_recal | 0.1306 | 0.013 [-0.015, 0.035] | -0.004 [-0.015, 0.006] | pass |
+| 3-6 | lightgbm/logistic_recal | ~0.1308 | ~0.017 [~0.000, 0.033] | ~0.000 [-0.008, 0.006] | fail |
+
+- **The under-prediction is fixed:** mean p minus observed is 0.000 at every lead.
+- **Bin tolerance passes only for logistic_recal at lead 1 and lightgbm_recal at lead 2.** At leads 3-6, recalibrated forecasts collapse to a narrow band (about 0.13-0.17). Inside it the observed rate falls as the forecast rises: there is no usable resolution beyond the base rate.
+- **Against an equally recalibrated best baseline, the trained models add nothing at any lead** (all BSS within ±0.004, CIs span 0). Most of the apparent gain over the raw baselines is the level correction, which the baselines get from the same recalibration.
+- **Implication for Phase 14:** the honest expectation for the single test is "no skill over the best baseline". Lead 1 is the best case: well calibrated, with resolution, but tied with recalibrated damped persistence.
 
 ## Guardrails confirmed
 

@@ -55,7 +55,7 @@ def plot_reliability(results_by_lead: Mapping[int, object], names, path: Path) -
             rt = rel[rel["predictor"] == nm]
             if rt.empty:
                 continue
-            color, marker = styles.get(nm, ("#333333", "o"))
+            color, marker = styles.get(nm.removesuffix("_recal"), ("#333333", "o"))
             ax.plot(rt["mean_p"], rt["obs_freq"], marker=marker, color=color, lw=1.2, ms=4, label=nm)
             top = max(top, float(rt["mean_p"].max()), float(rt["obs_freq"].max()))
         lim = min(1.0, top * 1.1)
