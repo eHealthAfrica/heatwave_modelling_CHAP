@@ -57,9 +57,9 @@
 ### Models and calibration (MODEL)
 
 - [x] **MODEL-01**: Analyst can train and validate a regularised logistic regression per lead, with validation BSS against the best baseline and CIs.
-- [ ] **MODEL-02**: Analyst can train and tune LightGBM per lead with expanding-window CV. It is strongly regularised and deterministic, with no class reweighting.
+- [x] **MODEL-02**: Analyst can train and tune LightGBM per lead with expanding-window CV. It is strongly regularised and deterministic, with no class reweighting.
 - [ ] **MODEL-03**: Probabilities are calibrated per lead using out-of-fold CV predictions. Platt or isotonic is chosen by CV Brier score, outputs are clipped, and calibration rows never overlap fitting or early-stopping rows.
-- [ ] **MODEL-04**: Analyst can see how many evaluation rows fall outside the training range of each feature, which signals extrapolation risk under warming.
+- [x] **MODEL-04**: Analyst can see how many evaluation rows fall outside the training range of each feature, which signals extrapolation risk under warming.
 
 ### Secondary targets (SEC)
 
@@ -142,9 +142,9 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EVAL-05 | Phase 10 | Complete |
 | EVAL-06 | Phase 11 | Complete |
 | MODEL-01 | Phase 11 | Complete |
-| MODEL-02 | Phase 12 | Pending |
-| MODEL-03 | Phase 12 | Pending |
-| MODEL-04 | Phase 12 | Pending |
+| MODEL-02 | Phase 12 | Complete |
+| MODEL-03 | Phase 12 | Partial (LOYO recalibration on 2015-2020 fixes bias; bin tolerance met at leads 1-2 only) |
+| MODEL-04 | Phase 12 | Complete |
 | SEC-01 | Phase 13 | Pending |
 | SEC-02 | Phase 13 | Pending |
 | DEC-01 | Phase 14 | Pending |

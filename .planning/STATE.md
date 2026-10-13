@@ -3,15 +3,15 @@ gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Heat Forecasting
 status: in_progress
-stopped_at: Phase 11 complete (direct, no GSD)
+stopped_at: Phase 12 complete except reliability tolerance (direct, no GSD)
 last_updated: "2026-10-13T11:10:00.000Z"
 last_activity: 2026-10-13
 progress:
   total_phases: 9
-  completed_phases: 4
+  completed_phases: 5
   total_plans: 24
   completed_plans: 23
-  percent: 44
+  percent: 56
 ---
 
 # Project State
@@ -21,13 +21,13 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Phase 12 — LightGBM, Calibration and Selection
+**Current focus:** Phase 14 — explainability, one-shot test, go/no-go (Phase 13 deferred)
 
 ## Current Position
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
-Phase: 11 (Logistic Regression per Lead) — COMPLETE (done directly, no GSD)
-Status: Phase 11 committed on `gsd/phase-11-logistic` (stacked on Phase 10, PR #13 still open); next is Phase 12
+Phase: 12 (LightGBM, Calibration and Selection) — COMPLETE except criterion 3 (reliability tolerance)
+Status: Phase 12 plus recalibration committed on `gsd/phase-12-lightgbm` (stacked on Phase 11, PR #14 open)
 Last activity: 2026-10-13
 
 Progress: [██████████] 96%
@@ -52,6 +52,7 @@ Decisions are logged in PROJECT.md Key Decisions table. v2.0 roadmap-level decis
 - [Phase 08]: 08-02: week index 0 = 1991-W02; time arithmetic uses index/week_start, never label strings
 - [Phase 11]: From Phase 11 on, phases run directly without GSD agents; `.planning` is updated by hand.
 - [Phase 11]: Logistic (57 features) does not beat damped persistence at leads 1-2; mean p 0.117 vs observed 0.154 (prevalence shift). Negative control and decay check pass.
+- [Phase 12]: LightGBM ties damped persistence at leads 1-2 (BSS -0.002 and -0.005) and beats logistic at leads 2-6. OOF calibration on folds 2010-2014 worsens under-prediction; reliability tolerance fails everywhere. Phase 13 deferred (no skill over best baseline).
 
 ### Pending Todos
 
@@ -80,7 +81,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-10-13
-Stopped at: Phase 11 complete; Phase 11 PR to open after PR #13 merges
+Stopped at: Phase 12 + recalibration done; PR #14 (Phase 11) open; next Phase 14
 Resume file: None
 
 ## Operator Next Steps
