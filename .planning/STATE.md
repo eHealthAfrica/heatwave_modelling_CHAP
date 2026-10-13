@@ -2,16 +2,16 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Heat Forecasting
-status: verifying
-stopped_at: Completed 10-08-PLAN.md
-last_updated: "2026-10-08T22:25:53.698Z"
-last_activity: 2026-10-08
+status: in_progress
+stopped_at: Phase 11 complete (direct, no GSD)
+last_updated: "2026-10-13T11:10:00.000Z"
+last_activity: 2026-10-13
 progress:
   total_phases: 9
-  completed_phases: 2
+  completed_phases: 4
   total_plans: 24
   completed_plans: 23
-  percent: 22
+  percent: 44
 ---
 
 # Project State
@@ -21,15 +21,14 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Phase 10 — Baselines, Evaluation Harness and Test Lock
+**Current focus:** Phase 12 — LightGBM, Calibration and Selection
 
 ## Current Position
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
-Phase: 10 (Baselines, Evaluation Harness and Test Lock) — EXECUTING
-Plan: 9 of 9
-Status: Phase complete — ready for verification
-Last activity: 2026-10-08
+Phase: 11 (Logistic Regression per Lead) — COMPLETE (done directly, no GSD)
+Status: Phase 11 committed on `gsd/phase-11-logistic` (stacked on Phase 10, PR #13 still open); next is Phase 12
+Last activity: 2026-10-13
 
 Progress: [██████████] 96%
 
@@ -51,6 +50,8 @@ Decisions are logged in PROJECT.md Key Decisions table. v2.0 roadmap-level decis
 - Test years 2021-2026 stay locked until pre-registration is committed (Phase 10 builds the lock, Phase 14 uses it once).
 - [Phase 08]: shap fallback not needed; shap 0.52.0 works with numpy 2.3.3
 - [Phase 08]: 08-02: week index 0 = 1991-W02; time arithmetic uses index/week_start, never label strings
+- [Phase 11]: From Phase 11 on, phases run directly without GSD agents; `.planning` is updated by hand.
+- [Phase 11]: Logistic (57 features) does not beat damped persistence at leads 1-2; mean p 0.117 vs observed 0.154 (prevalence shift). Negative control and decay check pass.
 
 ### Pending Todos
 
@@ -60,7 +61,7 @@ None yet.
 
 - CHAP forecast-covariate column names (`heatwave_prob`, `heatwave_week`) are provisional; confirm with the CHAP team before Phase 15.
 - Phase 16: ATL3 source not located; PSL parsing and BoM user-agent need checking.
-- Phase 12 may need a design spike on real validation predictions (calibration fit set).
+- Phase 12 may need a design spike on real validation predictions (calibration fit set). Phase 11 shows the prevalence shift makes trained models under-predict; calibration must address it.
 - Skill at leads 3-6 is unknown; the no-go branch is planned up front.
 - PR #1 status and the potentially compromised GitHub PAT (from v1.0) remain as noted: use `gh auth login --web`.
 
@@ -78,8 +79,8 @@ None yet.
 
 ## Session Continuity
 
-Last session: 2026-10-08T22:25:44.273Z
-Stopped at: Completed 10-08-PLAN.md
+Last session: 2026-10-13
+Stopped at: Phase 11 complete; Phase 11 PR to open after PR #13 merges
 Resume file: None
 
 ## Operator Next Steps

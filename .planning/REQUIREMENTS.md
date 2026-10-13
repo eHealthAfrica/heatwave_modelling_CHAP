@@ -52,11 +52,11 @@
 - [x] **EVAL-03**: Analyst gets confidence intervals from a paired week-block bootstrap (blocks of at least 4 weeks) and a year-block bootstrap, never resampling individual rows or wards.
 - [x] **EVAL-04**: Analyst can break results down by lead, season (with March-May highlighted), region (far north vs middle belt) and year, with the 6 LGA-average wards and the small wards flagged.
 - [x] **EVAL-05**: The 2021-2026 test years are locked. Loaders refuse test rows until a pre-registration file is committed and the lock is opened, and the evaluation log shows exactly one test run.
-- [ ] **EVAL-06**: Analyst can run negative controls (year-shuffled features, skill-vs-lead decay) that show whether apparent skill is real.
+- [x] **EVAL-06**: Analyst can run negative controls (year-shuffled features, skill-vs-lead decay) that show whether apparent skill is real.
 
 ### Models and calibration (MODEL)
 
-- [ ] **MODEL-01**: Analyst can train and validate a regularised logistic regression per lead, with validation BSS against the best baseline and CIs.
+- [x] **MODEL-01**: Analyst can train and validate a regularised logistic regression per lead, with validation BSS against the best baseline and CIs.
 - [ ] **MODEL-02**: Analyst can train and tune LightGBM per lead with expanding-window CV. It is strongly regularised and deterministic, with no class reweighting.
 - [ ] **MODEL-03**: Probabilities are calibrated per lead using out-of-fold CV predictions. Platt or isotonic is chosen by CV Brier score, outputs are clipped, and calibration rows never overlap fitting or early-stopping rows.
 - [ ] **MODEL-04**: Analyst can see how many evaluation rows fall outside the training range of each feature, which signals extrapolation risk under warming.
@@ -140,8 +140,8 @@ Which phases cover which requirements. Updated during roadmap creation.
 | EVAL-03 | Phase 10 | Complete |
 | EVAL-04 | Phase 10 | Complete |
 | EVAL-05 | Phase 10 | Complete |
-| EVAL-06 | Phase 11 | Pending |
-| MODEL-01 | Phase 11 | Pending |
+| EVAL-06 | Phase 11 | Complete |
+| MODEL-01 | Phase 11 | Complete |
 | MODEL-02 | Phase 12 | Pending |
 | MODEL-03 | Phase 12 | Pending |
 | MODEL-04 | Phase 12 | Pending |

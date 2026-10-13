@@ -21,8 +21,8 @@ Rule-based detection pipeline, local covariate table build, Streamlit viewer, me
 
 - [x] **Phase 8: Forecast Foundation** - Frozen-data access with checksum, week index, `forecast.yaml`, run folders, dependencies and CI on Python 3.12 (completed 2026-10-06)
 - [x] **Phase 9: Features, Targets, Splits and Leakage Suite** - Leakage-safe as-of features, lead targets with timing fields, embargoed splits, prevalence/latency report (completed 2026-10-07)
-- [ ] **Phase 10: Baselines, Evaluation Harness and Test Lock** - Five baselines, one scoring path, bootstrap CIs, slices, locked 2021-2026 test years
-- [ ] **Phase 11: Logistic Regression per Lead** - First trained model, validation BSS with CIs, negative controls
+- [x] **Phase 10: Baselines, Evaluation Harness and Test Lock** - Five baselines, one scoring path, bootstrap CIs, slices, locked 2021-2026 test years
+- [x] **Phase 11: Logistic Regression per Lead** - First trained model, validation BSS with CIs, negative controls
 - [ ] **Phase 12: LightGBM, Calibration and Selection** - Tuned deterministic LightGBM, out-of-fold calibration, extrapolation check
 - [ ] **Phase 13: Secondary Targets** - Heat Index anomaly quantiles and hot-night probability (deferred if Phase 12 shows no skill)
 - [ ] **Phase 14: Explainability, One-Shot Test, Report and Go/No-Go** - Ablations, single locked test, `GATE.json`, `FORECAST_REPORT.md` (gates Phases 15-16)
@@ -178,7 +178,8 @@ Plans:
   2. Validation BSS against the best baseline per lead is reported with paired CIs.
   3. The year-shuffled-features negative control shows no skill, and the skill-vs-lead decay check is reported.
 
-**Plans**: TBD
+**Plans**: done directly without GSD (user instruction 2026-10-13); see `phases/11-logistic-regression-per-lead/11-SUMMARY.md`
+**Outcome (2026-10-13)**: all criteria met. Logistic does not beat the best baseline (damped persistence) at lead 1 (BSS -0.017, CI spans 0) and is worse at leads 2-6; under-predicts after the prevalence shift (mean p 0.117 vs 0.154). Negative control and decay check pass.
 
 ### Phase 12: LightGBM, Calibration and Selection
 
