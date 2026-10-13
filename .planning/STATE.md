@@ -2,15 +2,15 @@
 gsd_state_version: 1.0
 milestone: v2.0
 milestone_name: Heat Forecasting
-status: ready_to_plan
-stopped_at: Phase 9 complete (8/8) — ready to discuss Phase 10
-last_updated: 2026-10-07T20:44:54.450Z
-last_activity: 2026-10-06
+status: verifying
+stopped_at: Completed 10-08-PLAN.md
+last_updated: "2026-10-08T22:25:53.698Z"
+last_activity: 2026-10-08
 progress:
   total_phases: 9
   completed_phases: 2
-  total_plans: 15
-  completed_plans: 15
+  total_plans: 24
+  completed_plans: 23
   percent: 22
 ---
 
@@ -21,17 +21,17 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Phase 10 — baselines, evaluation harness and test lock
+**Current focus:** Phase 10 — Baselines, Evaluation Harness and Test Lock
 
 ## Current Position
 
 Milestone: v2.0 Heat Forecasting (Phases 8-16)
-Phase: 10
-Plan: Not started
-Status: Ready to plan
-Last activity: 2026-10-07
+Phase: 10 (Baselines, Evaluation Harness and Test Lock) — EXECUTING
+Plan: 9 of 9
+Status: Phase complete — ready for verification
+Last activity: 2026-10-08
 
-Progress: [█████████░] 93%
+Progress: [██████████] 96%
 
 ## Performance Metrics
 
@@ -73,11 +73,13 @@ None yet.
 | Phase 08 P02 | 10min | 2 tasks | 5 files |
 | Phase 08 P06 | 25min | 2 tasks | 3 files |
 | Phase 09 P07 | 40min | 2 tasks | 4 files |
+| Phase 10 P01 | 25min | 3 tasks | 7 files |
+| Phase 10 P09 | ~3h | 2 tasks | 2 files |
 
 ## Session Continuity
 
-Last session: 2026-10-06T23:22:07.151Z
-Stopped at: Completed 09-07-PLAN.md
+Last session: 2026-10-08T22:25:44.273Z
+Stopped at: Completed 10-08-PLAN.md
 Resume file: None
 
 ## Operator Next Steps

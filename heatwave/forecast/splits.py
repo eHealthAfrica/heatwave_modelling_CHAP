@@ -16,11 +16,25 @@ from datetime import date
 import numpy as np
 
 from heatwave.forecast import weeks
+from heatwave.forecast.config import PINNED_TEST_START
 
 SPLIT_NAMES = ("train", "validate", "test")
 BEYOND_TEST = "beyond_test"  # target weeks after the configured test years; never used for modelling
 EMBARGOED = "embargoed"
 FEATURE_SHORT_WINDOW_WEEKS = 8
+
+
+TEST_START = PINNED_TEST_START
+
+
+def test_start_index() -> int:
+    """Week index of the first protected (test) target week; pinned, independent of any config."""
+    return weeks.week_start_to_index(TEST_START)
+
+
+def protected_mask(target_week_index) -> np.ndarray:
+    """True for target weeks inside the pinned test window (or after it), whatever the split label."""
+    return np.asarray(target_week_index, dtype=np.int64) >= test_start_index()
 
 
 def cutoff_indices(splits_cfg) -> tuple[int, int]:

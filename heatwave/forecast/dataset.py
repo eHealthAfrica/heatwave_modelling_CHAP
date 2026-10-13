@@ -17,7 +17,7 @@ from pathlib import Path
 import numpy as np
 import pandas as pd
 
-from heatwave.forecast import splits, targets
+from heatwave.forecast import splits, targets, testlock
 from heatwave.forecast.climatology import Climatology
 from heatwave.forecast.config import config_hash
 from heatwave.forecast.features import (
@@ -142,6 +142,9 @@ def lead_row_index(panel, cfg, lead, split, *, fold=None, drop_warmup=True):
     if drop_warmup:
         mask[: warmup_first_position(panel)] = False
     origins = np.nonzero(mask)[0]
+    if split != "test" and splits.protected_mask(target_idx[origins]).any():
+        # a config that relabels the pinned test window must not slip those rows through (WR-01)
+        testlock.require_open(cfg, "lead_row_index", lead=lead, n_rows=int(origins.size) * n)
     return np.tile(np.arange(n), origins.size), np.repeat(origins, n)
 
 
@@ -173,11 +176,17 @@ def _gather_features(store, static, panel, names, ward_pos, origin_pos, target_s
 def lead_rows(
     panel, store, static, cfg, lead, split, *, fold=None, drop_warmup=True, feature_names=None, registry=REGISTRY
 ):
-    """Per-lead row table (labelled rows only) with timing fields, label, split and features."""
+    """Per-lead row table (labelled rows only) with timing fields, label, split and features.
+
+    ``split="test"`` (main split, no fold) is guarded: it raises TestLockError and logs the
+    refusal while the test lock is closed. train / validate / fold selections are unguarded.
+    """
     lead = _check_lead(cfg, lead)
     names = _feature_names(feature_names, registry)
     _check_store(panel, store, cfg, fold)
     ward_pos, origin_pos = lead_row_index(panel, cfg, lead, split, fold=fold, drop_warmup=drop_warmup)
+    if fold is None and split == "test":
+        testlock.require_open(cfg, "lead_rows", lead=lead, n_rows=int(ward_pos.size))
     tf = targets.timing_fields(panel, lead, cfg.latency_days)
     cols = {"ward": _categorical(ward_pos, panel.wards)}
     cols["last_obs_week_index"] = tf.last_obs_week_index[origin_pos]
@@ -215,6 +224,9 @@ def build_issue_table(
     ``split_l{k}`` is one of train, embargoed, validate, test, beyond_test (target-week split with
     the 14-week training embargo applied) or warmup (origin before the feature warm-up ends).
     Only rows labelled train/validate/test with ``has_label_l{k}`` are usable for modelling.
+
+    While the test lock is closed, labels of test-split rows are blanked (``heatwave_week_l{k}``
+    NaN, ``has_label_l{k}`` False) and the blanking is logged; features and timing are unchanged.
     """
     names = _feature_names(feature_names, registry)
     _check_store(panel, store, cfg, None)
@@ -233,6 +245,7 @@ def build_issue_table(
     origin_pos = np.repeat(origins, wp.size)
     base = targets.timing_fields(panel, cfg.leads[0], cfg.latency_days)
     warm = warmup_first_position(panel)
+    test_masks = {}
     cols = {"ward": _categorical(ward_pos, panel.wards)}
     cols["last_obs_week_index"] = base.last_obs_week_index[origin_pos]
     cols["last_obs_week"] = _categorical(origin_pos, base.last_obs_week)
@@ -250,6 +263,18 @@ def build_issue_table(
         per_origin = splits.issue_split_labels(tf.target_week_index, cfg.splits)
         per_origin[: min(warm, per_origin.size)] = WARMUP
         cols[f"{SPLIT_COLUMN}_l{k}"] = _split_categorical(per_origin, origin_pos)
+        test_masks[k] = (per_origin == "test")[origin_pos] & cols[f"has_label_l{k}"]
+    if any(m.any() for m in test_masks.values()):
+        n_test = int(sum(m.sum() for m in test_masks.values()))
+        if not testlock.labels_unlocked(cfg, "build_issue_table", n_rows=n_test):
+            for k, m in test_masks.items():
+                if m.any():
+                    lab = np.array(cols[f"{LABEL_COLUMN}_l{k}"], dtype=np.float32)
+                    lab[m] = np.nan
+                    cols[f"{LABEL_COLUMN}_l{k}"] = lab
+                    has = np.array(cols[f"has_label_l{k}"], dtype=bool)
+                    has[m] = False
+                    cols[f"has_label_l{k}"] = has
     # calendar season features are per lead and live in lead_rows
     panel_names = tuple(nm for nm in names if registry.get(nm).kind in ("panel", "static"))
     cols.update(_issue_features(store, static, panel, panel_names, ward_pos, origin_pos, registry))

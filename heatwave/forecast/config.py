@@ -100,6 +100,13 @@ class DataConfig:
             raise ValueError("data.expected_parquet_sha256 must be 64 lowercase hex chars")
 
 
+# The test window is pinned in code (Phase 10 review WR-01): the lock protects exactly the target
+# weeks from this Monday on, whatever a config file calls them. Changing it needs a code change
+# and a new pre-registration, not a config edit.
+PINNED_TEST_START = date(2021, 1, 4)
+PINNED_TEST_START_YEAR = 2021
+
+
 @dataclass(frozen=True)
 class SplitsConfig:
     train_years: tuple
@@ -135,6 +142,12 @@ class SplitsConfig:
                 raise ValueError(
                     f"splits.{name} must be {expected} (Monday of ISO week 1 of {year}), got {value}"
                 )
+        if self.validate_end != PINNED_TEST_START or self.test_years[0] != PINNED_TEST_START_YEAR:
+            raise ValueError(
+                f"splits: the test window is pinned to start at {PINNED_TEST_START} "
+                f"(test_years[0] == {PINNED_TEST_START_YEAR}); got validate_end={self.validate_end}, "
+                f"test_years={tuple(self.test_years)}"
+            )
         _check_int("splits.embargo_weeks", self.embargo_weeks, 0)
         _check_int("splits.cv_first_year", self.cv_first_year)
         if not (self.train_years[0] < self.cv_first_year <= self.validate_years[1]):
@@ -164,6 +177,7 @@ class SplitsConfig:
 class BaselinesConfig:
     names: tuple
     recent_climatology_years: int
+    shrinkage_pseudo_count: int
 
     def __post_init__(self):
         if not isinstance(self.names, tuple) or len(self.names) == 0:
@@ -174,6 +188,7 @@ class BaselinesConfig:
             if n not in _BASELINE_NAMES:
                 raise ValueError(f"unknown baseline {n!r}; allowed: {sorted(_BASELINE_NAMES)}")
         _check_int("baselines.recent_climatology_years", self.recent_climatology_years, 1)
+        _check_int("baselines.shrinkage_pseudo_count", self.shrinkage_pseudo_count, 0)
 
 
 @dataclass(frozen=True)
@@ -197,6 +212,20 @@ class GateConfig:
             raise ValueError(f"gate.ci_level must be in (0, 1), got {self.ci_level}")
         if not isinstance(self.ci_must_exclude_threshold, bool):
             raise ValueError("gate.ci_must_exclude_threshold must be a bool")
+
+
+@dataclass(frozen=True)
+class EvaluationConfig:
+    bootstrap_b: int
+    block_weeks: int
+    reliability_bins: int
+    auc_hist_bins: int
+
+    def __post_init__(self):
+        _check_int("evaluation.bootstrap_b", self.bootstrap_b, 1)
+        _check_int("evaluation.block_weeks", self.block_weeks, 4)  # EVAL-03: blocks >= 4 weeks
+        _check_int("evaluation.reliability_bins", self.reliability_bins, 2)
+        _check_int("evaluation.auc_hist_bins", self.auc_hist_bins, 10)
 
 
 @dataclass(frozen=True)
@@ -306,6 +335,7 @@ class ForecastConfig:
     latency_days: int
     baselines: BaselinesConfig
     gate: GateConfig
+    evaluation: EvaluationConfig
     retrain_policy: RetrainPolicy
     models: ModelsConfig
     seed: int
@@ -414,6 +444,7 @@ def load_forecast_config(path: Path = FORECAST_CONFIG_PATH) -> ForecastConfig:
         latency_days=raw["latency_days"],
         baselines=_build(BaselinesConfig, raw["baselines"], "baselines", tuple_keys=("names",)),
         gate=_build(GateConfig, raw["gate"], "gate", tuple_keys=("primary_leads",)),
+        evaluation=_build(EvaluationConfig, raw["evaluation"], "evaluation"),
         retrain_policy=_build(
             RetrainPolicy, raw["retrain_policy"], "retrain_policy",
             tuple_keys=("pre_test_refit_years",),

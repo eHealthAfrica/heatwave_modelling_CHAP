@@ -140,7 +140,32 @@ Plans:
   4. Results break down by lead, season (March-May highlighted), region and year, with the 6 LGA-average and small wards flagged.
   5. Loaders refuse 2021-2026 test rows until a pre-registration file is committed and the lock is opened; the evaluation log shows no test run yet.
 
-**Plans**: TBD
+**Plans**: 9 plans
+
+Plans:
+**Wave 1**
+
+- [x] 10-01-PLAN.md — Config keys (shrinkage m, evaluation section), test lock + evaluation log, test isolation fixtures, pre-registration template
+- [x] 10-02-PLAN.md — Metrics: Brier/BSS, Murphy decomposition, reliability, stratified AUC, P/R/F1 at threshold, calibration by year, per-week sufficient statistics
+
+**Wave 2** *(blocked on Wave 1 completion)*
+
+- [x] 10-03-PLAN.md — Test-lock guards in lead_rows / build_issue_table; Phase 9 test updates
+- [x] 10-04-PLAN.md — Paired week-block and year-block bootstrap; slices and ward flags (season, region, year, LGA-average, small wards)
+- [x] 10-05-PLAN.md — Stored-prediction Parquet format with provenance, safe paths, lock-aware loader, alignment
+
+**Wave 3** *(blocked on Wave 2 completion)*
+
+- [x] 10-06-PLAN.md — Five baselines on dense arrays (train-only / as-of)
+- [x] 10-07-PLAN.md — Scoring harness: CIs, slices, best baseline, decay check, logging
+
+**Wave 4** *(blocked on Wave 3 completion)*
+
+- [x] 10-08-PLAN.md — BASELINES_VALIDATION renderer and scripts/forecast_baselines.py
+
+**Wave 5** *(blocked on Wave 4 completion)*
+
+- [ ] 10-09-PLAN.md — Real-data checks, committed BASELINES_VALIDATION.md, phase gate, push approval checkpoint
 
 ### Phase 11: Logistic Regression per Lead
 

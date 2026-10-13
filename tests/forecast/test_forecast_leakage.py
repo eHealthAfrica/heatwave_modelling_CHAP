@@ -65,6 +65,7 @@ def test_a_truncation_invariance(panel, clim, static, origins):
     check_truncation_invariance(_builder(clim, static, REGISTRY), panel, origins)
 
 
+@pytest.mark.slow  # moved out of the quick loop (2026-10-08 budget); runs in the full suite and CI
 def test_b_poison_future(panel, clim, static, origins):
     check_poison_invariance(_builder(clim, static, REGISTRY), panel, origins)
 
@@ -190,7 +191,7 @@ def long_setup(long_panel, cfg):
     return st, build_feature_store(long_panel, clim, st)
 
 
-def test_f_split_integrity(long_panel, long_setup, cfg):
+def test_f_split_integrity(long_panel, long_setup, cfg, allow_test_rows):
     st, store = long_setup
     i_train, _ = splits.cutoff_indices(cfg.splits)
     for lead in cfg.leads:
@@ -210,6 +211,7 @@ def test_f_split_integrity(long_panel, long_setup, cfg):
         assert c.weekday() == 0
 
 
+@pytest.mark.slow  # moved out of the quick loop (2026-10-08 budget); runs in the full suite and CI
 def test_f_cv_fold_integrity(long_panel, cfg):
     emb = cfg.splits.embargo_weeks
     folds = splits.cv_folds(cfg.splits)
@@ -250,6 +252,7 @@ def test_g_target_alignment(long_panel, long_setup, cfg):
 
 
 # ----------------------------------------------------------------------------- row level
+@pytest.mark.slow  # moved out of the quick loop (2026-10-08 budget); runs in the full suite and CI
 def test_row_level_truncation(static, cfg, panel):
     # the dataset guard needs a climatology fitted at splits.train_end
     c2 = Climatology.fit(panel, cfg.splits.train_end)

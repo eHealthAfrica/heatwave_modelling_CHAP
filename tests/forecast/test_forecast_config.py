@@ -50,6 +50,14 @@ def test_baselines(cfg):
         "climatology", "recent_climatology", "persistence", "damped_persistence", "trend_season",
     )
     assert cfg.baselines.recent_climatology_years == 10
+    assert cfg.baselines.shrinkage_pseudo_count == 50
+
+
+def test_evaluation_section(cfg):
+    assert cfg.evaluation.bootstrap_b == 1000
+    assert cfg.evaluation.block_weeks == 4
+    assert cfg.evaluation.reliability_bins == 10
+    assert cfg.evaluation.auc_hist_bins == 1000
 
 
 def test_model_params(cfg):
@@ -167,6 +175,11 @@ _BAD = [
     ("models.lightgbm.subsample", True), ("models.logistic_regression.C", "big"),
     ("models.logistic_regression.penalty", 2), ("models.logistic_regression.random_state", 1),
     ("models.logistic_regression.n_jobs", 2),
+    ("baselines.shrinkage_pseudo_count", -1), ("baselines.shrinkage_pseudo_count", True),
+    ("baselines.shrinkage_pseudo_count", 2.5),
+    ("evaluation.block_weeks", 3), ("evaluation.block_weeks", True),
+    ("evaluation.bootstrap_b", 0), ("evaluation.reliability_bins", 1),
+    ("evaluation.auc_hist_bins", 5), ("evaluation.extra", 1),
     ("seed", -1), ("seed", True), ("seed", "42"),
     ("extra", 1), ("splits.foo", 1),
 ]
@@ -185,6 +198,15 @@ def test_rejects_bad_value(tmp_path, path, value):
 def test_rejects_missing_top_level_key(tmp_path):
     d = _base()
     _del(d, "gate")
+    p = tmp_path / "f.yaml"
+    p.write_text(yaml.safe_dump(d), encoding="utf-8")
+    with pytest.raises(ValueError):
+        load_forecast_config(p)
+
+
+def test_rejects_missing_evaluation_section(tmp_path):
+    d = _base()
+    _del(d, "evaluation")
     p = tmp_path / "f.yaml"
     p.write_text(yaml.safe_dump(d), encoding="utf-8")
     with pytest.raises(ValueError):
@@ -287,3 +309,29 @@ def test_existing_config_untouched(rel, blob):
     """The v1 config files must stay byte-identical to the base they had before v2.0."""
     path = FORECAST_CONFIG_PATH.parent / rel
     assert _git_blob_id(path.read_bytes()) == blob, f"{rel} differs from base 7ed8d1c"
+
+
+# ------------------------------------------------------------- review WR-01: pinned test window
+def _splits(validate_years, test_years, validate_end):
+    from heatwave.forecast.config import SplitsConfig
+
+    return SplitsConfig(
+        train_years=(1991, 2014), validate_years=validate_years, test_years=test_years,
+        train_end=date(2014, 12, 29), validate_end=validate_end, embargo_weeks=14, cv_first_year=2005,
+    )
+
+
+def test_test_window_is_pinned_extended_validate_rejected():
+    """WR-01: validate_years extended into 2021+ (test relabelled) must fail validation."""
+    with pytest.raises(ValueError, match="pinned"):
+        _splits((2015, 2025), (2026, 2026), date(2025, 12, 29))
+
+
+def test_test_window_is_pinned_shortened_validate_rejected():
+    with pytest.raises(ValueError, match="pinned"):
+        _splits((2015, 2019), (2020, 2026), date(2019, 12, 30))
+
+
+def test_pinned_window_accepted():
+    s = _splits((2015, 2020), (2021, 2026), date(2021, 1, 4))
+    assert s.test_years[0] == 2021

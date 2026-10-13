@@ -32,6 +32,8 @@ latency_days: 0
 baselines:
   names: [climatology, recent_climatology, persistence, damped_persistence, trend_season]
   recent_climatology_years: 10
+  # ward-to-state shrinkage pseudo-count, fixed a priori (research found larger m marginally better, below CI width); 0 = no shrinkage
+  shrinkage_pseudo_count: 50
 
 # Success gate: BSS > threshold vs the best baseline on primary leads, with the CI excluding the threshold.
 gate:
@@ -41,6 +43,13 @@ gate:
   threshold: 0.0
   ci_level: 0.95
   ci_must_exclude_threshold: true
+
+# Evaluation harness (Phase 10). CI level reuses gate.ci_level; resampling seed reuses the global seed (no second seed).
+evaluation:
+  bootstrap_b: 1000        # bootstrap replicates
+  block_weeks: 4           # week-block length for the paired bootstrap (EVAL-03: at least 4)
+  reliability_bins: 10     # reliability diagram / Murphy decomposition bins
+  auc_hist_bins: 1000      # histogram bins for the streaming stratified AUC
 
 # Retrain policy: refit on 1991-2020 with frozen hyperparameters before the single test;
 # the operational model is refit on all years and labelled as not independently tested.
