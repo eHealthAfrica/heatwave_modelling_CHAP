@@ -21,7 +21,7 @@ progress:
 See: .planning/PROJECT.md (updated 2026-10-02)
 
 **Core value:** A correct, complete weekly covariate table for all 4,841 wards in 19 northern states and the FCT, handed off to CHAP, plus honest, calibrated forecasts of its heat indicators that demonstrably beat simple baselines.
-**Current focus:** Post-gate decision: NO-GO at leads 1-2; Phase 15 only for lead 6 (fragile) or stop; ECMWF S2S benchmark recommended
+**Current focus:** ECMWF S2S benchmark (FUT-01); Phase 15 not run (user decision 2026-10-13)
 
 ## Current Position
 
@@ -70,7 +70,7 @@ None yet.
 
 | Category | Item | Status |
 |----------|------|--------|
-| Future | FUT-01 ECMWF S2S benchmark (triggered by a Phase 14 no-go) | Deferred |
+| Future | FUT-01 ECMWF S2S benchmark (triggered by the Phase 14 no-go) | Active (scoping; data source confirmed) |
 | Future | FUT-02 ordinal heatwave-days target, FUT-03 Streamlit forecast page, FUT-04 station re-validation | Deferred |
 | Phase 08 P02 | 10min | 2 tasks | 5 files |
 | Phase 08 P06 | 25min | 2 tasks | 3 files |
@@ -81,7 +81,7 @@ None yet.
 ## Session Continuity
 
 Last session: 2026-10-13
-Stopped at: Phase 14 done (NO-GO); waiting for the user's decision on Phase 15/16 and the ECMWF S2S benchmark
+Stopped at: Phase 14 done (NO-GO); Phase 15 skipped; scoping the ECMWF S2S benchmark
 Resume file: None
 
 ## Operator Next Steps

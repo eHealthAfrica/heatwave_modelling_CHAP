@@ -225,6 +225,7 @@ Plans:
 **Plans**: done directly without GSD; see `phases/14-explainability-test-and-go-no-go/14-SUMMARY.md`
 **Gate**: Go/no-go here controls Phases 15 and 16.
 **Outcome (2026-10-13)**: **NO-GO.** Single test run `20261013T162219Z_b82dc7bd` (exactly one in the log). Leads 1-2 are significantly worse than recalibrated damped persistence (BSS -0.052, -0.034). Only lead 6 passes the rule, and fragilely (year CI spans 0, worse than recent climatology, miscalibrated). The report recommends the ECMWF S2S benchmark. Phase 15 is limited to passing leads (lead 6 only, pending user decision).
+**Post-gate decision (user, 2026-10-13)**: Phase 15 is NOT run for lead 6 alone (fragile pass). Next work is the ECMWF S2S benchmark (FUT-01), with data from the public Planette mirror of the ECMWF S2S reforecasts (s3://planette-ifs-46-day/reforecasts, CC BY 4.0, 2006-2025, 10 members, daily leads 0-45, 1.5 degree; t2m_max and t2d available; feasibility probe passed). Its evaluation protocol must be fresh: the 2021-2026 test has been used once.
 
 ### Phase 15: Operational Weekly Forecast for CHAP
 
